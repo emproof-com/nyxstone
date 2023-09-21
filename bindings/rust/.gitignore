@@ -1,0 +1,5 @@
+target/
+Cargo.lock
+
+# nyxstone subdirectory only created for building the bindings
+nyxstone/

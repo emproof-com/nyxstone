@@ -1,0 +1,6 @@
+# build directory
+build/
+
+# language server files
+.cache/
+compile_commands.json
