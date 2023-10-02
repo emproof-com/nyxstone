@@ -110,7 +110,7 @@ void ELFStreamerWrapper::emitInstruction(const MCInst& Inst, const MCSubtargetIn
     }
 }
 
-std::unique_ptr<MCStreamer> createELFStreamerWrapper(
+std::unique_ptr<MCStreamer> ELFStreamerWrapper::createELFStreamerWrapper(
     MCContext& context,
     std::unique_ptr<MCAsmBackend>&& assembler_backend,
     std::unique_ptr<MCObjectWriter>&& object_writer,

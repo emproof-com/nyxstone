@@ -10,6 +10,7 @@
 #include <llvm/MC/TargetRegistry.h>
 #pragma GCC diagnostic pop
 
+/// Nyxstone class for assembling and disassembling for a given architecture.
 class Nyxstone {
     /// The LLVM triple
     llvm::Triple triple;
@@ -30,7 +31,6 @@ class Nyxstone {
 
   public:
     /// Custom exception class used throughout nyxstone to pass any kind of String describing an error upwards.
-    /// This exception is translated by rust_cxx into an Error.
     class Exception final: public std::exception {
       public:
         [[nodiscard]] const char* what() const noexcept override {
@@ -60,16 +60,21 @@ class Nyxstone {
         std::string inner;
     };
 
-    // Defines the location of a label by absolute address.
+    /// @brief Defines the location of a label by absolute address.
     struct LabelDefinition {
+        /// The label name
         std::string name;
+        /// The absolute address of the label
         uint64_t address;
     };
 
-    // Instruction details
+    /// @brief Complete instruction information.
     struct Instruction {
+        /// The absolute address of the instruction
         uint64_t address;
+        /// The assembly string of the instruction
         std::string assembly;
+        /// The byte code of the instruction
         std::vector<uint8_t> bytes {};
     };
 
@@ -109,30 +114,52 @@ class Nyxstone {
         subtarget_info(std::move(subtarget_info)),
         instruction_printer(std::move(instruction_printer)) {}
 
-    // Translates assembly instructions at given start address to bytes.
-    // Additional label definitions by absolute address may be supplied.
-    // Does not support assembly directives that impact the layout (f. i., .section, .org).
+    /// @brief Translates assembly instructions at given start address to bytes.
+    ///
+    /// Additional label definitions by absolute address may be supplied.
+    /// Does not support assembly directives that impact the layout (f. i., .section, .org).
+    ///
+    /// @param assembly The assembly instruction(s) to be assembled.
+    /// @param address The absolute address of the first instruction.
+    /// @param labels Label definitions, should hold all external labels used in the @p assembly.
+    /// @param bytes The assembled byte code (Note: the vector is reset before writing to it).
     void assemble_to_bytes(
         const std::string& assembly,
         uint64_t address,
         const std::vector<LabelDefinition>& labels,
         std::vector<uint8_t>& bytes) const;
 
-    // Translates assembly instructions at given start address to instruction details containing bytes.
-    // Additional label definitions by absolute address may be supplied.
-    // Does not support assembly directives that impact the layout (f. i., .section, .org).
+    /// @brief Translates assembly instructions at given start address to instruction details containing bytes.
+    ///
+    /// Additional label definitions by absolute address may be supplied.
+    /// Does not support assembly directives that impact the layout (f. i., .section, .org).
+    ///
+    /// @param assembly The assembly instruction(s) to be assembled.
+    /// @param address The absolute address of the first instruction.
+    /// @param labels Label definitions, should hold all external labels used in the @p assembly.
+    /// @param instructions Holds the instruction details of the assembled @p assembly.
     void assemble_to_instructions(
         const std::string& assembly,
         uint64_t address,
         const std::vector<LabelDefinition>& labels,
         std::vector<Instruction>& instructions) const;
 
-    // Translates bytes to disassembly text at given start address.
+    /// @brief Translates bytes to disassembly text at given start address.
+    ///
+    /// @param bytes The byte code to be disassembled.
+    /// @param address The absolute address of the byte code.
+    /// @param count The number of instructions which should be disassembled, 0 means all.
+    /// @param disassembly Disassembly output.
     void
     disassemble_to_text(const std::vector<uint8_t>& bytes, uint64_t address, size_t count, std::string& disassembly)
         const;
 
-    // Translates bytes to instruction details containing disassembly text at given start address.
+    /// @brief Translates bytes to instruction details containing disassembly text at given start address.
+    ///
+    /// @param bytes The byte code to be disassembled.
+    /// @param address The absolute address of the byte code.
+    /// @param count The number of instructions which should be disassembled, 0 means all.
+    /// @param instructions Holds the instruction details after disassembling.
     void disassemble_to_instructions(
         const std::vector<uint8_t>& bytes,
         uint64_t address,
@@ -140,7 +167,7 @@ class Nyxstone {
         std::vector<Instruction>& instructions) const;
 
   private:
-    // Uses LLVM and MC to assemble instructions.
+    // Uses LLVM to assemble instructions.
     // Utilizes some custom overloads to import user-supplied label definitions and extract instruction details.
     void assemble_impl(
         const std::string& assembly,
@@ -149,7 +176,7 @@ class Nyxstone {
         std::vector<uint8_t>& bytes,
         std::vector<Instruction>* instructions) const;
 
-    // Uses LLVM and MC to disassemble instructions.
+    // Uses LLVM to disassemble instructions.
     void disassemble_impl(
         const std::vector<uint8_t>& bytes,
         uint64_t address,
@@ -191,28 +218,25 @@ class NyxstoneBuilder {
 
     ~NyxstoneBuilder() = default;
 
-    /**
-     * @brief Creates a NyxstoneBuilder instance with the default options for building the Nyxstone instance.
-     */
+    /// @brief Creates a NyxstoneBuilder instance with the default options for building the Nyxstone instance.
     static NyxstoneBuilder Default() {
         return {};
     }
 
-    /**
-     * @brief Specifies the cpu for which to assemble/disassemble in nyxstone.
-     * @return Reference to the updated NyxstoneBuilder object.
-     */
-    NyxstoneBuilder& with_cpu(std::string&& cpu);
-    /**
-     * @brief Specify cpu features to en-/disable in nyxstone.
-     * @return Reference to the updated NyxstoneBuilder object.
-     */
-    NyxstoneBuilder& with_features(std::string&& features);
+    /// @brief Specifies the cpu for which to assemble/disassemble in nyxstone.
+    ///
+    /// @return Reference to the updated NyxstoneBuilder object.
+    NyxstoneBuilder& with_cpu(std::string&& cpu) noexcept;
+
+    /// @brief Specify cpu features to en-/disable in nyxstone.
+    ///
+    /// @return Reference to the updated NyxstoneBuilder object.
+    NyxstoneBuilder& with_features(std::string&& features) noexcept;
 
     /// @brief Specify the style in which immediates should be represented.
     ///
     /// @return Reference to the updated NyxstoneBuilder object.
-    NyxstoneBuilder& with_immediate_style(IntegerBase style);
+    NyxstoneBuilder& with_immediate_style(IntegerBase style) noexcept;
 
     /**
      * @brief Builds a nyxstone instance from the builder.

@@ -10,9 +10,9 @@
 #include <llvm/MC/MCObjectWriter.h>
 #pragma GCC diagnostic pop
 
-// This class derives from LLVM's MCELFStreamer, which enables us to receive
-// information during assembly such as preliminary instruction size and bytes
-// before relaxation and fixups (via method 'emitInstruction()').
+/// This class derives from LLVM's MCELFStreamer, which enables us to receive
+/// information during assembly such as preliminary instruction size and bytes
+/// before relaxation and fixups (via method 'emitInstruction()').
 class ELFStreamerWrapper: public llvm::MCELFStreamer {
     // Sink to record instruction details
     std::vector<Nyxstone::Instruction>* instructions;
@@ -24,6 +24,15 @@ class ELFStreamerWrapper: public llvm::MCELFStreamer {
     llvm::MCInstPrinter& instruction_printer;
 
   public:
+    /// @brief ELFStreamerWrapper constructor
+    /// @param context The MCContext used for reporting errors.
+    /// @param assembler_backend Backend for the wrapped MCELFStreamer.
+    /// @param object_writer Writer for the wrapped MCELFStreamer.
+    /// @param code_emitter Emitter for the wrapped MCELFStreamer.
+    /// @param RelaxAll Relax all instructions that can be relaxed.
+    /// @param instructions Vector to store instruction information.
+    /// @param extended_error Reference to nyxstone error string.
+    /// @param instruction_printer Instruction printer used to generate the instruction assembly.
     ELFStreamerWrapper(
         llvm::MCContext& context,
         std::unique_ptr<llvm::MCAsmBackend>&& assembler_backend,
@@ -37,15 +46,26 @@ class ELFStreamerWrapper: public llvm::MCELFStreamer {
         extended_error(extended_error),
         instruction_printer(instruction_printer) {}
 
+    /// @brief Creates a UniquePtr holding the ELFStreamerWrapper.
+    /// @param context The MCContext used for reporting errors.
+    /// @param assembler_backend Backend for the wrapped MCELFStreamer.
+    /// @param object_writer Writer for the wrapped MCELFStreamer.
+    /// @param code_emitter Emitter for the wrapped MCELFStreamer.
+    /// @param RelaxAll Relax all instructions that can be relaxed.
+    /// @param instructions Vector to store instruction information.
+    /// @param extended_error Reference to nyxstone error string.
+    /// @param instruction_printer Instruction printer used to generate the instruction assembly.
+    /// @return unique_ptr holding the ELFStreamerWrapper
+    static std::unique_ptr<llvm::MCStreamer> createELFStreamerWrapper(
+        llvm::MCContext& context,
+        std::unique_ptr<llvm::MCAsmBackend>&& assembler_backend,
+        std::unique_ptr<llvm::MCObjectWriter>&& object_writer,
+        std::unique_ptr<llvm::MCCodeEmitter>&& code_emitter,
+        bool RelaxAll,
+        std::vector<Nyxstone::Instruction>* instructions,
+        std::string& extended_error,
+        llvm::MCInstPrinter& instruction_printer);
+
+    /// @brief Calls `MCELFStreamer::emitInstruction` and records instruction details.
     void emitInstruction(const llvm::MCInst& Inst, const llvm::MCSubtargetInfo& STI) override;
 };
-
-std::unique_ptr<llvm::MCStreamer> createELFStreamerWrapper(
-    llvm::MCContext& context,
-    std::unique_ptr<llvm::MCAsmBackend>&& assembler_backend,
-    std::unique_ptr<llvm::MCObjectWriter>&& object_writer,
-    std::unique_ptr<llvm::MCCodeEmitter>&& code_emitter,
-    bool RelaxAll,
-    std::vector<Nyxstone::Instruction>* instructions,
-    std::string& extended_error,
-    llvm::MCInstPrinter& instruction_printer);
