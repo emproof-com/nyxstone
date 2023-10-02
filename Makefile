@@ -50,10 +50,14 @@ run-sample: sample
 	@echo "Running sample:"
 	@./$(BUILDDIR)/nyxstone_sample
 
-all: sample
+all: sample cli
 
 doc: $(SOURCES)
 	doxygen
+
+$(BUILDDIR)/nyxstone: examples/nyxstone-cli.cpp $(OBJS)
+	@echo "\$$(CC) -o $@ \$$(CXX_FLAGS) \$$(INCLUDES) \$$(LDFLAGS) $^ \$$(LLVM_LIBS)"
+	@$(CC) -o $@ $(CXX_FLAGS) $(INCLUDES) $(LDFLAGS) -lboost_program_options $^ $(LLVM_LIBS)
 
 $(BUILDDIR)/nyxstone_sample: examples/sample.cpp $(OBJS)
 	@echo "\$$(CC) -o $@ \$$(CXX_FLAGS) \$$(INCLUDES) \$$(LDFLAGS) $^ \$$(LLVM_LIBS)"
