@@ -1,11 +1,23 @@
 CC := clang++
 AR := ar
 
-CXX_FLAGS := -g -gdwarf-4 -Wall -Wextra -std=c++17
+# relative names for build and documentation directory
 BUILDDIR := build
+DOCDIR := doc
 
+# Build flags
+DEBUG_FLAGS := -g -Og
+RELEASE_FLAGS := -O2
+CXX_FLAGS := -gdwarf-4 -Wall -Wextra -std=c++17
+DEBUG ?= ""
+ifeq ($(DEBUG), "")
+CXX_FLAGS += $(RELEASE_FLAGS)
+else
+CXX_FLAGS += $(DEBUG_FLAGS)
+endif
+
+# LLVM location and verification
 NYXSTONE_LLVM_PREFIX ?=  ""
-
 ifeq ($(NYXSTONE_LLVM_PREFIX), "")
 LLVM_CONFIG:="llvm-config"
 $(info Assuming llvm-config is in path)
@@ -20,7 +32,7 @@ endif
 
 
 INCLUDES := -I./src -I./include -I$(shell $(LLVM_CONFIG) --includedir)
-VPATH = src/ # src/Target/AArch64/MCTargetDesc/
+VPATH = src/
 SOURCES := nyxstone.cpp ObjectWriterWrapper.cpp ELFStreamerWrapper.cpp 
 # AArch64MCExpr.cpp
 OBJS := $(addprefix $(BUILDDIR)/,$(notdir ${SOURCES:.cpp=.o}))
@@ -39,17 +51,14 @@ run-sample: sample
 	@echo "Running sample:"
 	@./$(BUILDDIR)/nyxstone_sample
 
-all: static-lib sample
+all: sample
 
-static-lib: $(BUILDDIR)/nyxstone.a
+doc: $(SOURCES)
+	doxygen
 
 $(BUILDDIR)/nyxstone_sample: examples/sample.cpp $(OBJS)
 	@echo "\$$(CC) -o $@ \$$(CXX_FLAGS) \$$(INCLUDES) \$$(LDFLAGS) $^ \$$(LLVM_LIBS)"
 	@$(CC) -o $@ $(CXX_FLAGS) $(INCLUDES) $(LDFLAGS) $^ $(LLVM_LIBS)
-
-$(BUILDDIR)/nyxstone.a: $(OBJS)
-	@echo "\$$(AR) rcs $@ $^"
-	@$(AR) rcs $@ $^
 
 $(BUILDDIR)/%.o: %.cpp | $(BUILDDIR)
 	@echo "\$$(CC) -c -o $@ \$$(CXX_FLAGS) \$$(INCLUDES) $<"
@@ -60,3 +69,4 @@ $(BUILDDIR):
 
 clean:
 	rm -rf $(BUILDDIR)
+	rm -rf $(DOCDIR)
