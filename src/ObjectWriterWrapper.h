@@ -80,18 +80,17 @@ class ObjectWriterWrapper: public llvm::MCObjectWriter {
         extended_error(extended_error),
         instructions(instructions) {}
 
-/// @brief Creates a UniquePtr holding the the ObjectWriterWrapper
-static std::unique_ptr<llvm::MCObjectWriter> createObjectWriterWrapper(
-    std::unique_ptr<llvm::MCObjectWriter>&& object_writer,
-    llvm::raw_pwrite_stream& stream,
-    llvm::MCContext& context,
-    bool write_text_section_only,
-    std::string& extended_error,
-    std::vector<Nyxstone::Instruction>* instructions);
+    /// @brief Creates a UniquePtr holding the the ObjectWriterWrapper
+    static std::unique_ptr<llvm::MCObjectWriter> createObjectWriterWrapper(
+        std::unique_ptr<llvm::MCObjectWriter>&& object_writer,
+        llvm::raw_pwrite_stream& stream,
+        llvm::MCContext& context,
+        bool write_text_section_only,
+        std::string& extended_error,
+        std::vector<Nyxstone::Instruction>* instructions);
 
     /// @brief Simple function wrapper calling the wrapped object wrapper function directly.
     void executePostLayoutBinding(llvm::MCAssembler& Asm, const llvm::MCAsmLayout& Layout) override;
-
 
     /// @brief Performs relocations via the wrapped object wrapper as well as custom relocations.
     void recordRelocation(
@@ -105,4 +104,3 @@ static std::unique_ptr<llvm::MCObjectWriter> createObjectWriterWrapper(
     /// @brief Write object to the stream and update the bytes of the instruction details.
     uint64_t writeObject(llvm::MCAssembler& Asm, const llvm::MCAsmLayout& Layout) override;
 };
-

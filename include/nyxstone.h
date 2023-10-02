@@ -114,7 +114,6 @@ class Nyxstone {
         subtarget_info(std::move(subtarget_info)),
         instruction_printer(std::move(instruction_printer)) {}
 
-
     /// @brief Translates assembly instructions at given start address to bytes.
     ///
     /// Additional label definitions by absolute address may be supplied.
