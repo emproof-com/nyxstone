@@ -78,7 +78,7 @@ impl Into<ffi::IntegerBase> for IntegerBase {
 }
 
 impl Nyxstone {
-    /// Translates assembly instructions at given start address to bytes.
+    /// Translates assembly instructions at a given start address to bytes.
     ///
     /// # Note:
     /// Does not support assembly directives that impact the layout (f. i., .section, .org).
@@ -101,7 +101,7 @@ impl Nyxstone {
             .map_err(|err| anyhow!("Error during assemble (= '{assembly}' at {address}): {err}."))
     }
 
-    /// Translates assembly instructions at given start address to instruction details containing bytes.
+    /// Translates assembly instructions at a given start address to instruction details containing bytes.
     ///
     /// # Note:
     /// Does not support assembly directives that impact the layout (f. i., .section, .org).
@@ -124,7 +124,7 @@ impl Nyxstone {
             .map_err(|err| anyhow!("Error during assemble (= '{assembly}' at {address}): {err}."))
     }
 
-    /// Translates bytes to disassembly text at given start address.
+    /// Translates bytes to disassembly text at a given start address.
     ///
     /// # Parameters:
     /// - `bytes`: The bytes to be disassembled.
@@ -139,7 +139,7 @@ impl Nyxstone {
             .map_err(|err| anyhow!("Error during disassembly: {err}."))
     }
 
-    /// Translates bytes to instruction details containing disassembly text at given start address.
+    /// Translates bytes to instruction details containing disassembly text at a given start address.
     ///
     /// # Parameters:
     /// - `bytes`: The bytes to be disassembled.
@@ -254,15 +254,20 @@ mod ffi {
     /// Defines the location of a label by absolute address.
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct LabelDefinition<'name> {
+        /// Name of the label.
         pub name: &'name str,
+        /// Absolute address of the label.
         pub address: u64,
     }
 
     /// Instruction details
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct Instruction {
+        /// Absolute address of the instruction.
         address: u64,
+        /// Assembly string representing the instruction.
         assembly: String,
+        /// Byte code of the instruction.
         bytes: Vec<u8>,
     }
 
@@ -298,7 +303,7 @@ mod ffi {
             style: IntegerBase,
         ) -> Result<UniquePtr<NyxstoneFFI>>;
 
-        // Translates assembly instructions at given start address to bytes.
+        // Translates assembly instructions at a given start address to bytes.
         // Additional label definitions by absolute address may be supplied.
         // Does not support assembly directives that impact the layout (f. i., .section, .org).
         fn assemble_to_bytes(
@@ -308,7 +313,7 @@ mod ffi {
             labels: &[LabelDefinition],
         ) -> Result<Vec<u8>>;
 
-        // Translates assembly instructions at given start address to instruction details containing bytes.
+        // Translates assembly instructions at a given start address to instruction details containing bytes.
         // Additional label definitions by absolute address may be supplied.
         // Does not support assembly directives that impact the layout (f. i., .section, .org).
         fn assemble_to_instructions(
@@ -321,7 +326,7 @@ mod ffi {
         // Translates bytes to disassembly text at given start address.
         fn disassemble_to_text(self: &NyxstoneFFI, bytes: &[u8], address: u64, count: usize) -> Result<String>;
 
-        // Translates bytes to instruction details containing disassembly text at given start address.
+        // Translates bytes to instruction details containing disassembly text at a given start address.
         fn disassemble_to_instructions(
             self: &NyxstoneFFI,
             bytes: &[u8],
