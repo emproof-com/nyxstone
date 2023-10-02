@@ -55,11 +55,7 @@ fn main() {
     }
 
     // llvm-sys uses the target os to select if system libs should be statically or dynamically linked.
-    let system_linking = if target_os_is("musl") {
-        "static"
-    } else {
-        "dylib"
-    };
+    let system_linking = if target_os_is("musl") { "static" } else { "dylib" };
 
     // Tell cargo about the system libraries needed by llvm.
     for name in get_system_libraries(&config) {
@@ -137,8 +133,7 @@ where
                     "llvm-config returned empty output",
                 ))
             } else {
-                Ok(String::from_utf8(output.stdout)
-                    .expect("Output from llvm-config was not valid UTF-8"))
+                Ok(String::from_utf8(output.stdout).expect("Output from llvm-config was not valid UTF-8"))
             }
         })?)
 }
@@ -214,12 +209,8 @@ fn get_system_libraries(llvm_config_path: &Path) -> Vec<String> {
         .map(|flag| {
             if target_env_is("msvc") {
                 // Same as --libnames, foo.lib
-                flag.strip_suffix(".lib").unwrap_or_else(|| {
-                    panic!(
-                        "system library '{}' does not appear to be a MSVC library file",
-                        flag
-                    )
-                })
+                flag.strip_suffix(".lib")
+                    .unwrap_or_else(|| panic!("system library '{}' does not appear to be a MSVC library file", flag))
             } else {
                 if let Some(flag) = flag.strip_prefix("-l") {
                     // Linker flags style, -lfoo
@@ -228,10 +219,7 @@ fn get_system_libraries(llvm_config_path: &Path) -> Vec<String> {
                         // which refer to libraries shipped with a given system and aren't shipped
                         // as part of the corresponding SDK. They're named like the underlying
                         // library object, including the 'lib' prefix that we need to strip.
-                        if let Some(flag) = flag
-                            .strip_prefix("lib")
-                            .and_then(|flag| flag.strip_suffix(".tbd"))
-                        {
+                        if let Some(flag) = flag.strip_prefix("lib").and_then(|flag| flag.strip_suffix(".tbd")) {
                             return flag;
                         }
                     }
@@ -242,10 +230,7 @@ fn get_system_libraries(llvm_config_path: &Path) -> Vec<String> {
                 if maybe_lib.is_file() {
                     // Library on disk, likely an absolute path to a .so. We'll add its location to
                     // the library search path and specify the file as a link target.
-                    println!(
-                        "cargo:rustc-link-search={}",
-                        maybe_lib.parent().unwrap().display()
-                    );
+                    println!("cargo:rustc-link-search={}", maybe_lib.parent().unwrap().display());
 
                     // Expect a file named something like libfoo.so, or with a version libfoo.so.1.
                     // Trim everything after and including the last .so and remove the leading 'lib'
@@ -258,14 +243,10 @@ fn get_system_libraries(llvm_config_path: &Path) -> Vec<String> {
                         .rsplit_once(target_dylib_extension())
                         .expect("Shared library should be a .so file");
 
-                    stem.strip_prefix("lib").unwrap_or_else(|| {
-                        panic!("system library '{}' does not have a 'lib' prefix", soname)
-                    })
+                    stem.strip_prefix("lib")
+                        .unwrap_or_else(|| panic!("system library '{}' does not have a 'lib' prefix", soname))
                 } else {
-                    panic!(
-                        "Unable to parse result of llvm-config --system-libs: {}",
-                        flag
-                    )
+                    panic!("Unable to parse result of llvm-config --system-libs: {}", flag)
                 }
             }
         })
@@ -280,10 +261,7 @@ fn get_link_libraries(llvm_config_path: &Path) -> Vec<String> {
     // a hack than parsing linker flags output from --libs and --ldflags.
 
     fn get_link_libraries_impl(llvm_config_path: &Path) -> String {
-        llvm_config(
-            llvm_config_path,
-            ["--libnames", "core", "mc", "all-targets"],
-        )
+        llvm_config(llvm_config_path, ["--libnames", "core", "mc", "all-targets"])
     }
 
     extract_library(&get_link_libraries_impl(llvm_config_path))
@@ -297,10 +275,7 @@ fn extract_library(s: &str) -> Vec<String> {
                 // --libnames gives library filenames. Extract only the name that
                 // we need to pass to the linker.
                 // Match static library
-                if let Some(name) = name
-                    .strip_prefix("lib")
-                    .and_then(|name| name.strip_suffix(".a"))
-                {
+                if let Some(name) = name.strip_prefix("lib").and_then(|name| name.strip_suffix(".a")) {
                     // Unix (Linux/Mac)
                     // libLLVMfoo.a
                     name

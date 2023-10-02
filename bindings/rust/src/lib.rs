@@ -1,34 +1,29 @@
-use anyhow::{anyhow};
+use anyhow::anyhow;
 use derive_builder::Builder;
 use ffi::create_nyxstone_ffi;
 
 #[derive(Builder)]
-#[builder(
-    setter(into),
-    pattern = "owned",
-    build_fn(error = "anyhow::Error", skip)
-)]
+#[builder(setter(into), pattern = "owned", build_fn(error = "anyhow::Error", skip))]
 /// Public interface for interacting with nyxstone from rust.
 pub struct Nyxstone {
     /// Specifies the LLVM target triple Nyxstone uses. MUST be set!
-    /// 
+    ///
     /// # Parameters
     /// - `value`: The LLVM target triple, for example `x86_64`.
-    /// 
+    ///
     /// # Returns
     /// The updated NyxstoneBuilder instance.
     #[builder(field(type = "String"), setter(name = "with_triple"))]
     _triple: (), // Empty variable which holds the triple in the auto-generated `NyxstoneBuilder`.
 
     /// Specifies the CPU for which LLVM assembles/disassembles internally, which might enable/disable certain features.
-    /// 
+    ///
     /// # Parameters
     /// - `value`: The CPU name, for example `corei7`
-    /// 
+    ///
     /// # Returns
     /// The updated NyxstoneBuilder instance.
     #[builder(field(type = "String"), setter(name = "with_cpu"))]
-
     _cpu: (),
     #[builder(field(type = "Vec<String>"), setter(custom))]
     _enabled_features: (), // Empty variable which holds the enabled features in the auto-generated `NyxstoneBuilder`.
@@ -36,10 +31,10 @@ pub struct Nyxstone {
     _disabled_features: (), // Empty variable which holds the disabled features in the auto-generated `NyxstoneBuilder`.
 
     /// Specifies in what format immediates should be represented in the output.
-    /// 
+    ///
     /// # Parameters
     /// - `value`: One of the [`IntegerBase`] variants.
-    /// 
+    ///
     /// # Returns
     /// The updated NyxstoneBuilder instance.
     #[builder(field(type = "IntegerBase"), setter(name = "with_immediate_style"))]
@@ -73,7 +68,7 @@ impl Default for IntegerBase {
 }
 
 impl Into<ffi::IntegerBase> for IntegerBase {
-    fn into(self) ->  ffi::IntegerBase {
+    fn into(self) -> ffi::IntegerBase {
         match self {
             IntegerBase::Dec => ffi::IntegerBase::Dec,
             IntegerBase::HexPrefix => ffi::IntegerBase::HexPrefix,
@@ -138,12 +133,7 @@ impl Nyxstone {
     ///
     /// # Returns:
     /// Ok() and disassembly text on success, Err() otherwise.
-    pub fn disassemble_to_text(
-        &self,
-        bytes: &[u8],
-        address: u64,
-        count: usize,
-    ) -> anyhow::Result<String> {
+    pub fn disassemble_to_text(&self, bytes: &[u8], address: u64, count: usize) -> anyhow::Result<String> {
         self.inner
             .disassemble_to_text(bytes, address, count)
             .map_err(|err| anyhow!("Error during disassembly: {err}."))
@@ -329,12 +319,7 @@ mod ffi {
         ) -> Result<Vec<Instruction>>;
 
         // Translates bytes to disassembly text at given start address.
-        fn disassemble_to_text(
-            self: &NyxstoneFFI,
-            bytes: &[u8],
-            address: u64,
-            count: usize,
-        ) -> Result<String>;
+        fn disassemble_to_text(self: &NyxstoneFFI, bytes: &[u8], address: u64, count: usize) -> Result<String>;
 
         // Translates bytes to instruction details containing disassembly text at given start address.
         fn disassemble_to_instructions(
@@ -347,4 +332,3 @@ mod ffi {
 }
 
 unsafe impl Send for ffi::NyxstoneFFI {}
-
