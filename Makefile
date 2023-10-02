@@ -34,7 +34,6 @@ endif
 INCLUDES := -I./src -I./include -I$(shell $(LLVM_CONFIG) --includedir)
 VPATH = src/
 SOURCES := nyxstone.cpp ObjectWriterWrapper.cpp ELFStreamerWrapper.cpp 
-# AArch64MCExpr.cpp
 OBJS := $(addprefix $(BUILDDIR)/,$(notdir ${SOURCES:.cpp=.o}))
 
 # LLVM lib directory
