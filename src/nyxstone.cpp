@@ -24,17 +24,17 @@
 
 using namespace llvm;
 
-NyxstoneBuilder& NyxstoneBuilder::with_cpu(std::string&& cpu) {
+NyxstoneBuilder& NyxstoneBuilder::with_cpu(std::string&& cpu) noexcept {
     m_cpu = std::move(cpu);
     return *this;
 }
 
-NyxstoneBuilder& NyxstoneBuilder::with_features(std::string&& features) {
+NyxstoneBuilder& NyxstoneBuilder::with_features(std::string&& features) noexcept {
     m_features = std::move(features);
     return *this;
 }
 
-NyxstoneBuilder& NyxstoneBuilder::with_immediate_style(NyxstoneBuilder::IntegerBase style) {
+NyxstoneBuilder& NyxstoneBuilder::with_immediate_style(NyxstoneBuilder::IntegerBase style) noexcept {
     m_imm_style = style;
     return *this;
 }
@@ -263,7 +263,7 @@ void Nyxstone::assemble_impl(
     SmallVector<char, 128> output_bytes;
     raw_svector_ostream stream(output_bytes);
     auto object_writer = assembler_backend->createObjectWriter(stream);
-    auto object_writer_wrapper = createObjectWriterWrapper(
+    auto object_writer_wrapper = ObjectWriterWrapper::createObjectWriterWrapper(
         std::move(object_writer),
         stream,
         context,
@@ -280,8 +280,7 @@ void Nyxstone::assemble_impl(
         error_stream << "ELF does not support target triple '" << triple.getTriple() << "'.";
         throw Nyxstone::Exception(error_stream.str());
     }
-
-    auto streamer = createELFStreamerWrapper(
+    auto streamer = ELFStreamerWrapper::createELFStreamerWrapper(
         context,
         std::move(assembler_backend),
         std::move(object_writer_wrapper),

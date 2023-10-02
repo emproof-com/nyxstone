@@ -41,6 +41,11 @@ uint64_t alignUp(uint64_t value, uint64_t alignment) {
     return (remainder > 0) ? value + (alignment - remainder) : value;
 }
 
+/// @brief Validates the given arm fixup with our custom validatinon routines.
+///
+/// @param fixup The fixup to be validated.
+/// @param Layout The ASM Layout after fixups have been applied.
+/// @param context The MCContext used to report errors.
 void validate_arm_thumb(const MCFixup& fixup, const MCAsmLayout& Layout, MCContext& context) {
     // For all instructions we are checking here, we need to make sure that the fixup is a SymbolRef.
     // If it is not, we do not need to check the instruction.
@@ -106,6 +111,11 @@ void validate_arm_thumb(const MCFixup& fixup, const MCAsmLayout& Layout, MCConte
     }
 }
 
+/// @brief Validates the given AARCH64 fixup with our custom validatinon routines.
+///
+/// @param fixup The fixup to be validated.
+/// @param Layout The ASM Layout after fixups have been applied.
+/// @param context The MCContext used to report errors.
 void validate_aarch64(const MCFixup& fixup, [[maybe_unused]] const MCAsmLayout& Layout, MCContext& context) {
     // Check for out-of-bounds AArch64 `ADR` instruction
     if (context.getTargetTriple().isAArch64() && fixup.getTargetKind() == AArch64::fixup_aarch64_pcrel_adr_imm21
@@ -123,9 +133,6 @@ void validate_aarch64(const MCFixup& fixup, [[maybe_unused]] const MCAsmLayout& 
     }
 }
 
-/// Additional validation checks for fixups.
-/// For some fixup kinds LLVM is missing out-of-bounds and alignment checks and
-/// produces wrong instruction bytes instead of an error message.
 void ObjectWriterWrapper::validate_fixups(const MCFragment& fragment, const MCAsmLayout& Layout) {
     // Get fixups
     const SmallVectorImpl<MCFixup>* fixups = nullptr;
@@ -279,7 +286,7 @@ uint64_t ObjectWriterWrapper::writeObject(MCAssembler& Asm, const MCAsmLayout& L
     return inner_object_writer->writeObject(Asm, Layout);
 }
 
-std::unique_ptr<MCObjectWriter> createObjectWriterWrapper(
+std::unique_ptr<MCObjectWriter> ObjectWriterWrapper::createObjectWriterWrapper(
     std::unique_ptr<MCObjectWriter>&& object_writer,
     raw_pwrite_stream& stream,
     MCContext& context,
