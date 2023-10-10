@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 
 #include "nyxstone.h"
 
@@ -90,7 +91,7 @@ int main(int argc, char** argv) {
         labels = maybe_labels.value();
     }
 
-    auto nyxstone = NyxstoneBuilder::Default().build(arch_to_llvm_string(arch.value()));
+    auto nyxstone = NyxstoneBuilder().with_triple(arch_to_llvm_string(arch.value())).build();
 
     auto address = varmap["address"].as<uint64_t>();
 
@@ -187,6 +188,8 @@ std::string arch_to_llvm_string(Architecture arch) {
             return "armv6m-none-eabi";
         case Architecture::AArch64:
             return "aarch64-linux-gnueabihf";
+        default:
+            throw Nyxstone::Exception("Unknown architecture");
     }
 }
 

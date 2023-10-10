@@ -201,8 +201,8 @@ class NyxstoneBuilder {
     };
 
   private:
-    NyxstoneBuilder() = default;
-
+    ///@brief The llvm target triple.
+    std::string m_triple;
     /// @brief Specific CPU for LLVM, default is empty.
     std::string m_cpu;
     /// @brief Specific CPU Features for LLVM, default is empty.
@@ -211,40 +211,39 @@ class NyxstoneBuilder {
     IntegerBase m_imm_style = IntegerBase::Dec;
 
   public:
+    NyxstoneBuilder() = default;
     NyxstoneBuilder(const NyxstoneBuilder&) = default;
-    NyxstoneBuilder(NyxstoneBuilder&&) = delete;
+    NyxstoneBuilder(NyxstoneBuilder&&) = default;
     NyxstoneBuilder& operator=(const NyxstoneBuilder&) = default;
-    NyxstoneBuilder& operator=(NyxstoneBuilder&&) = delete;
-
+    NyxstoneBuilder& operator=(NyxstoneBuilder&&) = default;
     ~NyxstoneBuilder() = default;
 
-    /// @brief Creates a NyxstoneBuilder instance with the default options for building the Nyxstone instance.
-    static NyxstoneBuilder Default() {
-        return {};
-    }
+    /// @brief Specifies the llvm target triple for which to assemble/disassemble in nyxstone.
+    /// @note This function must be called before building the nyxstone object.
+    /// @param triple The llvm target triple
+    /// @return Reference to the updated NyxstoneBuilder object.
+    NyxstoneBuilder& with_triple(std::string triple) noexcept;
 
     /// @brief Specifies the cpu for which to assemble/disassemble in nyxstone.
     ///
     /// @return Reference to the updated NyxstoneBuilder object.
-    NyxstoneBuilder& with_cpu(std::string&& cpu) noexcept;
+    NyxstoneBuilder& with_cpu(std::string cpu) noexcept;
 
     /// @brief Specify cpu features to en-/disable in nyxstone.
     ///
     /// @return Reference to the updated NyxstoneBuilder object.
-    NyxstoneBuilder& with_features(std::string&& features) noexcept;
+    NyxstoneBuilder& with_features(std::string features) noexcept;
 
     /// @brief Specify the style in which immediates should be represented.
     ///
     /// @return Reference to the updated NyxstoneBuilder object.
     NyxstoneBuilder& with_immediate_style(IntegerBase style) noexcept;
 
-    /**
-     * @brief Builds a nyxstone instance from the builder.
-     * @warning Consumes the NyxstoneBuilder instance, using it after calling this function is unsafe.
-     * @return A unique_ptr holding the created nyxstone instance.
-     * @throws Nyxstone::Exception Thrown if initialization or object creation fails.
-     */
-    std::unique_ptr<Nyxstone> build(std::string&& triple);
+    /// @brief Builds a nyxstone instance from the builder.
+    /// @note Should only be called after the triple has been specified via `NyxstoneBuilder::with_triple`.
+    /// @return A unique_ptr holding the created nyxstone instance.
+    /// @throws Nyxstone::Exception Thrown if initialization or object creation fails.
+    std::unique_ptr<Nyxstone> build();
 };
 
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.
