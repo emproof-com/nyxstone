@@ -30,7 +30,9 @@ class ValidLLVMConfig:
         major_version = version.split(".")[0]
 
         if major_version != "15":
-            print(f"LLVM Major version must be 15, found {major_version}!")
+            print(
+                f"LLVM Major version must be 15, found {major_version}! Try setting the env variable ${LLVM_PREFIX_NAME} to tell nyxstone about the install location of LLVM 15."
+            )
             exit(1)
 
         lib_output = subprocess.run(
@@ -112,7 +114,10 @@ ext_modules = [
         include_dirs=["nyxstone/include/", "nyxstone/src/", llvm_inc_dir],
         libraries=llvm_libs,
         library_dirs=[llvm_lib_dir],
-        extra_link_args=["-static-libstdc++", "-static-libgcc"] # try to reduce dependencies
+        extra_link_args=[
+            "-static-libstdc++",
+            "-static-libgcc",
+        ],  # try to reduce dependencies
     )
 ]
 
