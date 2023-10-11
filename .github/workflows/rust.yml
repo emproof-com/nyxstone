@@ -22,9 +22,12 @@ jobs:
     - name: Prepare
       run: make nyxstone
       working-directory: ${{env.working-dir}}
+    - name: Code quality
+      run: cargo fmt --all -- --check && cargo clippy -- -D warnings
+      working-directory: ${{env.working-dir}}
     - name: Build
-      run: cargo build --verbose
+      run: cargo build
       working-directory: ${{env.working-dir}}
     - name: Run tests
-      run: cargo test --verbose
+      run: cargo test
       working-directory: ${{env.working-dir}}
