@@ -1,7 +1,7 @@
 ## Building
 
 The python bindings can be build using 
-```
+```bash
 python setup.py build
 ```
 
