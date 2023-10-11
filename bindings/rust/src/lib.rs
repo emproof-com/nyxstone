@@ -4,7 +4,29 @@ use ffi::create_nyxstone_ffi;
 
 #[derive(Builder)]
 #[builder(setter(into), pattern = "owned", build_fn(error = "anyhow::Error", skip))]
-/// Public interface for interacting with nyxstone from rust.
+/// Public interface for calling nyxstone from rust.
+/// # Examples
+///
+/// ```rust
+/// # use nyxstone::{Nyxstone, NyxstoneBuilder, Instruction};
+/// # fn main() -> anyhow::Result<()> {
+/// let nyxstone = NyxstoneBuilder::default()
+///     .with_triple("x86_64")
+///     .build()?;
+///
+/// let instructions = nyxstone.assemble_to_instructions("mov rax, rbx", 0x1000, &[])?;
+///
+/// assert_eq!(
+///      instructions,
+///      vec![Instruction {
+///          address: 0x1000,
+///          assembly: "mov rax, rbx".into(),
+///          bytes: vec![0x48, 0x89, 0xd8]
+///      }]
+/// );
+/// # Ok(())
+/// # }
+/// ```
 pub struct Nyxstone {
     /// Specifies the LLVM target triple Nyxstone uses. MUST be set!
     ///
