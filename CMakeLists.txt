@@ -20,8 +20,10 @@ file(GLOB srcs
 # add_compile_options(-fsanitize=address,undefined)
 # add_link_options(-fsanitize=address,undefined)
 
-add_executable(nstone examples/nyxstone-cli.cpp ${srcs})
-add_executable(sample examples/sample.cpp       ${srcs})
+add_library(nyxstone ${srcs})
 
-target_link_libraries(nstone ${llvm_libs} ${Boost_LIBRARIES})
-target_link_libraries(sample ${llvm_libs})
+add_executable(nstone examples/nyxstone-cli.cpp)
+add_executable(sample examples/sample.cpp)
+
+target_link_libraries(nstone nyxstone ${llvm_libs} ${Boost_LIBRARIES})
+target_link_libraries(sample nyxstone ${llvm_libs})
