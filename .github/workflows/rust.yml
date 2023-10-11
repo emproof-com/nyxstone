@@ -11,16 +11,20 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+    env:
+      working-dir: ./bindings/rust    
 
     steps:
     - uses: actions/checkout@v3
     - name: Packages
       run: sudo apt-get install llvm-15 llvm-15-dev zlib1g-dev libzstd-dev
     - name: Prepare
-      run: cd bindings/rust && make nyxstone
+      run: make nyxstone
+      working-directory: ${{env.working-dir}}
     - name: Build
       run: cargo build --verbose
+      working-directory: ${{env.working-dir}}
     - name: Run tests
       run: cargo test --verbose
+      working-directory: ${{env.working-dir}}
