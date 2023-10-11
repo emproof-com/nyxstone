@@ -222,17 +222,17 @@ class NyxstoneBuilder {
     /// @note This function must be called before building the nyxstone object.
     /// @param triple The llvm target triple
     /// @return Reference to the updated NyxstoneBuilder object.
-    NyxstoneBuilder& with_triple(std::string triple) noexcept;
+    NyxstoneBuilder& with_triple(std::string&& triple) noexcept;
 
     /// @brief Specifies the cpu for which to assemble/disassemble in nyxstone.
     ///
     /// @return Reference to the updated NyxstoneBuilder object.
-    NyxstoneBuilder& with_cpu(std::string cpu) noexcept;
+    NyxstoneBuilder& with_cpu(std::string&& cpu) noexcept;
 
     /// @brief Specify cpu features to en-/disable in nyxstone.
     ///
     /// @return Reference to the updated NyxstoneBuilder object.
-    NyxstoneBuilder& with_features(std::string features) noexcept;
+    NyxstoneBuilder& with_features(std::string&& features) noexcept;
 
     /// @brief Specify the style in which immediates should be represented.
     ///

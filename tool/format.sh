@@ -14,7 +14,7 @@ fi
 cd "$(git rev-parse --show-toplevel)"
 
 # Ignore rust auto-generated c++ files
-files=$(find . ! -wholename "*target*" \( -iname "*.cpp" -o -iname "*.hpp" -o -iname "*.h" \))
+files=$(find . ! -wholename "*target*" ! -wholename "*build*" \( -iname "*.cpp" -o -iname "*.hpp" -o -iname "*.h" \))
 if [[ "$1" == "check" ]]; then
     echo "$files" | xargs clang-format --dry-run -Werror
 elif [ ! -z "$1" ]; then
