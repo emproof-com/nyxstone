@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"
 
 jobs:
   build:
