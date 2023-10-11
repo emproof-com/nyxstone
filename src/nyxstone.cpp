@@ -39,8 +39,8 @@ NyxstoneBuilder& NyxstoneBuilder::with_features(std::string&& features) noexcept
     return *this;
 }
 
-NyxstoneBuilder&
-NyxstoneBuilder::with_immediate_style(NyxstoneBuilder::IntegerBase style) noexcept {  // cppcheck-suppress unusedFunction
+NyxstoneBuilder& NyxstoneBuilder::with_immediate_style(
+    NyxstoneBuilder::IntegerBase style) noexcept {  // cppcheck-suppress unusedFunction
     m_imm_style = style;
     return *this;
 }
