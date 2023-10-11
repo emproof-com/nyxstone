@@ -8,7 +8,7 @@ on:
       - examples/**
       - tool/**
       - CMakeLists.txt
-    branches: [ "main", "test/ci-cd" ]
+    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
     paths:
