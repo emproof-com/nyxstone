@@ -13,7 +13,8 @@ fi
 # nyxstone and cd into it.
 cd "$(git rev-parse --show-toplevel)"
 
-files=$(find src include -iname "*.cpp" -o -iname "*.hpp" -o -iname "*.h")
+# Ignore rust auto-generated c++ files
+files=$(find . ! -wholename "*target*" \( -iname "*.cpp" -o -iname "*.hpp" -o -iname "*.h" \))
 if [[ "$1" == "check" ]]; then
     echo "$files" | xargs clang-format --dry-run -Werror
 elif [ ! -z "$1" ]; then
