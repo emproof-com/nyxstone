@@ -17,7 +17,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Packages
-      run: apt install llvm15 llvm15-dev zlib1g-dev libzstd-dev
+      run: sudo apt-get install llvm15 llvm15-dev zlib1g-dev libzstd-dev
     - name: Prepare
       run: cd bindings/rust && make nyxstone
     - name: Build
