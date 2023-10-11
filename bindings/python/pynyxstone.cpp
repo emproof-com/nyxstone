@@ -45,14 +45,24 @@ PYBIND11_MODULE(nyxstone, m) {
     m.doc() = "pybind11 plugin for nyxstone";
 
     py::class_<Nyxstone::LabelDefinition>(m, "LabelDefinition")
-        .def(py::init<const std::string&, const uint64_t&>())
+        .def(py::init<std::string, uint64_t>(), py::arg("name"), py::arg("address"))
         .def_readwrite("name", &Nyxstone::LabelDefinition::name)
         .def_readwrite("address", &Nyxstone::LabelDefinition::address);
 
     py::class_<Nyxstone::Instruction>(m, "Instruction")
+        .def(
+            py::init<uint64_t, std::string, std::vector<uint8_t>>(),
+            py::arg("address"),
+            py::arg("assembly"),
+            py::arg("bytes"))
         .def_readwrite("address", &Nyxstone::Instruction::address)
         .def_readwrite("bytes", &Nyxstone::Instruction::bytes)
         .def_readwrite("assembly", &Nyxstone::Instruction::assembly)
+        .def(
+            "__eq__",
+            [](const Nyxstone::Instruction& self, const Nyxstone::Instruction& other) {
+                return self.address == other.address && self.assembly == other.assembly && self.bytes == other.bytes;
+            })
         .def("__repr__", [](const Nyxstone::Instruction& i) {
             std::stringstream out;
             out << "<address: 0x" << std::hex << std::setw(8) << std::setfill('0') << i.address << ", assembly: \""
