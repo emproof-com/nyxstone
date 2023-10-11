@@ -1,6 +1,6 @@
 [package]
 name = "nyxstone"
-version = "0.1.0"
+version = "0.0.1"
 authors = ["emproof GmbH"]
 edition = "2021"
 include = [
@@ -9,6 +9,9 @@ include = [
   "nyxstone/include/**/*",
   "Cargo.toml"
 ]
+repository = "https://github.com/emproof-com/nyxstone"
+keywords = ["assemble", "disassemble"]
+description = "Bindings for the nyxstone assembler/disassembler"
 
 [dependencies]
 anyhow = { version = "1.0.68", default-features = true }
