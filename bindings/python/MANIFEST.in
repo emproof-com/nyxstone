@@ -1,1 +1,2 @@
-graft nyxstone
+graft nyxstone/src
+graft nyxstone/include
