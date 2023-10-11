@@ -33,7 +33,7 @@ jobs:
       run: sudo apt-get install llvm-15 llvm-15-dev zlib1g-dev libzstd-dev
     - name: Build
       run: make nyxstone && python setup.py install
-      working-directory: ${{env:working-dir}}
+      working-directory: ${{ env.working-dir }}
     - name: Test
       run: python example.py
-      working-directory: ${{env:working-dir}}
+      working-directory: ${{ env.working-dir }}

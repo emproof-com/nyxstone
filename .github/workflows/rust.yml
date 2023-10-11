@@ -24,7 +24,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      working-dir: ./bindings/rust    
+      working-dir: ./bindings/rust
 
     steps:
     - uses: actions/checkout@v3
@@ -32,13 +32,13 @@ jobs:
       run: sudo apt-get install llvm-15 llvm-15-dev zlib1g-dev libzstd-dev
     - name: Prepare
       run: make nyxstone
-      working-directory: ${{env.working-dir}}
+      working-directory: ${{ env.working-dir }}
     - name: Code quality
       run: cargo fmt --all -- --check && cargo clippy -- -D warnings
-      working-directory: ${{env.working-dir}}
+      working-directory: ${{ env.working-dir }}
     - name: Build
       run: cargo build
-      working-directory: ${{env.working-dir}}
+      working-directory: ${{ env.working-dir }}
     - name: Run tests
       run: cargo test
-      working-directory: ${{env.working-dir}}
+      working-directory: ${{ env.working-dir }}
