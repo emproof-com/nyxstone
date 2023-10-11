@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 
 #include "nyxstone.h"
 
@@ -23,16 +24,19 @@ int main(int argc, char** argv) {
         ("help", "Show this message")
         ("arch", po::value<std::string>()->default_value("x86_64"),
             "Architecture, one of: x86_64, armv6m, armv7m, armv8m, aarch64")
-        ("address", po::value<uint64_t>()->default_value(0u), "Address");
+        ("address", po::value<uint64_t>()->default_value(0u), "Address")
+    ;
 
     po::options_description desc_asm("Assembling");
     desc_asm.add_options()
         ("labels", po::value<std::string>(), "Labels, for example \"label0=0x10,label1=0x20\"")
-        ("assemble,A", po::value<std::string>(), "Assembly");
+        ("assemble,A", po::value<std::string>(), "Assembly")
+    ;
 
     po::options_description desc_disasm("Assembling");
     desc_disasm.add_options()
-        ("disassemble,D", po::value<std::string>(), "Byte code in hex, for example: \"0203\"");
+        ("disassemble,D", po::value<std::string>(), "Byte code in hex, for example: \"0203\"")
+    ;
     // clang-format on
 
     desc.add(desc_asm);
@@ -52,8 +56,8 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    bool has_assemble = varmap.count("assemble") > 0;
-    bool has_disassemble = varmap.count("disassemble") > 0;
+    const bool has_assemble = varmap.count("assemble") > 0;
+    const bool has_disassemble = varmap.count("disassemble") > 0;
 
     if (!has_assemble && !has_disassemble) {
         std::cout << "Nothing to do\n";
@@ -90,7 +94,7 @@ int main(int argc, char** argv) {
         labels = maybe_labels.value();
     }
 
-    auto nyxstone = NyxstoneBuilder::Default().build(arch_to_llvm_string(arch.value()));
+    auto nyxstone = NyxstoneBuilder().with_triple(arch_to_llvm_string(arch.value())).build();
 
     auto address = varmap["address"].as<uint64_t>();
 
@@ -187,6 +191,8 @@ std::string arch_to_llvm_string(Architecture arch) {
             return "armv6m-none-eabi";
         case Architecture::AArch64:
             return "aarch64-linux-gnueabihf";
+        default:
+            throw Nyxstone::Exception("Unknown architecture");
     }
 }
 
