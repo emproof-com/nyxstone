@@ -96,9 +96,10 @@ std::unique_ptr<NyxstoneFFI> create_nyxstone_ffi(  // cppcheck-suppress unusedFu
     const IntegerBase imm_style) {
     NyxstoneBuilder::IntegerBase style = static_cast<NyxstoneBuilder::IntegerBase>(static_cast<uint8_t>(imm_style));
 
-    return std::make_unique<NyxstoneFFI>(NyxstoneBuilder::Default()
+    return std::make_unique<NyxstoneFFI>(NyxstoneBuilder()
+                                             .with_triple(std::string {triple_name})
                                              .with_cpu(std::string {cpu})
                                              .with_features(std::string {features})
                                              .with_immediate_style(style)
-                                             .build(std::string {triple_name}));
+                                             .build());
 }

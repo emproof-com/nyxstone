@@ -24,6 +24,11 @@
 
 using namespace llvm;
 
+NyxstoneBuilder& NyxstoneBuilder::with_triple(std::string&& triple) noexcept {
+    m_triple = std::move(triple);
+    return *this;
+}
+
 NyxstoneBuilder& NyxstoneBuilder::with_cpu(std::string&& cpu) noexcept {
     m_cpu = std::move(cpu);
     return *this;
@@ -39,12 +44,12 @@ NyxstoneBuilder& NyxstoneBuilder::with_immediate_style(NyxstoneBuilder::IntegerB
     return *this;
 }
 
-std::unique_ptr<Nyxstone> NyxstoneBuilder::build(std::string&& triple_name) {
-    /// # Note
-    /// We observed that the initialization of LLVM (in build()) is not thread
-    /// safe as deadlocks appear for repeated assemble and disassmble tests in Rust.
-    /// Thus, we guard the initialization with a static mutex so that each function
-    /// call to build() is thread-safe.
+std::unique_ptr<Nyxstone> NyxstoneBuilder::build() {
+    // # Note
+    // We observed that the initialization of LLVM (in build()) is not thread
+    // safe as deadlocks appear for repeated assemble and disassmble tests in Rust.
+    // Thus, we guard the initialization with a static mutex so that each function
+    // call to build() is thread-safe.
     static std::mutex build_common_mutex;
     const std::lock_guard<std::mutex> lock(build_common_mutex);
 
@@ -55,7 +60,7 @@ std::unique_ptr<Nyxstone> NyxstoneBuilder::build(std::string&& triple_name) {
     llvm::InitializeAllDisassemblers();
 
     // Resolve architecture from user-supplied target triple name
-    auto triple = Triple(Triple::normalize(triple_name));
+    auto triple = Triple(Triple::normalize(m_triple));
     if (triple.getArch() == Triple::UnknownArch) {
         throw Nyxstone::Exception("Invalid architecture / LLVM target triple");
     }
@@ -119,6 +124,7 @@ std::unique_ptr<Nyxstone> NyxstoneBuilder::build(std::string&& triple_name) {
         std::move(triple),
         std::move(m_cpu),
         std::move(m_features),
+        // target is a static object, thus it is safe to take its reference here:
         *target,
         std::move(target_options),
         std::move(register_info),

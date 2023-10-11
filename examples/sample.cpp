@@ -5,8 +5,8 @@
 
 int main(int /* argc */, char** /* argv */) {
     try {
-        auto nyxstone_x86_64 = NyxstoneBuilder::Default().build("x86_64-linux-gnu");
-        auto nyxstone_armv8m = NyxstoneBuilder::Default().build("armv8m.main-none-eabi");
+        auto nyxstone_x86_64 = NyxstoneBuilder().with_triple("x86_64-linux-gnu").build();
+        auto nyxstone_armv8m = NyxstoneBuilder().with_triple("armv8m.main-none-eabi").build();
 
         const std::vector<Nyxstone::LabelDefinition> labels {{".label", 0x1010}};
         std::vector<uint8_t> bytes;

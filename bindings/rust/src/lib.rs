@@ -69,10 +69,11 @@ pub struct Nyxstone {
 }
 
 // Re-export
-pub type Instruction = ffi::Instruction;
-pub type LabelDefinition<'name> = ffi::LabelDefinition<'name>;
+pub use crate::ffi::Instruction;
+pub use crate::ffi::LabelDefinition;
 
 /// Configuration options for the integer style of immediates in disassembly output.
+#[derive(Debug, PartialEq, Eq)]
 pub enum IntegerBase {
     /// Immediates are represented in decimal format.
     Dec = 0,
