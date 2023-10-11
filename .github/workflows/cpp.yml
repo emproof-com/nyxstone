@@ -25,4 +25,4 @@ jobs:
     - name: Sample
       run: ./build/sample
     - name: cli
-      run: ./build/nyxstone -A "mov rax, rbx"
+      run: ./build/nstone -A "mov rax, rbx"
