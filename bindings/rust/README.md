@@ -1,5 +1,7 @@
 # nyxstone-rs
 
+[![Github Rust CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/rust.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/rust.yml)
+
 Official bindings for the Nyxstone assembler/disassembler engine. 
 
 ## Building
