@@ -126,6 +126,6 @@ setup(
     version="0.0.0",
     description=desc,
     author="emproof GmbH",
-    author_email="info@emproof.de",
+    author_email="oss@emproof.de",
     ext_modules=ext_modules,
 )
