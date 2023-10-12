@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <iostream>
 #include <optional>
+#include <unordered_map>
 
 #include "nyxstone.h"
 

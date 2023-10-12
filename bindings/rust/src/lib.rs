@@ -73,9 +73,10 @@ pub use crate::ffi::Instruction;
 pub use crate::ffi::LabelDefinition;
 
 /// Configuration options for the integer style of immediates in disassembly output.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Default)]
 pub enum IntegerBase {
     /// Immediates are represented in decimal format.
+    #[default]
     Dec = 0,
     /// Immediates are represented in hex format, prepended with 0x, for example: 0xff.
     HexPrefix = 1,
@@ -83,16 +84,9 @@ pub enum IntegerBase {
     HexSuffix = 2,
 }
 
-// Implement default for HexStyle for derive_builder.
-impl Default for IntegerBase {
-    fn default() -> Self {
-        IntegerBase::Dec
-    }
-}
-
-impl Into<ffi::IntegerBase> for IntegerBase {
-    fn into(self) -> ffi::IntegerBase {
-        match self {
+impl From<IntegerBase> for ffi::IntegerBase {
+    fn from(val: IntegerBase) -> Self {
+        match val {
             IntegerBase::Dec => ffi::IntegerBase::Dec,
             IntegerBase::HexPrefix => ffi::IntegerBase::HexPrefix,
             IntegerBase::HexSuffix => ffi::IntegerBase::HexSuffix,
@@ -120,7 +114,7 @@ impl Nyxstone {
         labels: &[LabelDefinition],
     ) -> anyhow::Result<Vec<u8>> {
         self.inner
-            .assemble_to_bytes(assembly, address, &labels)
+            .assemble_to_bytes(assembly, address, labels)
             .map_err(|err| anyhow!("Error during assemble (= '{assembly}' at {address}): {err}."))
     }
 
@@ -143,7 +137,7 @@ impl Nyxstone {
         labels: &[LabelDefinition],
     ) -> anyhow::Result<Vec<Instruction>> {
         self.inner
-            .assemble_to_instructions(assembly, address, &labels)
+            .assemble_to_instructions(assembly, address, labels)
             .map_err(|err| anyhow!("Error during assemble (= '{assembly}' at {address}): {err}."))
     }
 
