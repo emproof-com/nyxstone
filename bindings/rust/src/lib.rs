@@ -2,8 +2,6 @@ use anyhow::anyhow;
 use derive_builder::Builder;
 use ffi::create_nyxstone_ffi;
 
-#[derive(Builder)]
-#[builder(setter(into), pattern = "owned", build_fn(error = "anyhow::Error", skip))]
 /// Public interface for calling nyxstone from rust.
 /// # Examples
 ///
@@ -27,6 +25,8 @@ use ffi::create_nyxstone_ffi;
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Builder)]
+#[builder(setter(into), pattern = "owned", build_fn(error = "anyhow::Error", skip))]
 pub struct Nyxstone {
     /// Specifies the LLVM target triple Nyxstone uses. MUST be set!
     ///
@@ -230,6 +230,9 @@ impl NyxstoneBuilder {
     ///
     /// # Returns
     /// Ok() and the Nyxstone instance on success, Err() otherwise.
+    ///
+    /// # Errors
+    /// Errors occur when the LLVM triple was not supplied to the builder or LLVM fails.
     pub fn build(self) -> anyhow::Result<Nyxstone> {
         if self._triple.is_empty() {
             return Err(anyhow::anyhow!("No 'triple' supplied to builder."));

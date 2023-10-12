@@ -12,6 +12,7 @@ include = [
 repository = "https://github.com/emproof-com/nyxstone"
 keywords = ["assemble", "disassemble"]
 description = "Bindings for the nyxstone assembler/disassembler"
+categories = ["api-bindings", "compilers"]
 
 [dependencies]
 anyhow = { version = "1.0.68", default-features = true }
