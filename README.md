@@ -19,15 +19,21 @@ There are multiple ways to install LLVM 15 if your package manager does not supp
 
 Also make sure to install any libraries needed by your LLVM version for static linking.
 
-The make targets `cli` and `sample` will build the examples given in the `examples/` folder. 
+You can build the nyxstone cli (nstone) example program and the small sample program in the `examples` folder using cmake. Use the following commands:
+```
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make
+```
 
 ## Using Nyxstone
 
 ### CLI Tool
 The Nyxstone cli tool allows for on-the-fly assembling and disassembling from your command line.
 ```
-$ make cli
-$ ./build/nyxstone --help
+$ cd build && cmake .. && make
+$ ./nstone --help
 Allowed options:
   --help                    Show this message
   --arch arg (=x86_64)      Architecture, one of: x86_64, armv6m, armv7m,
