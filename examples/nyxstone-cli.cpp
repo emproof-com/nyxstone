@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
     desc.add_options()
         ("help", "Show this message")
         ("arch", po::value<std::string>()->default_value("x86_64"),
-            "Architecture, one of: x86_64, armv6m, armv7m, armv8m, aarch64")
+            R"(LLVM architecture (triple), for example "x86_64", "armv8m", "armv8meb", "thumbv8", "aarch64")")
         ("address", po::value<uint64_t>()->default_value(0u), "Address")
     ;
 
@@ -72,12 +72,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    auto arch = arch_parse_from_string(varmap["arch"].as<std::string>());
-    if (!arch.has_value()) {
-        std::cout << "Invalid architecture";
-        std::cout << desc << "\n";
-        return 1;
-    }
+    auto arch = varmap["arch"].as<std::string>();
 
     auto has_labels = varmap.count("labels") > 0;
     if (has_labels && has_disassemble) {
@@ -95,7 +90,13 @@ int main(int argc, char** argv) {
         labels = maybe_labels.value();
     }
 
-    auto nyxstone = NyxstoneBuilder().with_triple(arch_to_llvm_string(arch.value())).build();
+    std::unique_ptr<Nyxstone> nyxstone {nullptr};
+    try {
+        nyxstone = std::move(NyxstoneBuilder().with_triple(std::move(arch)).build());
+    } catch (const std::exception& e) {
+        std::cerr << "Failure creating nyxstone instance (= " << e.what() << " )\n";
+        return 1;
+    }
 
     auto address = varmap["address"].as<uint64_t>();
 
@@ -147,54 +148,12 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-enum class Architecture {
-    ARMv8M,
-    ARMv7M,
-    ARMv6M,
-    AArch64,
-    X86_64,
-};
-
-std::optional<Architecture> arch_parse_from_string(const std::string& arch) {
-    static const std::unordered_map<std::string, Architecture> map {
-        {"x86_64", Architecture::X86_64},
-        {"armv6m", Architecture::ARMv6M},
-        {"armv7m", Architecture::ARMv7M},
-        {"armv8m", Architecture::ARMv8M},
-        {"aarch64", Architecture::AArch64},
-    };
-
-    auto itr = map.find(arch);
-    if (itr == map.end()) {
-        return {};
-    }
-
-    return itr->second;
-}
-
 void print_bytes(const std::vector<uint8_t>& bytes) {
     std::cout << std::hex << "[ ";
     for (const auto& byte : bytes) {
         std::cout << std::setfill('0') << std::setw(2) << static_cast<uint32_t>(byte) << " ";
     }
     std::cout << std::dec << "]";
-}
-
-std::string arch_to_llvm_string(Architecture arch) {
-    switch (arch) {
-        case Architecture::X86_64:
-            return "x86_64-linux-gnu";
-        case Architecture::ARMv8M:
-            return "armv8m.main-none-eabi";
-        case Architecture::ARMv7M:
-            return "armv7m-none-eabi";
-        case Architecture::ARMv6M:
-            return "armv6m-none-eabi";
-        case Architecture::AArch64:
-            return "aarch64-linux-gnueabihf";
-        default:
-            throw Nyxstone::Exception("Unknown architecture");
-    }
 }
 
 std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string labelstr) {
