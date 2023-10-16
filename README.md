@@ -38,8 +38,8 @@ $ cd build && cmake .. && make
 $ ./nstone --help
 Allowed options:
   --help                    Show this message
-  --arch arg (=x86_64)      Architecture, one of: x86_64, armv6m, armv7m,
-                            armv8m, aarch64
+  --arch arg (=x86_64)      LLVM architecture (triple), for example "x86_64",
+                            "armv8m", "armv8meb", "thumbv8", "aarch64"
   --address arg (=0)        Address
 
 Assembling:
