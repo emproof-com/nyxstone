@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
     desc.add_options()
         ("help", "Show this message")
         ("arch", po::value<std::string>()->default_value("x86_64"),
-            R"(LLVM architecture (triple), for example "x86_64", "armv8m", "armv8meb", "thumbv8", "aarch64")")
+            R"(LLVM triple or architecture identifier of triple, for example "x86_64", "x86_64-linux-gnu", "armv8", "armv8eb", "thumbv8", "aarch64")")
         ("address", po::value<uint64_t>()->default_value(0u), "Address")
     ;
 
@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
         ("assemble,A", po::value<std::string>(), "Assembly")
     ;
 
-    po::options_description desc_disasm("Assembling");
+    po::options_description desc_disasm("Disassembling");
     desc_disasm.add_options()
         ("disassemble,D", po::value<std::string>(), "Byte code in hex, for example: \"0203\"")
     ;
