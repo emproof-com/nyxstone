@@ -474,6 +474,12 @@ void Nyxstone::disassemble_impl(
     }
 }
 
+bool Nyxstone::Instruction::operator==(const Instruction& other) const {
+    return address == other.address &&
+        assembly == other.assembly &&
+        bytes == other.bytes;
+}
+
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.
 bool is_ArmT16_or_ArmT32(const llvm::Triple& triple) {
     return (
