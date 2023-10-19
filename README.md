@@ -2,7 +2,7 @@
 
 [![Github Cpp CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml)
 
-Nyxstone is a assembler/disassembler library based on LLVM. Unlike other great frameworks like keystone and capstone, Nyxstone does not ship with parts of LLVM.
+Nyxstone is a assembler and disassembler library based on LLVM. Unlike other great frameworks like keystone and capstone, Nyxstone does not ship with parts of LLVM.
 Instead, Nyxstone interfaces with low-level LLVM 15 internals (without patching them) to assemble and disassemble.
 
 [//]: # (TODO: Improve this section, maybe talk about Nyx) 
@@ -229,8 +229,7 @@ Disassembled:
 
 ## How it works
 
-Generally, Nyxstone uses the LLVM `MC` objects to assemble and disassemble given assembly. For assembling it uses the `MCAsmParser` to parse the assembly and for disassembling the `MCDisassembler` to decode the instructions.
-Additionally, it wraps the `MCObjectWriter` and `MCELFStreamer` objects in custom classes.
+Generally, Nyxstone uses the LLVM `MC` objects to assemble and disassemble given assembly. For assembling it uses the `MCAsmParser` to parse the assembly and for disassembling the `MCDisassembler` to decode the instructions. Additionally, it wraps the `MCObjectWriter` and `MCELFStreamer` objects in custom classes.
 
 The wrapper for the `MCObjectWriter` has multiple functionalities. Most importantly it allows Nyxstone to limit the assembly output to the relevant bytes instead of returning an entire ELF object file. LLVM applies some relocations during the linking step, which requires Nyxstone to do some relocations itself using the wrapper. Finally, the wrapper is used to add additional fixup validations, which are not present in LLVM. This is necessary since LLVM wrongly assembles some instructions when supplied with a label
 that is slightly out of range for the instruction.
@@ -249,4 +248,4 @@ We are really thankful about any and all contributions to this project!
 
 ## Contributers
 
-Philipp Koppe, Rachid Mzannar, Darius Hartlief @ emproof.com
+Philipp Koppe, Rachid Mzannar, Darius Hartlief @ [emproof.com](https://www.emproof.com)
