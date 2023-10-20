@@ -5,8 +5,6 @@
 Nyxstone is a assembler and disassembler library based on LLVM. Unlike other great frameworks like keystone and capstone, Nyxstone does not ship with any patches to LLVM.
 Instead, Nyxstone interfaces with low-level LLVM 15 internals to assemble and disassemble by linking against standard LLVM libraries.
 
-[//]: # (TODO: Improve this section, maybe talk about Nyx) 
-
 ## Index
 
 1. [Features](#features)
