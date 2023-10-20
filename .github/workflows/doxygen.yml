@@ -1,0 +1,35 @@
+name: update-docs
+
+on:
+  push:
+    paths:
+      - src/**
+      - include/**
+    branches: [ "main" ]
+  pull_request:
+    paths:
+      - src/**
+      - include/**
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Packages
+      run: sudo apt-get install -y doxygen
+    - name: Generate
+      run: doxygen ./Doxyfile
+    - name: Publish
+      env:
+        CI_COMMIT_MESSAGE: Auto-generate doxygen documentation
+        CI_COMMIT_AUTHOR: update-docs-ci
+      run: |
+        git config --global --user.name "${{ env.CI_COMMIT_AUTHOR }}"
+        git config --global --user.email "emproof-com@users.noreply.github.com"
+        git add doc
+        git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
+        git push
+
