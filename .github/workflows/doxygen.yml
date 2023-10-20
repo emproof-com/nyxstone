@@ -6,26 +6,25 @@ on:
       - src/**
       - include/**
     branches: [ "main" ]
-  pull_request:
-    paths:
-      - src/**
-      - include/**
-    branches: [ "main" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
+
     - name: Packages
       run: sudo apt-get install -y doxygen
+
     - name: Generate
       run: doxygen ./Doxyfile
+
     - name: Publish
       env:
         CI_COMMIT_MESSAGE: Auto-generate doxygen documentation
         CI_COMMIT_AUTHOR: update-docs-ci
+      # only commit and push changes on the main branch after mr has been pushed.
+      # if: github.event_name == 'push'
       # Force-adds the doc directory, because the doc directory is still in .gitignore
       # to discourage changing the doc directory in a commit.
       run: |
