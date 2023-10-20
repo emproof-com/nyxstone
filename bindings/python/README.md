@@ -1,5 +1,7 @@
 # Nyxstone Python bindings
 
+[![Github Python CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/python.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/python.yml)
+
 ## Installation
 
 You need to have LLVM 15 (with static library support) installed to build the nyxstone bindings. The `setup.py` searches for LLVM in the `PATH` or in the directory set in the environment variable `NYXSTONE_LLVM_PREFIX`. Specifically, it searches for the binary `$NYXSTONE_LLVM_PREFIX/bin/llvm-config` and uses it to set the required libraries and cpp flags.
