@@ -33,7 +33,7 @@ Instead, Nyxstone interfaces with low-level LLVM 15 internals to assemble and di
 
 ## Using Nyxstone
 
-There are multiple ways to use Nyxstone. Nyxstone was initially developed as a rust library, but the underlying c++ library and a python bindings via pybind11 are also available in this repository.
+There are multiple ways to use Nyxstone. Nyxstone was initially developed as a rust library, but the underlying c++ library and python bindings implemented via pybind11 are also available in this repository.
 
 ### Prerequisites
 
