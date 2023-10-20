@@ -23,13 +23,16 @@ Instead, Nyxstone interfaces with low-level LLVM 15 internals to assemble and di
 
 ## Features
 
-- Assembles and Disassembles for all Architectures supported by LLVM 15 (x86, arm, aarch64, avr, amdgpu, risc-v, etc.) [^1].
+- Assembles and Disassembles for all Architectures supported by LLVM 15 (x86, arm, aarch64, avr, amdgpu, risc-v, etc.).
 - Allows specifying inline and external labels/relocations.
 - Assemble or Disassemble to instruction information which holds the instructions address, bytecode, and assembly.
 - Specify the number of instructions to disassemble from given bytecode.
 - Configure additional hardware features via extension mnemonics.
 
-[^1]: Nyxstone was mainly developed and tested for x86_64 and ARM thumb. While we are fairly certain to generate correct assembly as well as errors for these architectures, other architectures only work as good as their respective LLVM backends.
+> [!NOTE]
+> Nyxstone was mainly developed and tested for x86_64 and ARM thumb. While we are fairly certain to generate correct 
+> assembly as well as errors for these architectures, other architectures only work as good as their respective LLVM 
+> backends.
 
 ## Using Nyxstone
 
