@@ -6,6 +6,11 @@ on:
       - src/**
       - include/**
     branches: [ "main" ]
+  pull_request:
+    paths:
+      - src/**
+      - include/**
+    branches: [ "main" ]
 
 jobs:
   build:
@@ -23,8 +28,8 @@ jobs:
       env:
         CI_COMMIT_MESSAGE: Auto-generate doxygen documentation
         CI_COMMIT_AUTHOR: update-docs-ci
-      # only commit and push changes on the main branch after mr has been pushed.
-      # if: github.event_name == 'push'
+      # only commit and push changes on the main branch after the mr has been pushed.
+      if: github.event_name == 'push'
       # Force-adds the doc directory, because the doc directory is still in .gitignore
       # to discourage changing the doc directory in a commit.
       run: |
