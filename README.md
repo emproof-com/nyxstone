@@ -2,8 +2,8 @@
 
 [![Github Cpp CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml)
 
-Nyxstone is a assembler and disassembler library based on LLVM. Unlike other great frameworks like keystone and capstone, Nyxstone does not ship with parts of LLVM.
-Instead, Nyxstone interfaces with low-level LLVM 15 internals (without patching them) to assemble and disassemble.
+Nyxstone is a assembler and disassembler library based on LLVM. Unlike other great frameworks like keystone and capstone, Nyxstone does not ship with any patches to LLVM.
+Instead, Nyxstone interfaces with low-level LLVM 15 internals to assemble and disassemble by linking against standard LLVM libraries.
 
 [//]: # (TODO: Improve this section, maybe talk about Nyx) 
 
@@ -25,10 +25,11 @@ Instead, Nyxstone interfaces with low-level LLVM 15 internals (without patching 
 
 - Assembles and Disassembles for all Architectures supported by LLVM 15 (x86, arm, aarch64, avr, amdgpu, risc-v, etc.) [^1].
 - Allows specifying inline and external labels/relocations.
-- Assemble or Disassemble to Instruction information holding the instructions address, bytecode, and assembly.
+- Assemble or Disassemble to instruction information which holds the instructions address, bytecode, and assembly.
 - Specify the number of instructions to disassemble from given bytecode.
+- Configure additional hardware features via extension mnemonics.
 
-[^1]: Note that Nyxstone was mainly developed and tested for x86_64 and ARM thumb. While we are fairly certain to generate correct assembly as well as errors for these architectures, other architectures only work as good as LLVMs backends.
+[^1]: Nyxstone was mainly developed and tested for x86_64 and ARM thumb. While we are fairly certain to generate correct assembly as well as errors for these architectures, other architectures only work as good as their respective LLVM backends.
 
 ## Using Nyxstone
 
@@ -66,6 +67,36 @@ See the rust bindings [README](bindings/rust/README.md).
 See the python bindings [README](bindings/python/README.md).
 
 ### As a c++ library
+
+Nyxstone can be used by including its header `nyxstone.h`. Following is a small c++ example in which the creation
+and usage of Nyxstone objects is presented. When building your program, make sure to link against LLVM 15.
+
+Following is a small cmake example for linking against nyxstone. Nyxstone should be a in the subdirectory `nyxstone` in your project.
+
+```cmake
+# ...
+# You can also link LLVM dynamically, as long as it is LLVM 15.
+
+# search a custom directory for LLVM 15
+find_package(LLVM 15 CONFIG PATHS your-llvm-15-path NO_DEFAULT_PATH)
+# search LLVM 15 in your library directories
+find_package(LLVM 15 CONFIG)
+
+include_directories(${LLVM_INCLUDE_DIRS})
+add_definitions(${LLVM_DEFINITIONS})
+llvm_map_components_to_libnames(llvm_libs core mc AllTargetsCodeGens AllTargetsAsmParsers AllTargetsDescs AllTargetsDisassemblers AllTargetsInfos AllTargetsMCAs)
+
+add_subdirectory(nyxstone EXCLUDE_FROM_ALL) # Add nyxstone cmake without executables
+include_directories(nyxstone/include)       # Nyxstone include directory
+
+add_executable(your-executable your-sources.cpp)
+
+target_link_libraries(your-executable nyxstone ${llvm_libs})
+```
+
+In the following we give an example of the different usages of Nyxstone.
+[//]: # (Consult the documentation (TODO: link) for more detailed information) 
+
 
 ```c++
 #include <cassert>
@@ -148,7 +179,7 @@ int main(int, char**) {
     // Configure nyxstone to your liking:
     nyxstone = std::move(
         NyxstoneBuilder()
-            .with_triple("thumbv8m")
+            .with_triple("thumbv8")
             .with_immediate_style(NyxstoneBuilder::IntegerBase::HexPrefix)  // Change the printing style of immediates
             .with_features("+mve.fp,+fp16")  // Enable additional cpu features, here floating point instructions
             .build());
@@ -189,7 +220,7 @@ $ mkdir build && cd build && cmake .. && make
 
 you can print a help message:
 ```
-$ ./nstone --help
+$ ./nyxstone --help
 Allowed options:
   --help                    Show this message
   --arch arg (=x86_64)      LLVM triple or architecture identifier of triple,
@@ -209,20 +240,20 @@ Disassembling:
 As well as assemble and disassemble for different architectures:
 
 ```
-$ ./nstone --arch "x86_64 " -A "mov rax, rbx"
+$ ./nyxstone --arch "x86_64 " -A "mov rax, rbx"
 Assembled:
 	0x00000000: mov rax, rbx - [ 48 89 d8 ]
-$ ./nstone --arch "x86_64" -A "je .label; add rax, rbx; .label:" --address 0x1000
+$ ./nyxstone --arch "x86_64" -A "je .label; add rax, rbx; .label:" --address 0x1000
 Assembled:
 	0x00001000: je .label - [ 74 03 ]
 	0x00001002: add rax, rbx - [ 48 01 d8 ]
-$ ./nstone --arch "x86_64" -A "jmp .label" --labels ".label=0x1000"
+$ ./nyxstone --arch "x86_64" -A "jmp .label" --labels ".label=0x1000"
 Assembled:
 	0x00000000: jmp .label - [ e9 fb 0f 00 00 ]
-$ ./nstone --arch "armv8" -A "eor r0, r1, r2, lsl #4"
+$ ./nyxstone --arch "armv8" -A "eor r0, r1, r2, lsl #4"
 Assembled:
 	0x00000000: eor r0, r1, r2, lsl #4 - [ 02 02 21 e0 ]
-$ ./nstone --arch "thumbv8" -D "13 37"
+$ ./nyxstone --arch "thumbv8" -D "13 37"
 Disassembled:
 	0x00000000: adds r7, #19 - [ 13 37 ]
 ```
