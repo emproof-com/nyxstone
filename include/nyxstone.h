@@ -185,6 +185,7 @@ class Nyxstone {
 class NyxstoneBuilder {
   public:
     /// @brief Configuration options for the immediate representation in disassembly.
+    // This is a uint8_t for better interoperability with rust.
     enum class IntegerBase : uint8_t {
         /// Immediates are represented in decimal format.
         Dec = 0,
