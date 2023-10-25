@@ -126,8 +126,6 @@ std::unique_ptr<Nyxstone> NyxstoneBuilder::build() {
 
     return std::make_unique<Nyxstone>(
         std::move(triple),
-        std::move(m_cpu),
-        std::move(m_features),
         // target is a static object, thus it is safe to take its reference here:
         *target,
         std::move(target_options),

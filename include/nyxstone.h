@@ -13,23 +13,6 @@
 namespace emproof {
 /// Nyxstone class for assembling and disassembling for a given architecture.
 class Nyxstone {
-    /// The LLVM triple
-    llvm::Triple triple;
-    /// Specific cpu to use (can be empty).
-    std::string m_cpu;
-    /// Additional features to en-/disable (can be emtpy).
-    std::string m_features;
-
-    const llvm::Target& target;
-
-    llvm::MCTargetOptions target_options;
-
-    std::unique_ptr<llvm::MCRegisterInfo> register_info;
-    std::unique_ptr<llvm::MCAsmInfo> assembler_info;
-    std::unique_ptr<llvm::MCInstrInfo> instruction_info;
-    std::unique_ptr<llvm::MCSubtargetInfo> subtarget_info;
-    std::unique_ptr<llvm::MCInstPrinter> instruction_printer;
-
   public:
     /// Custom exception class used throughout nyxstone to pass any kind of String describing an error upwards.
     class Exception final: public std::exception {
@@ -95,8 +78,6 @@ class Nyxstone {
     /// @param instruction_printer Instruction printer for the given architecture.
     Nyxstone(
         llvm::Triple&& triple,
-        std::string&& cpu,
-        std::string&& features,
         const llvm::Target& target,
         llvm::MCTargetOptions&& target_options,
         std::unique_ptr<llvm::MCRegisterInfo>&& register_info,
@@ -105,8 +86,6 @@ class Nyxstone {
         std::unique_ptr<llvm::MCSubtargetInfo>&& subtarget_info,
         std::unique_ptr<llvm::MCInstPrinter>&& instruction_printer) noexcept :
         triple(std::move(triple)),
-        m_cpu(std::move(cpu)),
-        m_features(std::move(features)),
         target(target),
         target_options(std::move(target_options)),
         register_info(std::move(register_info)),
@@ -184,6 +163,20 @@ class Nyxstone {
         size_t count,
         std::string* disassembly,
         std::vector<Instruction>* instructions) const;
+
+    /// The LLVM triple
+    llvm::Triple triple;
+
+    // Target is a static object, thus it is safe to take its const reference.
+    const llvm::Target& target;
+
+    llvm::MCTargetOptions target_options;
+
+    std::unique_ptr<llvm::MCRegisterInfo> register_info;
+    std::unique_ptr<llvm::MCAsmInfo> assembler_info;
+    std::unique_ptr<llvm::MCInstrInfo> instruction_info;
+    std::unique_ptr<llvm::MCSubtargetInfo> subtarget_info;
+    std::unique_ptr<llvm::MCInstPrinter> instruction_printer;
 };
 
 /**
