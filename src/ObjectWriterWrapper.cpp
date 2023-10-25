@@ -37,7 +37,8 @@ namespace emproof {
 /// @param[in] value - Value to align.
 /// @param[in] alignment - Alignment to align the value.
 /// @returns Aligned value.
-uint64_t alignUp(uint64_t value, uint64_t alignment) {
+uint64_t alignUp(uint64_t value, uint64_t alignment)
+{
     auto remainder = value % alignment;
     return (remainder > 0) ? value + (alignment - remainder) : value;
 }
@@ -47,7 +48,8 @@ uint64_t alignUp(uint64_t value, uint64_t alignment) {
 /// @param fixup The fixup to be validated.
 /// @param Layout The ASM Layout after fixups have been applied.
 /// @param context The MCContext used to report errors.
-void validate_arm_thumb(const MCFixup& fixup, const MCAsmLayout& Layout, MCContext& context) {
+void validate_arm_thumb(const MCFixup& fixup, const MCAsmLayout& Layout, MCContext& context)
+{
     // For all instructions we are checking here, we need to make sure that the fixup is a SymbolRef.
     // If it is not, we do not need to check the instruction.
     const bool fixup_is_symbolref = fixup.getValue() != nullptr && fixup.getValue()->getKind() == MCExpr::SymbolRef;
@@ -69,7 +71,7 @@ void validate_arm_thumb(const MCFixup& fixup, const MCAsmLayout& Layout, MCConte
     // Check for out-of-bounds ARM Thumb2 `ADR` instruction
     if (fixup.getTargetKind() == ARM::fixup_t2_adr_pcrel_12) {
         auto offset = static_cast<int64_t>(cast<const MCSymbolRefExpr>(fixup.getValue())->getSymbol().getOffset());
-        offset -= 4;  // Source address is (PC + 4)
+        offset -= 4; // Source address is (PC + 4)
 
         // Check min/max bounds of instruction encoding
         // Symmetric bounds as `addw` and `subw` are used internally
@@ -96,7 +98,7 @@ void validate_arm_thumb(const MCFixup& fixup, const MCAsmLayout& Layout, MCConte
         auto& symbol = cast<const MCSymbolRefExpr>(fixup.getValue())->getSymbol();
         auto address = Layout.getFragmentOffset(symbol.getFragment()) + symbol.getOffset();
 
-        auto offset = static_cast<int64_t>(symbol.getOffset()) - 4;  // Source address is (PC + 4)
+        auto offset = static_cast<int64_t>(symbol.getOffset()) - 4; // Source address is (PC + 4)
 
         // Since llvm only wrongly assembles for offsets which differ from the allowed value for delta < 4
         // it is enough to check that the offset is validly aligned to 4. For better error reporting,
@@ -117,7 +119,8 @@ void validate_arm_thumb(const MCFixup& fixup, const MCAsmLayout& Layout, MCConte
 /// @param fixup The fixup to be validated.
 /// @param Layout The ASM Layout after fixups have been applied.
 /// @param context The MCContext used to report errors.
-void validate_aarch64(const MCFixup& fixup, [[maybe_unused]] const MCAsmLayout& Layout, MCContext& context) {
+void validate_aarch64(const MCFixup& fixup, [[maybe_unused]] const MCAsmLayout& Layout, MCContext& context)
+{
     // Check for out-of-bounds AArch64 `ADR` instruction
     if (context.getTargetTriple().isAArch64() && fixup.getTargetKind() == AArch64::fixup_aarch64_pcrel_adr_imm21
         && fixup.getValue() != nullptr && fixup.getValue()->getKind() == MCExpr::Target
@@ -134,20 +137,21 @@ void validate_aarch64(const MCFixup& fixup, [[maybe_unused]] const MCAsmLayout& 
     }
 }
 
-void ObjectWriterWrapper::validate_fixups(const MCFragment& fragment, const MCAsmLayout& Layout) {
+void ObjectWriterWrapper::validate_fixups(const MCFragment& fragment, const MCAsmLayout& Layout)
+{
     // Get fixups
     const SmallVectorImpl<MCFixup>* fixups = nullptr;
     switch (fragment.getKind()) {
-        default:
-            return;
-        case MCFragment::FT_Data: {
-            fixups = &cast<const MCDataFragment>(fragment).getFixups();
-            break;
-        }
-        case MCFragment::FT_Relaxable: {
-            fixups = &cast<const MCRelaxableFragment>(fragment).getFixups();
-            break;
-        }
+    default:
+        return;
+    case MCFragment::FT_Data: {
+        fixups = &cast<const MCDataFragment>(fragment).getFixups();
+        break;
+    }
+    case MCFragment::FT_Relaxable: {
+        fixups = &cast<const MCRelaxableFragment>(fragment).getFixups();
+        break;
+    }
     }
 
     // Iterate fixups
@@ -164,17 +168,14 @@ void ObjectWriterWrapper::validate_fixups(const MCFragment& fragment, const MCAs
     }
 }
 
-void ObjectWriterWrapper::executePostLayoutBinding(llvm::MCAssembler& Asm, const llvm::MCAsmLayout& Layout) {
+void ObjectWriterWrapper::executePostLayoutBinding(llvm::MCAssembler& Asm, const llvm::MCAsmLayout& Layout)
+{
     inner_object_writer->executePostLayoutBinding(Asm, Layout);
 }
 
-void ObjectWriterWrapper::recordRelocation(
-    MCAssembler& Asm,
-    const MCAsmLayout& Layout,
-    const MCFragment* Fragment,
-    const MCFixup& Fixup,
-    MCValue Target,
-    uint64_t& FixedValue) {
+void ObjectWriterWrapper::recordRelocation(MCAssembler& Asm, const MCAsmLayout& Layout, const MCFragment* Fragment,
+    const MCFixup& Fixup, MCValue Target, uint64_t& FixedValue)
+{
     inner_object_writer->recordRelocation(Asm, Layout, Fragment, Fixup, Target, FixedValue);
 
     // LLVM performs relocation for the AArch64 instruction `adrp` during the linking step.
@@ -196,12 +197,12 @@ void ObjectWriterWrapper::recordRelocation(
     }
 }
 
-uint64_t ObjectWriterWrapper::writeObject(MCAssembler& Asm, const MCAsmLayout& Layout) {
+uint64_t ObjectWriterWrapper::writeObject(MCAssembler& Asm, const MCAsmLayout& Layout)
+{
     // Get .text section
     const auto& sections = Layout.getSectionOrder();
-    const MCSection* const* text_section_it = std::find_if(std::begin(sections), std::end(sections), [](auto section) {
-        return section->getName().str() == ".text";
-    });
+    const MCSection* const* text_section_it = std::find_if(
+        std::begin(sections), std::end(sections), [](auto section) { return section->getName().str() == ".text"; });
 
     if (text_section_it == sections.end()) {
         extended_error += "[writeObject] Object has no .text section.";
@@ -240,9 +241,7 @@ uint64_t ObjectWriterWrapper::writeObject(MCAssembler& Asm, const MCAsmLayout& L
                 // Update instruction bytes
                 insn_bytes.clear();
                 insn_bytes.reserve(insn_len);
-                std::copy(
-                    contents.begin() + frag_pos,
-                    contents.begin() + frag_pos + insn_len,
+                std::copy(contents.begin() + frag_pos, contents.begin() + frag_pos + insn_len,
                     std::back_inserter(insn_bytes));
 
                 // Prepare next iteration
@@ -288,18 +287,10 @@ uint64_t ObjectWriterWrapper::writeObject(MCAssembler& Asm, const MCAsmLayout& L
 }
 
 std::unique_ptr<MCObjectWriter> ObjectWriterWrapper::createObjectWriterWrapper(
-    std::unique_ptr<MCObjectWriter>&& object_writer,
-    raw_pwrite_stream& stream,
-    MCContext& context,
-    bool write_text_section_only,
-    std::string& extended_error,
-    std::vector<Nyxstone::Instruction>* instructions) {
+    std::unique_ptr<MCObjectWriter>&& object_writer, raw_pwrite_stream& stream, MCContext& context,
+    bool write_text_section_only, std::string& extended_error, std::vector<Nyxstone::Instruction>* instructions)
+{
     return std::make_unique<ObjectWriterWrapper>(
-        std::move(object_writer),
-        stream,
-        context,
-        write_text_section_only,
-        extended_error,
-        instructions);
+        std::move(object_writer), stream, context, write_text_section_only, extended_error, instructions);
 }
 } // namespace emproof

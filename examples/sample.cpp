@@ -6,12 +6,13 @@
 using emproof::Nyxstone;
 using emproof::NyxstoneBuilder;
 
-int main(int /* argc */, char** /* argv */) {
+int main(int /* argc */, char** /* argv */)
+{
     try {
         auto nyxstone_x86_64 = NyxstoneBuilder().with_triple("x86_64-linux-gnu").build();
         auto nyxstone_armv8m = NyxstoneBuilder().with_triple("armv8m.main-none-eabi").build();
 
-        const std::vector<Nyxstone::LabelDefinition> labels {{".label", 0x1010}};
+        const std::vector<Nyxstone::LabelDefinition> labels { { ".label", 0x1010 } };
         std::vector<uint8_t> bytes;
         std::vector<Nyxstone::Instruction> instructions;
         std::string disassembly;
@@ -61,13 +62,13 @@ int main(int /* argc */, char** /* argv */) {
 
         std::cout << std::endl << "disassemble_to_text:" << std::endl;
         std::cout << "\t48 89 c0 : [ ";
-        nyxstone_x86_64->disassemble_to_text({0x48, 0x89, 0xc0}, 0x1000, 0, disassembly);
+        nyxstone_x86_64->disassemble_to_text({ 0x48, 0x89, 0xc0 }, 0x1000, 0, disassembly);
         disassembly.erase(disassembly.find_last_not_of(" \t\n\r") + 1);
         std::cout << disassembly;
         std::cout << " ] - expected [ mov rax, rax ]\n";
 
         std::cout << "\t06 d1 : [ ";
-        nyxstone_armv8m->disassemble_to_text({0x06, 0xd1}, 0x1000, 0, disassembly);
+        nyxstone_armv8m->disassemble_to_text({ 0x06, 0xd1 }, 0x1000, 0, disassembly);
         disassembly.erase(disassembly.find_last_not_of(" \t\n\r") + 1);
         std::cout << disassembly;
         std::cout << " ] - expected [ bne #12 ]\n";
