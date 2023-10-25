@@ -184,7 +184,46 @@ void Nyxstone::disassemble_to_instructions(
     disassemble_impl(bytes, address, count, nullptr, &instructions);
 }
 
-// NOLINTNEXTLINE (readability-function-cognitive-complexity)
+namespace {
+const char* const PREPENDED_ASSEMBLY {"bkpt #0x42\n"};
+constexpr std::array<uint8_t, 2> PREPENDED_BYTES {0x42, 0xbe};
+
+std::string prepend_bkpt(std::string&& assembly, bool needs_prepend) {
+    if (needs_prepend) {
+        assembly.insert(0, PREPENDED_ASSEMBLY);
+    }
+
+    return assembly;
+}
+
+SmallVector<char, 128>
+remove_bkpt(SmallVector<char, 128>&& bytes, std::vector<Nyxstone::Instruction>* instructions, bool has_prepend) {
+    // If bkpt got prepended for alignment reasons, remove it from instructions and bytes
+    if (has_prepend) {
+        if (instructions != nullptr) {
+            const auto& first_instr_bytes = instructions->front().bytes;
+            const bool has_prepended_bytes = !instructions->empty() && first_instr_bytes.size() == 2
+                && std::equal(begin(first_instr_bytes), end(first_instr_bytes), begin(PREPENDED_BYTES));
+            if (!has_prepended_bytes) {
+                throw Nyxstone::Exception("Did not find prepended bkpt at first instruction.");
+            }
+            instructions->erase(instructions->begin());
+        }
+
+        if (bytes.size() < 2 || memcmp(PREPENDED_BYTES.data(), bytes.data(), 2) != 0) {
+            std::ostringstream error_stream;
+            error_stream << "Did not find prepended bkpt at first two bytes.";
+            error_stream << " Found bytes 0x" << std::hex << static_cast<unsigned int>(bytes[0]) << " 0x"
+                         << static_cast<unsigned int>(bytes[1]);
+            throw Nyxstone::Exception(error_stream.str());
+        }
+        bytes.erase(bytes.begin(), bytes.begin() + 2);
+    }
+
+    return std::move(bytes);
+}
+}  // namespace
+
 void Nyxstone::assemble_impl(
     const std::string& assembly,
     uint64_t address,
@@ -208,14 +247,8 @@ void Nyxstone::assemble_impl(
     //
     // tl;dr
     // For Thumb prepend 2 byte in assembly if `(address % 4) == 2` to get correct alignment behavior.
-    auto input_assembly = assembly;
-    const bool prepend_bkpt = is_ArmT16_or_ArmT32(triple) && address % 4 == 2;
-    uint64_t compensate_prepended_bkpt = 0;
-    std::vector<uint8_t> prepend_bkpt_bytes = {0x42, 0xbe};
-    if (prepend_bkpt) {
-        input_assembly.insert(0, "bkpt #0x42\n");
-        compensate_prepended_bkpt = 2;
-    }
+    const bool needs_prepend {is_ArmT16_or_ArmT32(triple) && address % 4 == 2};
+    const std::string input_assembly {prepend_bkpt(std::move(std::string {assembly}), needs_prepend)};
 
     // Add input assembly text
     llvm::SourceMgr source_manager;
@@ -326,6 +359,7 @@ void Nyxstone::assemble_impl(
     }
 
     // Inject user-defined labels
+    const uint64_t compensate_prepended_bkpt = (needs_prepend) ? PREPENDED_BYTES.size() : 0u;
     for (const auto& label : labels) {
         auto* inj_symbol = context.getOrCreateSymbol(label.name);
         inj_symbol->setOffset(label.address - address + compensate_prepended_bkpt);
@@ -343,24 +377,7 @@ void Nyxstone::assemble_impl(
         throw Nyxstone::Exception(error_stream.str());
     }
 
-    // If bkpt got prepended for alignment reasons, remove it from instructions and bytes
-    if (prepend_bkpt) {
-        if (instructions != nullptr) {
-            if (instructions->empty() || instructions->front().bytes != prepend_bkpt_bytes) {
-                throw Nyxstone::Exception("Did not find prepended bkpt at first instruction.");
-            }
-            instructions->erase(instructions->begin());
-        }
-
-        if (output_bytes.size() < 2 || memcmp(prepend_bkpt_bytes.data(), output_bytes.data(), 2) != 0) {
-            std::ostringstream error_stream;
-            error_stream << "Did not find prepended bkpt at first two bytes.";
-            error_stream << " Found bytes 0x" << std::hex << static_cast<unsigned int>(output_bytes[0]) << " 0x"
-                         << static_cast<unsigned int>(output_bytes[1]);
-            throw Nyxstone::Exception(error_stream.str());
-        }
-        output_bytes.erase(output_bytes.begin(), output_bytes.begin() + 2);
-    }
+    output_bytes = std::move(remove_bkpt(std::move(output_bytes), instructions, needs_prepend));
 
     // Assign addresses if instruction details requested
     if (instructions != nullptr) {
