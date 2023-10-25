@@ -12,6 +12,9 @@
 
 namespace po = boost::program_options;
 
+using emproof::Nyxstone;
+using emproof::NyxstoneBuilder;
+
 enum class Architecture;
 std::optional<Architecture> arch_parse_from_string(const std::string& arch);
 void print_bytes(const std::vector<uint8_t>& bytes);

@@ -1,12 +1,15 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include <sstream>
 #include <iomanip>
+#include <sstream>
 
 #include <nyxstone.h>
 
 namespace py = pybind11;
+
+using emproof::Nyxstone;
+using emproof::NyxstoneBuilder;
 
 std::vector<uint8_t> assemble_to_bytes(
     Nyxstone& nyxstone,

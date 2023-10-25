@@ -3,6 +3,9 @@
 #include <iomanip>
 #include <iostream>
 
+using emproof::Nyxstone;
+using emproof::NyxstoneBuilder;
+
 int main(int /* argc */, char** /* argv */) {
     try {
         auto nyxstone_x86_64 = NyxstoneBuilder().with_triple("x86_64-linux-gnu").build();

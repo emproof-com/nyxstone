@@ -27,6 +27,7 @@
 
 using namespace llvm;
 
+namespace emproof {
 void ELFStreamerWrapper::emitInstruction(const MCInst& Inst, const MCSubtargetInfo& STI) {
     MCELFStreamer::emitInstruction(Inst, STI);
 
@@ -133,3 +134,4 @@ std::unique_ptr<MCStreamer> ELFStreamerWrapper::createELFStreamerWrapper(
     }
     return streamer;
 }
+} // namespace emproof

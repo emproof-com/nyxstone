@@ -31,6 +31,7 @@
 
 using namespace llvm;
 
+namespace emproof {
 /// Performs a value alignment to a specific value.
 ///
 /// @param[in] value - Value to align.
@@ -301,3 +302,4 @@ std::unique_ptr<MCObjectWriter> ObjectWriterWrapper::createObjectWriterWrapper(
         extended_error,
         instructions);
 }
+} // namespace emproof

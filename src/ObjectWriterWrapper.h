@@ -20,6 +20,7 @@
 #include <llvm/MC/MCValue.h>
 #pragma GCC diagnostic pop
 
+namespace emproof {
 /// This class derives from LLVM's MCObjectWriter, which enables us to include
 /// user-define symbols/labels into the internal address resolution process
 /// (via 'executePostLayoutBinding()').
@@ -104,3 +105,4 @@ class ObjectWriterWrapper: public llvm::MCObjectWriter {
     /// @brief Write object to the stream and update the bytes of the instruction details.
     uint64_t writeObject(llvm::MCAssembler& Asm, const llvm::MCAsmLayout& Layout) override;
 };
+} // namespace emproof

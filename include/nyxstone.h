@@ -10,6 +10,7 @@
 #include <llvm/MC/TargetRegistry.h>
 #pragma GCC diagnostic pop
 
+namespace emproof {
 /// Nyxstone class for assembling and disassembling for a given architecture.
 class Nyxstone {
     /// The LLVM triple
@@ -248,3 +249,4 @@ class NyxstoneBuilder {
 
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.
 bool is_ArmT16_or_ArmT32(const llvm::Triple& triple);
+} // namespace emproof

@@ -1,5 +1,7 @@
 #include "nyxstone_ffi.hpp"
 
+using namespace emproof;
+
 struct LabelDefinition final {
     rust::str name {};
     uint64_t address = 0;
