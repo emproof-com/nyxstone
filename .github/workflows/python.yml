@@ -35,5 +35,5 @@ jobs:
       run: pip install .
       working-directory: ${{ env.working-dir }}
     - name: Test
-      run: python example.py
+      run: python tests/test.py
       working-directory: ${{ env.working-dir }}

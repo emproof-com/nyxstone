@@ -20,6 +20,7 @@
 #include <llvm/MC/MCValue.h>
 #pragma GCC diagnostic pop
 
+namespace nyxstone {
 /// This class enables us to limit the final output byte stream to the
 /// relevant bytes (as opposed to the whole ELF object file) and grab final
 /// instruction bytes (after relaxation and fixups) (via 'writeObject()').
@@ -28,7 +29,7 @@
 /// These are necessary when a relocation is normally performed at link time or when
 /// LLVM does not verify a fixup according to the specification, leading to wrong
 /// output for specific instruction/label combinations.
-class ObjectWriterWrapper: public llvm::MCObjectWriter {
+class ObjectWriterWrapper : public llvm::MCObjectWriter {
     // Wrapped MCObjectWriter, f. i., ELFSingleObjectWriter
     std::unique_ptr<llvm::MCObjectWriter> inner_object_writer;
 
@@ -56,52 +57,44 @@ class ObjectWriterWrapper: public llvm::MCObjectWriter {
     /// @param Layout The ASM Layout after fixups have been applied.
     void validate_fixups(const llvm::MCFragment& fragment, const llvm::MCAsmLayout& Layout);
 
-  public:
+public:
     /// @brief Creates an ObjectWriterWrapper.
     ///
     /// The ObjectWriterWrapper is created using the wrapped MCObjectWriter, some additional llvm classes
     /// used for querying additional information from LLVM, and a (nullable) pointer to the instruction information.
     ///
     /// @param object_writer The object writer object to wrap, must implement the function used by this class.
-    /// @param stream Stream (used for the @p object_writer) to write the .text section to if requested via @p write_text_section_only.
+    /// @param stream Stream (used for the @p object_writer) to write the .text section to if requested via @p
+    /// write_text_section_only.
     /// @param write_text_section_only If only the .text section should be written to @p stream.
     /// @param extended_error Accumulation for llvm errors, since Exceptions might not be supported by the linked LLVM.
     /// @param instructions Instruction information for which the bytes should be corrected.
-    ObjectWriterWrapper(
-        std::unique_ptr<llvm::MCObjectWriter>&& object_writer,
-        llvm::raw_pwrite_stream& stream,
-        llvm::MCContext& context,
-        bool write_text_section_only,
-        std::string& extended_error,
-        std::vector<Nyxstone::Instruction>* instructions) :
-        inner_object_writer(std::move(object_writer)),
-        stream(stream),
-        context(context),
-        write_text_section_only(write_text_section_only),
-        extended_error(extended_error),
-        instructions(instructions) {}
+    ObjectWriterWrapper(std::unique_ptr<llvm::MCObjectWriter>&& object_writer, llvm::raw_pwrite_stream& stream,
+        llvm::MCContext& context, bool write_text_section_only, std::string& extended_error,
+        std::vector<Nyxstone::Instruction>* instructions)
+        : inner_object_writer(std::move(object_writer))
+        , stream(stream)
+        , context(context)
+        , write_text_section_only(write_text_section_only)
+        , extended_error(extended_error)
+        , instructions(instructions)
+    {
+    }
 
     /// @brief Creates a UniquePtr holding the the ObjectWriterWrapper
     static std::unique_ptr<llvm::MCObjectWriter> createObjectWriterWrapper(
-        std::unique_ptr<llvm::MCObjectWriter>&& object_writer,
-        llvm::raw_pwrite_stream& stream,
-        llvm::MCContext& context,
-        bool write_text_section_only,
-        std::string& extended_error,
+        std::unique_ptr<llvm::MCObjectWriter>&& object_writer, llvm::raw_pwrite_stream& stream,
+        llvm::MCContext& context, bool write_text_section_only, std::string& extended_error,
         std::vector<Nyxstone::Instruction>* instructions);
 
     /// @brief Simple function wrapper calling the wrapped object wrapper function directly.
     void executePostLayoutBinding(llvm::MCAssembler& Asm, const llvm::MCAsmLayout& Layout) override;
 
     /// @brief Performs relocations via the wrapped object wrapper as well as custom relocations.
-    void recordRelocation(
-        llvm::MCAssembler& Asm,
-        const llvm::MCAsmLayout& Layout,
-        const llvm::MCFragment* Fragment,
-        const llvm::MCFixup& Fixup,
-        llvm::MCValue Target,
-        uint64_t& FixedValue) override;
+    void recordRelocation(llvm::MCAssembler& Asm, const llvm::MCAsmLayout& Layout, const llvm::MCFragment* Fragment,
+        const llvm::MCFixup& Fixup, llvm::MCValue Target, uint64_t& FixedValue) override;
 
     /// @brief Write object to the stream and update the bytes of the instruction details.
     uint64_t writeObject(llvm::MCAssembler& Asm, const llvm::MCAsmLayout& Layout) override;
 };
+} // namespace nyxstone

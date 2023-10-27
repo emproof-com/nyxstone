@@ -10,53 +10,52 @@
 #include <llvm/MC/TargetRegistry.h>
 #pragma GCC diagnostic pop
 
+namespace nyxstone {
 /// Nyxstone class for assembling and disassembling for a given architecture.
 class Nyxstone {
-    /// The LLVM triple
-    llvm::Triple triple;
-    /// Specific cpu to use (can be empty).
-    std::string m_cpu;
-    /// Additional features to en-/disable (can be emtpy).
-    std::string m_features;
-
-    const llvm::Target& target;
-
-    llvm::MCTargetOptions target_options;
-
-    std::unique_ptr<llvm::MCRegisterInfo> register_info;
-    std::unique_ptr<llvm::MCAsmInfo> assembler_info;
-    std::unique_ptr<llvm::MCInstrInfo> instruction_info;
-    std::unique_ptr<llvm::MCSubtargetInfo> subtarget_info;
-    std::unique_ptr<llvm::MCInstPrinter> instruction_printer;
-
-  public:
+public:
     /// Custom exception class used throughout nyxstone to pass any kind of String describing an error upwards.
-    class Exception final: public std::exception {
-      public:
-        [[nodiscard]] const char* what() const noexcept override {
-            return inner.c_str();
-        }
+    class Exception final : public std::exception {
+    public:
+        [[nodiscard]] const char* what() const noexcept override { return inner.c_str(); }
 
-        Exception(const Exception& error) noexcept : inner(error.inner) {}
-        Exception(Exception&& error) noexcept : inner(std::move(error.inner)) {}
-        explicit Exception(const char* desc) noexcept : inner(desc) {}
-        explicit Exception(std::string&& desc) noexcept : inner(desc) {}
-        explicit Exception(const llvm::StringRef& desc) noexcept : inner(desc.str()) {}
+        Exception(const Exception& error) noexcept
+            : inner(error.inner)
+        {
+        }
+        Exception(Exception&& error) noexcept
+            : inner(std::move(error.inner))
+        {
+        }
+        explicit Exception(const char* desc) noexcept
+            : inner(desc)
+        {
+        }
+        explicit Exception(std::string&& desc) noexcept
+            : inner(desc)
+        {
+        }
+        explicit Exception(const llvm::StringRef& desc) noexcept
+            : inner(desc.str())
+        {
+        }
         ~Exception() override = default;
 
-        Exception& operator=(const Exception& error) noexcept {
+        Exception& operator=(const Exception& error) noexcept
+        {
             if (this != &error) {
                 this->inner = error.inner;
             }
             return *this;
         }
 
-        Exception& operator=(Exception&& error) noexcept {
+        Exception& operator=(Exception&& error) noexcept
+        {
             this->inner = std::move(error.inner);
             return *this;
         }
 
-      private:
+    private:
         std::string inner;
     };
 
@@ -94,27 +93,20 @@ class Nyxstone {
     /// @param instruction_info Instruction information for the given triple.
     /// @param subtarget_info Information about the subtarget, created with @p cpu and @p features.
     /// @param instruction_printer Instruction printer for the given architecture.
-    Nyxstone(
-        llvm::Triple&& triple,
-        std::string&& cpu,
-        std::string&& features,
-        const llvm::Target& target,
-        llvm::MCTargetOptions&& target_options,
-        std::unique_ptr<llvm::MCRegisterInfo>&& register_info,
-        std::unique_ptr<llvm::MCAsmInfo>&& assembler_info,
-        std::unique_ptr<llvm::MCInstrInfo>&& instruction_info,
-        std::unique_ptr<llvm::MCSubtargetInfo>&& subtarget_info,
-        std::unique_ptr<llvm::MCInstPrinter>&& instruction_printer) noexcept :
-        triple(std::move(triple)),
-        m_cpu(std::move(cpu)),
-        m_features(std::move(features)),
-        target(target),
-        target_options(std::move(target_options)),
-        register_info(std::move(register_info)),
-        assembler_info(std::move(assembler_info)),
-        instruction_info(std::move(instruction_info)),
-        subtarget_info(std::move(subtarget_info)),
-        instruction_printer(std::move(instruction_printer)) {}
+    Nyxstone(llvm::Triple&& triple, const llvm::Target& target, llvm::MCTargetOptions&& target_options,
+        std::unique_ptr<llvm::MCRegisterInfo>&& register_info, std::unique_ptr<llvm::MCAsmInfo>&& assembler_info,
+        std::unique_ptr<llvm::MCInstrInfo>&& instruction_info, std::unique_ptr<llvm::MCSubtargetInfo>&& subtarget_info,
+        std::unique_ptr<llvm::MCInstPrinter>&& instruction_printer) noexcept
+        : triple(std::move(triple))
+        , target(target)
+        , target_options(std::move(target_options))
+        , register_info(std::move(register_info))
+        , assembler_info(std::move(assembler_info))
+        , instruction_info(std::move(instruction_info))
+        , subtarget_info(std::move(subtarget_info))
+        , instruction_printer(std::move(instruction_printer))
+    {
+    }
 
     /// @brief Translates assembly instructions at given start address to bytes.
     ///
@@ -125,10 +117,7 @@ class Nyxstone {
     /// @param address The absolute address of the first instruction.
     /// @param labels Label definitions, should hold all external labels used in the @p assembly.
     /// @param bytes The assembled byte code (Note: the vector is reset before writing to it).
-    void assemble_to_bytes(
-        const std::string& assembly,
-        uint64_t address,
-        const std::vector<LabelDefinition>& labels,
+    void assemble_to_bytes(const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels,
         std::vector<uint8_t>& bytes) const;
 
     /// @brief Translates assembly instructions at given start address to instruction details containing bytes.
@@ -140,11 +129,8 @@ class Nyxstone {
     /// @param address The absolute address of the first instruction.
     /// @param labels Label definitions, should hold all external labels used in the @p assembly.
     /// @param instructions Holds the instruction details of the assembled @p assembly.
-    void assemble_to_instructions(
-        const std::string& assembly,
-        uint64_t address,
-        const std::vector<LabelDefinition>& labels,
-        std::vector<Instruction>& instructions) const;
+    void assemble_to_instructions(const std::string& assembly, uint64_t address,
+        const std::vector<LabelDefinition>& labels, std::vector<Instruction>& instructions) const;
 
     /// @brief Translates bytes to disassembly text at given start address.
     ///
@@ -152,9 +138,8 @@ class Nyxstone {
     /// @param address The absolute address of the byte code.
     /// @param count The number of instructions which should be disassembled, 0 means all.
     /// @param disassembly Disassembly output.
-    void
-    disassemble_to_text(const std::vector<uint8_t>& bytes, uint64_t address, size_t count, std::string& disassembly)
-        const;
+    void disassemble_to_text(
+        const std::vector<uint8_t>& bytes, uint64_t address, size_t count, std::string& disassembly) const;
 
     /// @brief Translates bytes to instruction details containing disassembly text at given start address.
     ///
@@ -162,37 +147,41 @@ class Nyxstone {
     /// @param address The absolute address of the byte code.
     /// @param count The number of instructions which should be disassembled, 0 means all.
     /// @param instructions Holds the instruction details after disassembling.
-    void disassemble_to_instructions(
-        const std::vector<uint8_t>& bytes,
-        uint64_t address,
-        size_t count,
+    void disassemble_to_instructions(const std::vector<uint8_t>& bytes, uint64_t address, size_t count,
         std::vector<Instruction>& instructions) const;
 
-  private:
+private:
     // Uses LLVM to assemble instructions.
     // Utilizes some custom overloads to import user-supplied label definitions and extract instruction details.
-    void assemble_impl(
-        const std::string& assembly,
-        uint64_t address,
-        const std::vector<LabelDefinition>& labels,
-        std::vector<uint8_t>& bytes,
-        std::vector<Instruction>* instructions) const;
+    void assemble_impl(const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels,
+        std::vector<uint8_t>& bytes, std::vector<Instruction>* instructions) const;
 
     // Uses LLVM to disassemble instructions.
-    void disassemble_impl(
-        const std::vector<uint8_t>& bytes,
-        uint64_t address,
-        size_t count,
-        std::string* disassembly,
+    void disassemble_impl(const std::vector<uint8_t>& bytes, uint64_t address, size_t count, std::string* disassembly,
         std::vector<Instruction>* instructions) const;
+
+    /// The LLVM triple
+    llvm::Triple triple;
+
+    // Target is a static object, thus it is safe to take its const reference.
+    const llvm::Target& target;
+
+    llvm::MCTargetOptions target_options;
+
+    std::unique_ptr<llvm::MCRegisterInfo> register_info;
+    std::unique_ptr<llvm::MCAsmInfo> assembler_info;
+    std::unique_ptr<llvm::MCInstrInfo> instruction_info;
+    std::unique_ptr<llvm::MCSubtargetInfo> subtarget_info;
+    std::unique_ptr<llvm::MCInstPrinter> instruction_printer;
 };
 
 /**
  * @brief Builder for Nyxstone instances.
  **/
 class NyxstoneBuilder {
-  public:
+public:
     /// @brief Configuration options for the immediate representation in disassembly.
+    // This is a uint8_t for better interoperability with rust.
     enum class IntegerBase : uint8_t {
         /// Immediates are represented in decimal format.
         Dec = 0,
@@ -202,7 +191,7 @@ class NyxstoneBuilder {
         HexSuffix = 2,
     };
 
-  private:
+private:
     ///@brief The llvm target triple.
     std::string m_triple;
     /// @brief Specific CPU for LLVM, default is empty.
@@ -212,7 +201,7 @@ class NyxstoneBuilder {
     /// @brief In which style immediates should be represented in disassembly.
     IntegerBase m_imm_style = IntegerBase::Dec;
 
-  public:
+public:
     NyxstoneBuilder() = default;
     NyxstoneBuilder(const NyxstoneBuilder&) = default;
     NyxstoneBuilder(NyxstoneBuilder&&) = default;
@@ -250,3 +239,4 @@ class NyxstoneBuilder {
 
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.
 bool is_ArmT16_or_ArmT32(const llvm::Triple& triple);
+} // namespace nyxstone

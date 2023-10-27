@@ -1,7 +1,7 @@
 # build directory
 build/
 
-# doc directory
+# doc directory to discourage making changes in commit, since the CI updates the doxygen docs
 doc/
 
 # language server files
