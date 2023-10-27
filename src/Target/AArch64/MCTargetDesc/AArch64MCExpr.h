@@ -22,8 +22,8 @@
 
 namespace llvm {
 
-class AArch64MCExpr: public MCTargetExpr {
-  public:
+class AArch64MCExpr : public MCTargetExpr {
+public:
     enum VariantKind {
         // Symbol locations specifying (roughly speaking) what calculation should be
         // performed to construct the final address for the relocated
@@ -115,13 +115,17 @@ class AArch64MCExpr: public MCTargetExpr {
         VK_INVALID = 0xfff
     };
 
-  private:
+private:
     const MCExpr* Expr;
     const VariantKind Kind;
 
-    explicit AArch64MCExpr(const MCExpr* Expr, VariantKind Kind) : Expr(Expr), Kind(Kind) {}
+    explicit AArch64MCExpr(const MCExpr* Expr, VariantKind Kind)
+        : Expr(Expr)
+        , Kind(Kind)
+    {
+    }
 
-  public:
+public:
     /// @name Construction
     /// @{
 
@@ -132,30 +136,20 @@ class AArch64MCExpr: public MCTargetExpr {
     /// @{
 
     /// Get the kind of this expression.
-    VariantKind getKind() const {
-        return Kind;
-    }
+    VariantKind getKind() const { return Kind; }
 
     /// Get the expression this modifier applies to.
-    const MCExpr* getSubExpr() const {
-        return Expr;
-    }
+    const MCExpr* getSubExpr() const { return Expr; }
 
     /// @}
     /// @name VariantKind information extractors.
     /// @{
 
-    static VariantKind getSymbolLoc(VariantKind Kind) {
-        return static_cast<VariantKind>(Kind & VK_SymLocBits);
-    }
+    static VariantKind getSymbolLoc(VariantKind Kind) { return static_cast<VariantKind>(Kind & VK_SymLocBits); }
 
-    static VariantKind getAddressFrag(VariantKind Kind) {
-        return static_cast<VariantKind>(Kind & VK_AddressFragBits);
-    }
+    static VariantKind getAddressFrag(VariantKind Kind) { return static_cast<VariantKind>(Kind & VK_AddressFragBits); }
 
-    static bool isNotChecked(VariantKind Kind) {
-        return Kind & VK_NC;
-    }
+    static bool isNotChecked(VariantKind Kind) { return Kind & VK_NC; }
 
     /// @}
 
@@ -173,14 +167,10 @@ class AArch64MCExpr: public MCTargetExpr {
 
     void fixELFSymbolsInTLSFixups(MCAssembler& Asm) const override;
 
-    static bool classof(const MCExpr* E) {
-        return E->getKind() == MCExpr::Target;
-    }
+    static bool classof(const MCExpr* E) { return E->getKind() == MCExpr::Target; }
 
-    static bool classof(const AArch64MCExpr*) {
-        return true;
-    }
+    static bool classof(const AArch64MCExpr*) { return true; }
 };
-}  // end namespace llvm
+} // end namespace llvm
 
 #endif

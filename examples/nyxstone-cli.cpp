@@ -12,13 +12,17 @@
 
 namespace po = boost::program_options;
 
+using nyxstone::Nyxstone;
+using nyxstone::NyxstoneBuilder;
+
 enum class Architecture;
 std::optional<Architecture> arch_parse_from_string(const std::string& arch);
 void print_bytes(const std::vector<uint8_t>& bytes);
 std::string arch_to_llvm_string(Architecture arch);
 std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string labelstr);
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv)
+{
     // clang-format off
     po::options_description desc("Allowed options");
     desc.add_options()
@@ -90,7 +94,7 @@ int main(int argc, char** argv) {
         labels = maybe_labels.value();
     }
 
-    std::unique_ptr<Nyxstone> nyxstone {nullptr};
+    std::unique_ptr<Nyxstone> nyxstone { nullptr };
     try {
         nyxstone = std::move(NyxstoneBuilder().with_triple(std::move(arch)).build());
     } catch (const std::exception& e) {
@@ -148,7 +152,8 @@ int main(int argc, char** argv) {
     return 0;
 }
 
-void print_bytes(const std::vector<uint8_t>& bytes) {
+void print_bytes(const std::vector<uint8_t>& bytes)
+{
     std::cout << std::hex << "[ ";
     for (const auto& byte : bytes) {
         std::cout << std::setfill('0') << std::setw(2) << static_cast<uint32_t>(byte) << " ";
@@ -156,7 +161,8 @@ void print_bytes(const std::vector<uint8_t>& bytes) {
     std::cout << std::dec << "]";
 }
 
-std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string labelstr) {
+std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string labelstr)
+{
     auto delim = ',';
 
     std::vector<Nyxstone::LabelDefinition> labels;
@@ -187,7 +193,7 @@ std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string l
             return {};
         }
 
-        labels.push_back(Nyxstone::LabelDefinition {name, value});
+        labels.push_back(Nyxstone::LabelDefinition { name, value });
 
         labelstr.erase(0, delim_pos == std::string::npos ? delim_pos : delim_pos + 1);
     }

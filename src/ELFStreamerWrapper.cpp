@@ -27,7 +27,9 @@
 
 using namespace llvm;
 
-void ELFStreamerWrapper::emitInstruction(const MCInst& Inst, const MCSubtargetInfo& STI) {
+namespace nyxstone {
+void ELFStreamerWrapper::emitInstruction(const MCInst& Inst, const MCSubtargetInfo& STI)
+{
     MCELFStreamer::emitInstruction(Inst, STI);
 
     // Only record instruction details if requested
@@ -49,10 +51,7 @@ void ELFStreamerWrapper::emitInstruction(const MCInst& Inst, const MCSubtargetIn
     }
 
     // Get length of already recorded instructions
-    const size_t insn_byte_length = std::accumulate(
-        instructions->begin(),
-        instructions->end(),
-        static_cast<size_t>(0),
+    const size_t insn_byte_length = std::accumulate(instructions->begin(), instructions->end(), static_cast<size_t>(0),
         [](size_t acc, const Nyxstone::Instruction& insn) { return acc + insn.bytes.size(); });
 
     // Iterate fragments
@@ -61,18 +60,18 @@ void ELFStreamerWrapper::emitInstruction(const MCInst& Inst, const MCSubtargetIn
         // Get Content
         MutableArrayRef<char> contents;
         switch (fragment.getKind()) {
-            default:
-                continue;
-            case MCFragment::FT_Data: {
-                auto& data_fragment = cast<MCDataFragment>(fragment);
-                contents = data_fragment.getContents();
-                break;
-            }
-            case MCFragment::FT_Relaxable: {
-                auto& relaxable_fragment = cast<MCRelaxableFragment>(fragment);
-                contents = relaxable_fragment.getContents();
-                break;
-            }
+        default:
+            continue;
+        case MCFragment::FT_Data: {
+            auto& data_fragment = cast<MCDataFragment>(fragment);
+            contents = data_fragment.getContents();
+            break;
+        }
+        case MCFragment::FT_Relaxable: {
+            auto& relaxable_fragment = cast<MCRelaxableFragment>(fragment);
+            contents = relaxable_fragment.getContents();
+            break;
+        }
         }
         frag_byte_length += contents.size();
 
@@ -110,26 +109,17 @@ void ELFStreamerWrapper::emitInstruction(const MCInst& Inst, const MCSubtargetIn
     }
 }
 
-std::unique_ptr<MCStreamer> ELFStreamerWrapper::createELFStreamerWrapper(
-    MCContext& context,
-    std::unique_ptr<MCAsmBackend>&& assembler_backend,
-    std::unique_ptr<MCObjectWriter>&& object_writer,
-    std::unique_ptr<MCCodeEmitter>&& code_emitter,
-    bool RelaxAll,
-    std::vector<Nyxstone::Instruction>* instructions,
-    std::string& extended_error,
-    MCInstPrinter& instruction_printer) {
-    auto streamer = std::make_unique<ELFStreamerWrapper>(
-        context,
-        std::move(assembler_backend),
-        std::move(object_writer),
-        std::move(code_emitter),
-        instructions,
-        extended_error,
-        instruction_printer);
+std::unique_ptr<MCStreamer> ELFStreamerWrapper::createELFStreamerWrapper(MCContext& context,
+    std::unique_ptr<MCAsmBackend>&& assembler_backend, std::unique_ptr<MCObjectWriter>&& object_writer,
+    std::unique_ptr<MCCodeEmitter>&& code_emitter, bool RelaxAll, std::vector<Nyxstone::Instruction>* instructions,
+    std::string& extended_error, MCInstPrinter& instruction_printer)
+{
+    auto streamer = std::make_unique<ELFStreamerWrapper>(context, std::move(assembler_backend),
+        std::move(object_writer), std::move(code_emitter), instructions, extended_error, instruction_printer);
 
     if (RelaxAll) {
         streamer->getAssembler().setRelaxAll(true);
     }
     return streamer;
 }
+} // namespace nyxstone
