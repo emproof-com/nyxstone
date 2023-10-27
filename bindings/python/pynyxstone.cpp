@@ -9,6 +9,8 @@
 
 namespace py = pybind11;
 
+using namespace nyxstone;
+
 std::vector<Nyxstone::LabelDefinition> convert_labels(std::unordered_map<std::string, uint64_t>&& labels)
 {
     std::vector<Nyxstone::LabelDefinition> vlabels {};
