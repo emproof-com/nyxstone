@@ -1,6 +1,6 @@
 #include "nyxstone_ffi.hpp"
 
-using namespace emproof;
+using namespace nyxstone;
 
 struct LabelDefinition final {
     rust::str name {};

@@ -3,8 +3,8 @@
 #include <iomanip>
 #include <iostream>
 
-using emproof::Nyxstone;
-using emproof::NyxstoneBuilder;
+using nyxstone::Nyxstone;
+using nyxstone::NyxstoneBuilder;
 
 int main(int /* argc */, char** /* argv */)
 {

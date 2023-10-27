@@ -17,14 +17,14 @@ enum class IntegerBase : uint8_t;
 // See class and function documentation in Nyxstone.h for further info.
 class NyxstoneFFI {
     // Internal Nyxstone instance
-    std::unique_ptr<emproof::Nyxstone> nyxstone;
+    std::unique_ptr<nyxstone::Nyxstone> nyxstone;
 
 public:
     /**
      * @brief Constructor for NyxstoneFFI.
      * @param nyxstone Unique_ptr holding the Nyxstone instance.
      */
-    explicit NyxstoneFFI(std::unique_ptr<emproof::Nyxstone>&& nyxstone)
+    explicit NyxstoneFFI(std::unique_ptr<nyxstone::Nyxstone>&& nyxstone)
         : nyxstone(std::move(nyxstone))
     {
     }

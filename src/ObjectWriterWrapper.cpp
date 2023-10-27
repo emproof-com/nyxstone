@@ -31,7 +31,7 @@
 
 using namespace llvm;
 
-namespace emproof {
+namespace nyxstone {
 /// Performs a value alignment to a specific value.
 ///
 /// @param[in] value - Value to align.
@@ -293,4 +293,4 @@ std::unique_ptr<MCObjectWriter> ObjectWriterWrapper::createObjectWriterWrapper(
     return std::make_unique<ObjectWriterWrapper>(
         std::move(object_writer), stream, context, write_text_section_only, extended_error, instructions);
 }
-} // namespace emproof
+} // namespace nyxstone

@@ -27,7 +27,7 @@
 
 using namespace llvm;
 
-namespace emproof {
+namespace nyxstone {
 void ELFStreamerWrapper::emitInstruction(const MCInst& Inst, const MCSubtargetInfo& STI)
 {
     MCELFStreamer::emitInstruction(Inst, STI);
@@ -122,4 +122,4 @@ std::unique_ptr<MCStreamer> ELFStreamerWrapper::createELFStreamerWrapper(MCConte
     }
     return streamer;
 }
-} // namespace emproof
+} // namespace nyxstone

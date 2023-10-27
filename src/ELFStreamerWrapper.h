@@ -10,7 +10,7 @@
 #include <llvm/MC/MCObjectWriter.h>
 #pragma GCC diagnostic pop
 
-namespace emproof {
+namespace nyxstone {
 /// This class derives from LLVM's MCELFStreamer, which enables us to receive
 /// information during assembly such as preliminary instruction size and bytes
 /// before relaxation and fixups (via method 'emitInstruction()').
@@ -64,4 +64,4 @@ public:
     /// @brief Calls `MCELFStreamer::emitInstruction` and records instruction details.
     void emitInstruction(const llvm::MCInst& Inst, const llvm::MCSubtargetInfo& STI) override;
 };
-} // namespace emproof
+} // namespace nyxstone

@@ -24,7 +24,7 @@
 
 using namespace llvm;
 
-namespace emproof {
+namespace nyxstone {
 NyxstoneBuilder& NyxstoneBuilder::with_triple(std::string&& triple) noexcept
 {
     m_triple = std::move(triple);
@@ -473,4 +473,4 @@ bool is_ArmT16_or_ArmT32(const llvm::Triple& triple)
         || triple.getSubArch() == Triple::SubArchType::ARMSubArch_v8m_mainline
         || triple.getSubArch() == Triple::SubArchType::ARMSubArch_v8_1m_mainline);
 }
-} // namespace emproof
+} // namespace nyxstone

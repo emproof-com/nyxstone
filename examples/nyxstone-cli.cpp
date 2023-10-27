@@ -12,8 +12,8 @@
 
 namespace po = boost::program_options;
 
-using emproof::Nyxstone;
-using emproof::NyxstoneBuilder;
+using nyxstone::Nyxstone;
+using nyxstone::NyxstoneBuilder;
 
 enum class Architecture;
 std::optional<Architecture> arch_parse_from_string(const std::string& arch);
