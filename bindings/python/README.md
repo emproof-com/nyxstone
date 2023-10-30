@@ -10,6 +10,15 @@ You need to have LLVM 15 (with static library support) installed to build the ny
 pip install .
 ```
 
+If you are using Arch Linux, you will need to use a virtual environment to install nyxstone:
+
+```
+mkdir env
+python -mvenv env/
+source env/bin/activate[.fish|.zsh]
+pip install .
+```
+
 ## Example
 
 After you have installed nyxstone, import the `Nyxstone`, `NyxstoneBuilder`, and `Instruction` classes from nyxstone.
