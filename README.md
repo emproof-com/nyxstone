@@ -8,7 +8,7 @@ Nyxstone is an assembly and disassembly library based on LLVM. It doesn’t requ
 
 ## Index
 
-1. [Features](#features)
+1. [Core Features](#core-features)
 2. [Using Nyxstone](#using-nyxstone)
     1. [Prerequisites](#prerequisites)
     2. [As a rust library](#as-a-rust-library)
@@ -20,13 +20,15 @@ Nyxstone is an assembly and disassembly library based on LLVM. It doesn’t requ
 5. [Contributing](#contributing)
 6. [Contributers](#contributers)
 
-## Features
+## Core Features
 
-- Assembles and Disassembles for all Architectures supported by LLVM 15 (x86, arm, aarch64, avr, amdgpu, risc-v, etc.).
-- Allows specifying inline and external labels/relocations.
-- Assemble or Disassemble to instruction information which holds the instructions address, bytecode, and assembly.
-- Specify the number of instructions to disassemble from given bytecode.
-- Configure additional hardware features via extension mnemonics.
+- Assembles and Disassembles code for all architectures supported by LLVM 15, including x86 & x86_64, ARM & AArch64, MIPS, PowerPC, AVR, AMDGPU, NVPTX, RISC-V, and more. For a comprehensive list, refer to `clang -print-targets`.
+- C++ library based on LLVM with Rust and Python bindings.
+- Native platform support for Linux and macOS.
+- Facilitates setting a custom start address and defining labels within assembly inputs, along with the ability to specify a label-to-address mapping through an additional argument.
+- Assembles and disassembles to raw bytes or text respectively, or to detailed instruction objects that include additional information such as the instruction's address, raw bytes and its assembly representation.
+- Provides an option to limit the number of instructions being disassembled from a given byte array.
+- Supports the configuration of architecture-specific target features such as various Instruction Set Architecture (ISA) extensions or hardware features. For a comprehensive list of features for each architecture, refer to `llc -march=ARCH -mattr=help`.
 
 > [!NOTE]
 > Nyxstone was mainly developed and tested for x86_64 and ARM thumb. While we are fairly certain to generate correct 
