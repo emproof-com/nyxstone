@@ -5,9 +5,9 @@ use ffi::create_nyxstone_ffi;
 /// # Examples
 ///
 /// ```rust
-/// # use nyxstone::{Nyxstone, NyxstoneInit, Instruction};
+/// # use nyxstone::{Nyxstone, NyxstoneConfig, Instruction};
 /// # fn main() -> anyhow::Result<()> {
-/// let nyxstone = NyxstoneInit::default().init("x86_64")?;
+/// let nyxstone = Nyxstone::new("x86_64", NyxstoneConfig::default())?;
 ///
 /// let instructions = nyxstone.assemble_to_instructions("mov rax, rbx", 0x1000, &[])?;
 ///
@@ -54,6 +54,25 @@ impl From<IntegerBase> for ffi::IntegerBase {
 }
 
 impl Nyxstone {
+    /// Builds a Nyxstone instance with specific configuration.
+    ///
+    /// # Returns
+    /// Ok() and the Nyxstone instance on success, Err() otherwise.
+    ///
+    /// # Errors
+    /// Errors occur when the LLVM triple was not supplied to the builder or LLVM fails.
+    pub fn new(target_triple: &str, config: NyxstoneConfig) -> anyhow::Result<Nyxstone> {
+        Ok(Nyxstone {
+            inner: create_nyxstone_ffi(
+                target_triple,
+                &config.cpu,
+                &config.features,
+                config.immediate_style.into(),
+            )
+            .map_err(|e| anyhow!(e.what().to_owned()))?,
+        })
+    }
+
     /// Translates assembly instructions at a given start address to bytes.
     ///
     /// # Note:
@@ -140,29 +159,13 @@ unsafe impl Send for Nyxstone {}
 
 /// Initialization configuration for Nyxstone
 #[derive(Debug, Default)]
-pub struct NyxstoneInit<'a, 'b> {
+pub struct NyxstoneConfig<'a, 'b> {
     /// The LLVM cpu identifier, empty for no specific cpu target.
     pub cpu: &'a str,
     /// An LLVM feature string, features are comma seperated strings, which are prepended with '+' when enabled and '-' if disabled.
     pub features: &'b str,
     /// The printing style of immediates.
     pub immediate_style: IntegerBase,
-}
-
-impl NyxstoneInit<'_, '_> {
-    /// Builds a Nyxstone instance from the NyxstoneBuilder.
-    ///
-    /// # Returns
-    /// Ok() and the Nyxstone instance on success, Err() otherwise.
-    ///
-    /// # Errors
-    /// Errors occur when the LLVM triple was not supplied to the builder or LLVM fails.
-    pub fn init(self, target_triple: &str) -> anyhow::Result<Nyxstone> {
-        Ok(Nyxstone {
-            inner: create_nyxstone_ffi(target_triple, &self.cpu, &self.features, self.immediate_style.into())
-                .map_err(|e| anyhow!(e.what().to_owned()))?,
-        })
-    }
 }
 
 #[cxx::bridge]
