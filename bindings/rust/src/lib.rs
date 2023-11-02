@@ -65,8 +65,8 @@ impl Nyxstone {
         Ok(Nyxstone {
             inner: create_nyxstone_ffi(
                 target_triple,
-                &config.cpu,
-                &config.features,
+                config.cpu,
+                config.features,
                 config.immediate_style.into(),
             )
             .map_err(|e| anyhow!(e.what().to_owned()))?,
