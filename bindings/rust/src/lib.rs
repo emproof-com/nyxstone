@@ -73,7 +73,7 @@ pub use crate::ffi::Instruction;
 pub use crate::ffi::LabelDefinition;
 
 /// Configuration options for the integer style of immediates in disassembly output.
-#[derive(Debug, PartialEq, Eq, Default)]
+#[derive(Debug, PartialEq, Eq, Default, Clone, Copy)]
 pub enum IntegerBase {
     /// Immediates are represented in decimal format.
     #[default]
