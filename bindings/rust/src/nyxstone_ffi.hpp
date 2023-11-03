@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "nyxstone.h"
-#include "tl/expected.hpp"
 // cppcheck-suppress missingInclude
 #include "rust/cxx.h"
 
