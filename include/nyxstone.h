@@ -1,5 +1,7 @@
 #pragma once
 
+#include "tl/expected.hpp"
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <llvm/MC/MCAsmInfo.h>
@@ -11,54 +13,13 @@
 #pragma GCC diagnostic pop
 
 namespace nyxstone {
+
+using u8 = uint8_t;
+using u64 = uint64_t;
+
 /// Nyxstone class for assembling and disassembling for a given architecture.
 class Nyxstone {
 public:
-    /// Custom exception class used throughout nyxstone to pass any kind of String describing an error upwards.
-    class Exception final : public std::exception {
-    public:
-        [[nodiscard]] const char* what() const noexcept override { return inner.c_str(); }
-
-        Exception(const Exception& error) noexcept
-            : inner(error.inner)
-        {
-        }
-        Exception(Exception&& error) noexcept
-            : inner(std::move(error.inner))
-        {
-        }
-        explicit Exception(const char* desc) noexcept
-            : inner(desc)
-        {
-        }
-        explicit Exception(std::string&& desc) noexcept
-            : inner(desc)
-        {
-        }
-        explicit Exception(const llvm::StringRef& desc) noexcept
-            : inner(desc.str())
-        {
-        }
-        ~Exception() override = default;
-
-        Exception& operator=(const Exception& error) noexcept
-        {
-            if (this != &error) {
-                this->inner = error.inner;
-            }
-            return *this;
-        }
-
-        Exception& operator=(Exception&& error) noexcept
-        {
-            this->inner = std::move(error.inner);
-            return *this;
-        }
-
-    private:
-        std::string inner;
-    };
-
     /// @brief Defines the location of a label by absolute address.
     struct LabelDefinition {
         /// The label name
@@ -115,8 +76,8 @@ public:
     /// @param address The absolute address of the first instruction.
     /// @param labels Label definitions, should hold all external labels used in the @p assembly.
     /// @param bytes The assembled byte code (Note: the vector is reset before writing to it).
-    void assemble_to_bytes(const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels,
-        std::vector<uint8_t>& bytes) const;
+    tl::expected<std::vector<u8>, std::string> assemble_to_bytes(
+        const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const;
 
     /// @brief Translates assembly instructions at given start address to instruction details containing bytes.
     ///
@@ -127,8 +88,8 @@ public:
     /// @param address The absolute address of the first instruction.
     /// @param labels Label definitions, should hold all external labels used in the @p assembly.
     /// @param instructions Holds the instruction details of the assembled @p assembly.
-    void assemble_to_instructions(const std::string& assembly, uint64_t address,
-        const std::vector<LabelDefinition>& labels, std::vector<Instruction>& instructions) const;
+    tl::expected<std::vector<Instruction>, std::string> assemble_to_instructions(
+        const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const;
 
     /// @brief Translates bytes to disassembly text at given start address.
     ///
@@ -136,8 +97,8 @@ public:
     /// @param address The absolute address of the byte code.
     /// @param count The number of instructions which should be disassembled, 0 means all.
     /// @param disassembly Disassembly output.
-    void disassemble_to_text(
-        const std::vector<uint8_t>& bytes, uint64_t address, size_t count, std::string& disassembly) const;
+    tl::expected<std::string, std::string> disassemble_to_text(
+        const std::vector<uint8_t>& bytes, uint64_t address, size_t count) const;
 
     /// @brief Translates bytes to instruction details containing disassembly text at given start address.
     ///
@@ -145,18 +106,19 @@ public:
     /// @param address The absolute address of the byte code.
     /// @param count The number of instructions which should be disassembled, 0 means all.
     /// @param instructions Holds the instruction details after disassembling.
-    void disassemble_to_instructions(const std::vector<uint8_t>& bytes, uint64_t address, size_t count,
-        std::vector<Instruction>& instructions) const;
+    tl::expected<std::vector<Instruction>, std::string> disassemble_to_instructions(
+        const std::vector<uint8_t>& bytes, uint64_t address, size_t count) const;
 
 private:
     // Uses LLVM to assemble instructions.
     // Utilizes some custom overloads to import user-supplied label definitions and extract instruction details.
-    void assemble_impl(const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels,
-        std::vector<uint8_t>& bytes, std::vector<Instruction>* instructions) const;
+    tl::expected<void, std::string> assemble_impl(const std::string& assembly, uint64_t address,
+        const std::vector<LabelDefinition>& labels, std::vector<uint8_t>& bytes,
+        std::vector<Instruction>* instructions) const;
 
     // Uses LLVM to disassemble instructions.
-    void disassemble_impl(const std::vector<uint8_t>& bytes, uint64_t address, size_t count, std::string* disassembly,
-        std::vector<Instruction>* instructions) const;
+    tl::expected<void, std::string> disassemble_impl(const std::vector<uint8_t>& bytes, uint64_t address, size_t count,
+        std::string* disassembly, std::vector<Instruction>* instructions) const;
 
     /// The LLVM triple
     llvm::Triple triple;
@@ -232,7 +194,7 @@ public:
     /// @note Should only be called after the triple has been specified via `NyxstoneBuilder::with_triple`.
     /// @return A unique_ptr holding the created nyxstone instance.
     /// @throws Nyxstone::Exception Thrown if initialization or object creation fails.
-    std::unique_ptr<Nyxstone> build();
+    tl::expected<std::unique_ptr<Nyxstone>, std::string> build();
 };
 
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.
