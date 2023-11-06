@@ -134,5 +134,7 @@ NyxstoneResult create_nyxstone_ffi( // cppcheck-suppress unusedFunction
                       .with_immediate_style(style)
                       .build();
 
-    return NyxstoneResult { std::make_unique<NyxstoneFFI>( (result) ? std::move(result.value()) : std::move(std::unique_ptr<Nyxstone>(nullptr))), ERROR_OR(result, "") };
+    return NyxstoneResult { std::make_unique<NyxstoneFFI>(
+                                (result) ? std::move(result.value()) : std::move(std::unique_ptr<Nyxstone>(nullptr))),
+        ERROR_OR(result, "") };
 }

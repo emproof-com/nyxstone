@@ -34,10 +34,8 @@ void die(const std::string_view err)
 
 int main(int /* argc */, char** /* argv */)
 {
-    auto nyxstone_x86_64
-        = NyxstoneBuilder().with_triple("x86_64-linux-gnu").build().map_error(die).value();
-    auto nyxstone_armv8m
-        = NyxstoneBuilder().with_triple("armv8m.main-none-eabi").build().map_error(die).value();
+    auto nyxstone_x86_64 = NyxstoneBuilder().with_triple("x86_64-linux-gnu").build().map_error(die).value();
+    auto nyxstone_armv8m = NyxstoneBuilder().with_triple("armv8m.main-none-eabi").build().map_error(die).value();
 
     const std::vector<Nyxstone::LabelDefinition> labels { { ".label", 0x1010 } };
     std::vector<uint8_t> bytes;
@@ -59,9 +57,7 @@ int main(int /* argc */, char** /* argv */)
     std::cout << "] - expected [ 48 89 c0 ]\n";
 
     std::cout << "\tbne .label : [ ";
-    nyxstone_armv8m->assemble_to_instructions("bne .label", 0x1000, labels)
-        .map(print_instructions)
-        .map_error(die);
+    nyxstone_armv8m->assemble_to_instructions("bne .label", 0x1000, labels).map(print_instructions).map_error(die);
     std::cout << "] - expected [ 06 d1 ]\n";
 
     std::cout << std::endl << "disassemble_to_text:" << std::endl;

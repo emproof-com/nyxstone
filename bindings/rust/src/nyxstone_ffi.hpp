@@ -37,8 +37,7 @@ public:
     NyxstoneFFI(const NyxstoneFFI& other) = delete;
     NyxstoneFFI(NyxstoneFFI&& other) = delete;
 
-    ByteResult assemble_to_bytes(
-        rust::str assembly, uint64_t address, rust::Slice<const LabelDefinition> labels) const;
+    ByteResult assemble_to_bytes(rust::str assembly, uint64_t address, rust::Slice<const LabelDefinition> labels) const;
 
     InstructionResult assemble_to_instructions(
         rust::str assembly, uint64_t address, rust::Slice<const LabelDefinition> labels) const;
@@ -55,5 +54,4 @@ public:
 /// @param cpu The cpu to be used.
 /// @param features Llvm features string.
 /// @param imm_style The integer representation for immediates.
-NyxstoneResult create_nyxstone_ffi(
-    rust::str triple_name, rust::str cpu, rust::str features, IntegerBase imm_style);
+NyxstoneResult create_nyxstone_ffi(rust::str triple_name, rust::str cpu, rust::str features, IntegerBase imm_style);
