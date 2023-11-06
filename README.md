@@ -31,9 +31,7 @@ Nyxstone is an assembly and disassembly library based on LLVM. It doesn’t requ
 - Supports the configuration of architecture-specific target features such as various Instruction Set Architecture (ISA) extensions or hardware features. For a comprehensive list of features for each architecture, refer to `llc -march=ARCH -mattr=help`.
 
 > [!NOTE]
-> Nyxstone was mainly developed and tested for x86_64 and ARM thumb. While we are fairly certain to generate correct 
-> assembly as well as errors for these architectures, other architectures only work as good as their respective LLVM 
-> backends.
+> Disclaimer: Nyxstone has been primarily developed and tested on x86_64, AArch64 and ARM architectures. We have a high degree of confidence in its ability to accurately generate assembly and identify errors for these platforms. For other architectures, Nyxstone's effectiveness is dependent on the reliability and performance of their respective LLVM backends.
 
 ## Using Nyxstone
 
@@ -264,12 +262,25 @@ Disassembled:
 
 ## How it works
 
-Generally, Nyxstone uses the LLVM `MC` objects to assemble and disassemble given assembly. For assembling it uses the `MCAsmParser` to parse the assembly and for disassembling the `MCDisassembler` to decode the instructions. Additionally, it wraps the `MCObjectWriter` and `MCELFStreamer` objects in custom classes.
+Nyxstone leverages public C++ API functions from LLVM such as `Target::createMCAsmParser` and `Target::createMCDisassembler` to perform assembly and disassembly tasks. Nyxstone also extends two LLVM classes - `MCELFStreamer` and `MCObjectWriter` - to inject custom logic and extract additional information. Specifically, Nyxstone augments the assembly process with the following steps: 
+- `ELFStreamerWrapper::emitInstruction`
+    - Capture assembly representation and initial raw bytes of instructions if detailed instruction objects are requested by the user.
+- `ObjectWriterWrapper::writeObject`
+    - Writes the final raw bytes of instructions, with relocation adjustments, to detailed instruction objects.
+    - Switches raw bytes output from complete ELF file to just the .text section.
+- `ObjectWriterWrapper::validate_fixups`
+    - Conducts extra checks, such as verifying the range and alignment of relocations.
+- `ObjectWriterWrapper::recordRelocation`
+    - Applies additional relocations. `MCObjectWriter` skips some relocations that are only applied during linking. Right now this is only relevant for the `fixup_aarch64_pcrel_adrp_imm21` in the Aarch64 `adrp` instruction.
 
-The wrapper for the `MCObjectWriter` has multiple functionalities. Most importantly it allows Nyxstone to limit the assembly output to the relevant bytes instead of returning an entire ELF object file. LLVM applies some relocations during the linking step, which requires Nyxstone to do some relocations itself using the wrapper. Finally, the wrapper is used to add additional fixup validations, which are not present in LLVM. This is necessary since LLVM wrongly assembles some instructions when supplied with a label
-that is slightly out of range for the instruction.
+While extending LLVM classes introduces some drawbacks, like a strong dependency on a specific LLVM version, we believe this approach is still an improvement over alternatives that require hard to maintain patches in the LLVM source tree. We are committed to further remove complexity from the project and welcome suggestions for improvement. Looking ahead, we may eliminate the need to extend LLVM classes by leveraging the existing LLVM infrastructure in a smarter way or incorporating additional logic in a post-processing step.
 
-The `MCELFStreamer` wrapper is used to record information during the assembly process such as the preliminary instruction size and bytes.
+## Roadmap
+
+- [ ] Native Windows platform support
+- [ ] Check thread safety
+- [ ] Add support for more LLVM versions (auto select depending on found LLVM library version)
+- [ ] Add dynamic linking support, e. g., Arch Linux has LLVM libraries without static linking support
 
 ## License
 
@@ -277,9 +288,9 @@ Nyxstone is available under the [MIT license](LICENSE).
 
 ## Contributing
 
-If there are any issues with Nyxstone, please report them as an issue.
-If you want to contribute, pick up a github issue and make a pull request.
-We are really thankful about any and all contributions to this project!
+We welcome contributions from the community! If you encounter any issues with Nyxstone, please feel free to open a GitHub issue.
+
+If you're interested in contributing directly to the project, you can start by addressing an existing issue and submitting a pull request.
 
 ## Contributers
 
