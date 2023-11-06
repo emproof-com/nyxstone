@@ -250,7 +250,7 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     // For Thumb prepend 2 byte in assembly if `(address % 4) == 2` to get correct
     // alignment behavior.
     const bool needs_prepend { is_ArmT16_or_ArmT32(triple) && address % 4 == 2 };
-    const std::string input_assembly { prepend_bkpt(std::move(std::string { assembly }), needs_prepend) };
+    const std::string input_assembly { prepend_bkpt(std::string { assembly }, needs_prepend) };
 
     // Add input assembly text
     llvm::SourceMgr source_manager;
