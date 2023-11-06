@@ -13,8 +13,8 @@ Nyxstone is an assembly and disassembly library based on LLVM. It doesn’t requ
     1. [Prerequisites](#prerequisites)
     2. [As a Rust library](#as-a-rust-library)
     3. [As a Python library](#as-a-python-library)
-    4. [As a C++ library](#as-a-c++-library)
-    5. [C++ CLI Tool](#c++-cli-tool)
+    4. [As a C++ library](#as-a-c-library)
+    5. [C++ CLI Tool](#c-cli-tool)
 3. [How it works](#how-it-works)
 4. [License](#license)
 5. [Contributing](#contributing)
@@ -96,9 +96,9 @@ Install Nyxstone with pip. On some distributions you may have to create a virtua
 ´´´
 $ pip install nyxstone
 $ python -q
->>> from nyxstone import NyxstoneBuilder
->>> nyxstone = NyxstoneBuilder().with_triple("x86_64").build()
->>> nyxstone.assemble_to_bytes("jne .loop", 0x1100, {".loop": 0x1000})
+\>\>\> from nyxstone import NyxstoneBuilder
+\>\>\> nyxstone = NyxstoneBuilder().with_triple("x86_64").build()
+\>\>\> nyxstone.assemble_to_bytes("jne .loop", 0x1100, {".loop": 0x1000})
 ´´´
 
 For more instructions regarding the Python binding, refer to its [README](bindings/python/README.md).
@@ -122,6 +122,8 @@ add_executable(my_executable main.cpp)
 
 target_link_libraries(my_executable nyxstone ${llvm_libs})
 ```
+
+C++ usage example.
 
 ```c++
 #include <cassert>
@@ -153,7 +155,7 @@ Nyxstone also comes with a handy CLI tool for quick assembly and disassembly tas
 
 ```
 $ apt install boost
-$ mkdir build && cd build && cmake .. && make
+$ mkdir build && cd build && cmake .. && make # run in nyxstone folder
 ```
 
 Help message output.
