@@ -49,10 +49,7 @@ jobs:
       working-dir: bindings/rust
 
     steps:
-    - name: Prepare-ls
-      run: ls
-    - name: Prepare
-      run: make nyxstone
+    - uses: actions/checkout@v3
       working-directory: ${{ env.working-dir }}
     - name: Build
       run: NYXSTONE_LLVM_PREFIX=$(brew --prefix llvm@15) cargo build
