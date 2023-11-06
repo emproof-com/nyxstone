@@ -37,16 +37,3 @@ jobs:
       run: ./build/sample
     - name: cli
       run: ./build/nstone -A "mov rax, rbx"
-
-  mac:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Packages
-      run: brew install boost
-    - name: Build
-      run: mkdir build/ && cd build && NYXSTONE_LLVM_PREFIX=$(brew --prefix llvm@15) cmake .. && make
-    - name: Sample
-      run: ./build/sample
-    - name: cli
-      run: ./build/nstone -A "mov rax, rbx"
