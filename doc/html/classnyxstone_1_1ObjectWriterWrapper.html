@@ -120,8 +120,8 @@ static std::unique_ptr&lt; llvm::MCObjectWriter &gt;&#160;</td><td class="memIte
 <tr class="separator:af8009c4782a136240143283e59807bc7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>This class derives from LLVM's MCObjectWriter, which enables us to include user-define symbols/labels into the internal address resolution process (via '<a class="el" href="classnyxstone_1_1ObjectWriterWrapper.html#ac2c8cdefc10b878da3977e947aae9941" title="Simple function wrapper calling the wrapped object wrapper function directly.">executePostLayoutBinding()</a>').</p>
-<p>This class also enables us to limit the final output byte stream to the relevant bytes (as opposed to the whole ELF object file) and grab final instruction bytes (after relaxation and fixups) (via '<a class="el" href="classnyxstone_1_1ObjectWriterWrapper.html#a85d8b509bfdf832ab40ad4a0f347bb47" title="Write object to the stream and update the bytes of the instruction details.">writeObject()</a>'). </p>
+<div class="textblock"><p>This class enables us to limit the final output byte stream to the relevant bytes (as opposed to the whole ELF object file) and grab final instruction bytes (after relaxation and fixups) (via '<a class="el" href="classnyxstone_1_1ObjectWriterWrapper.html#a85d8b509bfdf832ab40ad4a0f347bb47" title="Write object to the stream and update the bytes of the instruction details.">writeObject()</a>').</p>
+<p>This class is also used to insert custom relocations and fixup validations. These are necessary when a relocation is normally performed at link time or when LLVM does not verify a fixup according to the specification, leading to wrong output for specific instruction/label combinations. </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a214e774f2b6c86e9e5f0144074cd9bec"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a214e774f2b6c86e9e5f0144074cd9bec">&#9670;&nbsp;</a></span>ObjectWriterWrapper()</h2>

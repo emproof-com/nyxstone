@@ -65,47 +65,198 @@ $(function() {
 <div class="title">Nyxstone </div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p><a class="anchor" id="md_README"></a> The simple assemble/disassemble framework. Nyxstone was built as an internal software project for our powerful binary rewriter <em>NYX</em>.</p>
-<p>With Nyxstone we do not ship our own LLVM patches, but wrap LLVM <code>MC</code> objects in custom types to assemble and disassemble for different architectures.</p>
+<div class="textblock"><p><a class="anchor" id="md_README"></a> <a href="https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml"><img src="https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml/badge.svg" alt="Github Cpp CI Badge" style="pointer-events: none;" class="inline"/></a></p>
+<p>Nyxstone is an assembly and disassembly library based on LLVM. It doesn’t require patches to the LLVM source tree and links against standard LLVM libraries available in most Linux distributions. Implemented in C++, Nyxstone also offers Rust and Python bindings. It supports all official LLVM architectures and allows configuration of architecture-specific target settings.</p>
+<p><img src="/images/demo.svg" alt="Nyxstone Python binding demo" style="pointer-events: none;" class="inline"/></p>
 <h1><a class="anchor" id="autotoc_md1"></a>
-Building</h1>
-<p>Building Nyxstone requires a modern compiler, we currently use <code>clang</code>.</p>
-<p>Nyxstone uses the LLVM backend to assemble &amp; disassemble instructions. Since the LLVM backend changes frequently with major releases, we currently only support LLVM major version 15.</p>
-<p>When Nyxstone is being built, it first searches the directory supplied by the environment variable <code>$NYXSTONE_LLVM_PREFIX/bin</code> and afterwards the <code>$PATH</code> for <code>llvm-config</code>. When <code>llvm-config</code> is found, Nyxstone checks for both the major version and if LLVM can be statically linked.</p>
-<p>There are multiple ways to install LLVM 15 if your package manager does not supply it:</p><ul>
-<li>Use an external package manager, like <code>brew</code></li>
-<li>Build llvm from source</li>
-<li>Ubuntu/Debian only: Use the install script from <a href="https://apt.llvm.org">https://apt.llvm.org</a></li>
+Index</h1>
+<ol type="1">
+<li><a href="#core-features">Core Features</a></li>
+<li><a href="#using-nyxstone">Using Nyxstone</a><ol type="a">
+<li><a href="#prerequisites">Prerequisites</a></li>
+<li><a href="#as-a-rust-library">As a Rust library</a></li>
+<li><a href="#as-a-python-library">As a Python library</a></li>
+<li><a href="#as-a-c-library">As a C++ library</a></li>
+<li><a href="#c-cli-tool">C++ CLI Tool</a></li>
+</ol>
+</li>
+<li><a href="#how-it-works">How it works</a></li>
+<li><a href="#license">License</a></li>
+<li><a href="#contributing">Contributing</a></li>
+<li><a href="#contributers">Contributers</a></li>
+</ol>
+<h1><a class="anchor" id="autotoc_md2"></a>
+Core Features</h1>
+<ul>
+<li>Assembles and Disassembles code for all architectures supported by LLVM 15, including x86 &amp; x86_64, ARM &amp; AArch64, MIPS, PowerPC, AVR, AMDGPU, NVPTX, RISC-V, and more. For a comprehensive list, refer to <code>clang -print-targets</code>.</li>
+<li>C++ library based on LLVM with Rust and Python bindings.</li>
+<li>Native platform support for Linux and macOS.</li>
+<li>Facilitates setting a custom start address and defining labels within assembly inputs, along with the ability to specify a label-to-address mapping through an additional argument.</li>
+<li>Assembles and disassembles to raw bytes or text respectively, or to detailed instruction objects that include additional information such as the instruction's address, raw bytes and its assembly representation.</li>
+<li>Provides an option to limit the number of instructions being disassembled from a given byte array.</li>
+<li>Supports the configuration of architecture-specific target features such as various Instruction Set Architecture (ISA) extensions or hardware features. For a comprehensive list of features for each architecture, refer to <code>llc -march=ARCH -mattr=help</code>.</li>
 </ul>
-<p>Also make sure to install any libraries needed by your LLVM version for static linking.</p>
-<p>You can build the nyxstone cli (nstone) example program and the small sample program in the <code>examples</code> folder using cmake. Use the following commands: </p><div class="fragment"><div class="line">$ mkdir build</div>
-<div class="line">$ cd build</div>
-<div class="line">$ cmake ..</div>
-<div class="line">$ make</div>
-</div><!-- fragment --><h1><a class="anchor" id="autotoc_md2"></a>
+<blockquote class="doxtable">
+<p>[!NOTE] Disclaimer: Nyxstone has been primarily developed and tested on x86_64, AArch64 and ARM architectures. We have a high degree of confidence in its ability to accurately generate assembly and identify errors for these platforms. For other architectures, Nyxstone's effectiveness is dependent on the reliability and performance of their respective LLVM backends. </p>
+</blockquote>
+<h1><a class="anchor" id="autotoc_md3"></a>
 Using Nyxstone</h1>
-<h2><a class="anchor" id="autotoc_md3"></a>
-CLI Tool</h2>
-<p>The Nyxstone cli tool allows for on-the-fly assembling and disassembling from your command line. </p><div class="fragment"><div class="line">$ cd build &amp;&amp; cmake .. &amp;&amp; make</div>
-<div class="line">$ ./nstone --help</div>
+<p>This section provides instructions on how to get started with Nyxstone, covering the necessary prerequisites and step-by-step guidelines for using the library with C++, Rust, and Python, as well as how to utilize the C++ CLI tool.</p>
+<h2><a class="anchor" id="autotoc_md4"></a>
+Prerequisites</h2>
+<p>Nyxstone requires clang and LLVM 15 static link libraries for building. It searches <code>llvm-config</code> in <code>$PATH</code> and <code>$NYXSTONE_LLVM_PREFIX/bin</code>. There are multiple ways to install LLVM 15.</p>
+<ul>
+<li>On Debian and Ubuntu install the packages <code>llvm-15</code> and <code>llvm-15-dev</code>. <div class="fragment"><div class="line">$ apt install llvm-15 llvm-15-dev</div>
+<div class="line">$ export NYXSTONE_LLVM_PREFIX=/usr/lib/llvm-15/</div>
+</div><!-- fragment --></li>
+<li>Using an external package manager like <code>brew</code>. <div class="fragment"><div class="line">$ brew install llvm@15</div>
+<div class="line">$ export NYXSTONE_LLVM_PREFIX=/opt/brew/opt/llvm@15</div>
+</div><!-- fragment --></li>
+<li>Building LLVM from source. Consider specifying a custom installation directory with the cmake option <code>DCMAKE_INSTALL_PREFIX</code>. <div class="fragment"><div class="line">$ git clone https://github.com/llvm/llvm-project.git &amp;&amp; cd llvm-project</div>
+<div class="line">$ git checkout origin/release/15.x</div>
+<div class="line">$ cmake -S llvm -B build -G Ninja -DCMAKE_INSTALL_PREFIX=~/lib/my-llvm-15 -DCMAKE_BUILD_TYPE=Debug</div>
+<div class="line">$ ninja -C build install</div>
+<div class="line">$ export NYXSTONE_LLVM_PREFIX=~/lib/my-llvm-15</div>
+</div><!-- fragment --></li>
+</ul>
+<p>Also make sure to install any system dependent libraries needed by your LLVM version for static linking. They can be viewed with the command <code>$ llvm-config --system-libs</code>. The list might be empty. On Ubuntu/Debian you will need the packages <code>zlib1g-dev</code> and <code>zlibstd-dev</code>.</p>
+<h2><a class="anchor" id="autotoc_md5"></a>
+As a Rust library</h2>
+<p>Add Nyxstone as a dependency in your <code>Cargo.toml</code>.</p>
+<div class="fragment"><div class="line">use anyhow::Result;</div>
+<div class="line">use nyxstone::{LabelDefinition, NyxstoneBuilder};</div>
+<div class="line"> </div>
+<div class="line">fn main() -&gt; Result&lt;()&gt; {</div>
+<div class="line">    let nyxstone = NyxstoneBuilder::default().with_triple(&quot;x86_64&quot;).build()?;</div>
+<div class="line"> </div>
+<div class="line">    let bytes = nyxstone.assemble_to_bytes(</div>
+<div class="line">        &quot;mov rax, rbx; cmp rax, rdx; jne .label&quot;,</div>
+<div class="line">        0x1000,</div>
+<div class="line">        &amp;[LabelDefinition { name: &quot;.label&quot;, address: 0x1200 }],</div>
+<div class="line">    )?;</div>
+<div class="line"> </div>
+<div class="line">    println!(&quot;Bytes: {:x?}&quot;, bytes);</div>
+<div class="line"> </div>
+<div class="line">    Ok(())</div>
+<div class="line">}</div>
+</div><!-- fragment --><p>For more instructions regarding the Rust binding, refer to its README.</p>
+<h2><a class="anchor" id="autotoc_md6"></a>
+As a Python library</h2>
+<p>Install Nyxstone with pip. On some distributions you may have to create a virtual environment.</p>
+<div class="fragment"><div class="line">$ pip install nyxstone</div>
+<div class="line">$ python -q</div>
+<div class="line">&gt;&gt;&gt; from nyxstone import NyxstoneBuilder</div>
+<div class="line">&gt;&gt;&gt; nyxstone = NyxstoneBuilder().with_triple(&quot;x86_64&quot;).build()</div>
+<div class="line">&gt;&gt;&gt; nyxstone.assemble_to_bytes(&quot;jne .loop&quot;, 0x1100, {&quot;.loop&quot;: 0x1000})</div>
+</div><!-- fragment --><p>For more instructions regarding the Python binding, refer to its README.</p>
+<h2><a class="anchor" id="autotoc_md7"></a>
+As a C++ library</h2>
+<p>Link against Nyxstone and LLVM 15. This cmake example assumes Nyxstone in a subdirectory <code>nyxstone</code> in your project.</p>
+<div class="fragment"><div class="line">find_package(LLVM 15 CONFIG PATHS $ENV{NYXSTONE_LLVM_PREFIX} NO_DEFAULT_PATH)</div>
+<div class="line">find_package(LLVM 15 CONFIG)</div>
+<div class="line"> </div>
+<div class="line">include_directories(${LLVM_INCLUDE_DIRS})</div>
+<div class="line">add_definitions(${LLVM_DEFINITIONS})</div>
+<div class="line">llvm_map_components_to_libnames(llvm_libs core mc AllTargetsCodeGens AllTargetsAsmParsers AllTargetsDescs AllTargetsDisassemblers AllTargetsInfos AllTargetsMCAs)</div>
+<div class="line"> </div>
+<div class="line">add_subdirectory(nyxstone EXCLUDE_FROM_ALL) # Add nyxstone cmake without executables</div>
+<div class="line">include_directories(nyxstone/include)       # Nyxstone include directory</div>
+<div class="line"> </div>
+<div class="line">add_executable(my_executable main.cpp)</div>
+<div class="line"> </div>
+<div class="line">target_link_libraries(my_executable nyxstone ${llvm_libs})</div>
+</div><!-- fragment --><p>C++ usage example.</p>
+<div class="fragment"><div class="line"> {c++}</div>
+<div class="line">#include &lt;cassert&gt;</div>
+<div class="line">#include &lt;iostream&gt;</div>
+<div class="line"> </div>
+<div class="line">#include &quot;nyxstone.h&quot;</div>
+<div class="line"> </div>
+<div class="line">int main(int, char**) {</div>
+<div class="line">    // Create the nyxstone instance:</div>
+<div class="line">    auto nyxstone {NyxstoneBuilder().with_triple(&quot;x86_64&quot;).build()};</div>
+<div class="line"> </div>
+<div class="line">    // Assemble to bytes</div>
+<div class="line">    std::vector&lt;uint8_t&gt; bytes {};</div>
+<div class="line">    nyxstone-&gt;assemble_to_bytes(/*assembly=*/&quot;mov rax, rbx&quot;, /*address=*/0x1000, /* labels= */ {}, bytes);</div>
+<div class="line">    {</div>
+<div class="line">        std::vector&lt;uint8_t&gt; expected {0x48, 0x89, 0xd8};</div>
+<div class="line">        assert(bytes == expected);</div>
+<div class="line">    }</div>
+<div class="line"> </div>
+<div class="line">    return 0;</div>
+<div class="line">}</div>
+</div><!-- fragment --><p>For a comprehensive C++ example, refer to <a href="example/sample.cpp">example.cpp</a>.</p>
+<h2><a class="anchor" id="autotoc_md8"></a>
+C++ CLI Tool</h2>
+<p>Nyxstone also comes with a handy CLI tool for quick assembly and disassembly tasks. Install boost with your distribution's package manager and build the tool with cmake.</p>
+<div class="fragment"><div class="line">$ apt install boost</div>
+<div class="line">$ mkdir build &amp;&amp; cd build &amp;&amp; cmake .. &amp;&amp; make # run in nyxstone folder</div>
+</div><!-- fragment --><p>Help message output.</p>
+<div class="fragment"><div class="line">$ ./nyxstone --help</div>
 <div class="line">Allowed options:</div>
 <div class="line">  --help                    Show this message</div>
-<div class="line">  --arch arg (=x86_64)      LLVM architecture (triple), for example &quot;x86_64&quot;,</div>
-<div class="line">                            &quot;armv8m&quot;, &quot;armv8meb&quot;, &quot;thumbv8&quot;, &quot;aarch64&quot;</div>
+<div class="line">  --arch arg (=x86_64)      LLVM triple or architecture identifier of triple,</div>
+<div class="line">                            for example &quot;x86_64&quot;, &quot;x86_64-linux-gnu&quot;, &quot;armv8&quot;,</div>
+<div class="line">                            &quot;armv8eb&quot;, &quot;thumbv8&quot;, &quot;aarch64&quot;</div>
 <div class="line">  --address arg (=0)        Address</div>
 <div class="line"> </div>
 <div class="line">Assembling:</div>
 <div class="line">  --labels arg              Labels, for example &quot;label0=0x10,label1=0x20&quot;</div>
 <div class="line">  -A [ --assemble ] arg     Assembly</div>
 <div class="line"> </div>
-<div class="line">Assembling:</div>
+<div class="line">Disassembling:</div>
 <div class="line">  -D [ --disassemble ] arg  Byte code in hex, for example: &quot;0203&quot;</div>
-</div><!-- fragment --><h2><a class="anchor" id="autotoc_md4"></a>
-In your project</h2>
-<p>Currently, Nyxstone is only in use as a rust library via the rust bindings. If you want to use Nyxstone in your project, see the Makefile for how Nyxstone is build and how to link it into your projects.</p>
-<h1><a class="anchor" id="autotoc_md5"></a>
-Documentation</h1>
-<p>The C++ API documentation can be generated by running <code>doxygen</code> in the top level directory. </p>
+</div><!-- fragment --><p>Example usage.</p>
+<div class="fragment"><div class="line">$ ./nyxstone --arch &quot;x86_64 &quot; -A &quot;mov rax, rbx&quot;</div>
+<div class="line">Assembled:</div>
+<div class="line">    0x00000000: mov rax, rbx - [ 48 89 d8 ]</div>
+<div class="line"> </div>
+<div class="line">$ ./nyxstone --arch &quot;thumbv8&quot; -D &quot;13 37&quot;</div>
+<div class="line">Disassembled:</div>
+<div class="line">    0x00000000: adds r7, #19 - [ 13 37 ]</div>
+</div><!-- fragment --><h1><a class="anchor" id="autotoc_md9"></a>
+How it works</h1>
+<p>Nyxstone leverages public C++ API functions from LLVM such as <code>Target::createMCAsmParser</code> and <code>Target::createMCDisassembler</code> to perform assembly and disassembly tasks. Nyxstone also extends two LLVM classes - <code>MCELFStreamer</code> and <code>MCObjectWriter</code> - to inject custom logic and extract additional information. Specifically, Nyxstone augments the assembly process with the following steps:</p><ul>
+<li><code>ELFStreamerWrapper::emitInstruction</code><ul>
+<li>Capture assembly representation and initial raw bytes of instructions if detailed instruction objects are requested by the user.</li>
+</ul>
+</li>
+<li><code>ObjectWriterWrapper::writeObject</code><ul>
+<li>Writes the final raw bytes of instructions, with relocation adjustments, to detailed instruction objects.</li>
+<li>Switches raw bytes output from complete ELF file to just the .text section.</li>
+</ul>
+</li>
+<li><code>ObjectWriterWrapper::validate_fixups</code><ul>
+<li>Conducts extra checks, such as verifying the range and alignment of relocations.</li>
+</ul>
+</li>
+<li><code>ObjectWriterWrapper::recordRelocation</code><ul>
+<li>Applies additional relocations. <code>MCObjectWriter</code> skips some relocations that are only applied during linking. Right now this is only relevant for the <code>fixup_aarch64_pcrel_adrp_imm21</code> in the Aarch64 <code>adrp</code> instruction.</li>
+</ul>
+</li>
+</ul>
+<p>While extending LLVM classes introduces some drawbacks, like a strong dependency on a specific LLVM version, we believe this approach is still an improvement over alternatives that require hard to maintain patches in the LLVM source tree. We are committed to further remove complexity from the project and welcome suggestions for improvement. Looking ahead, we may eliminate the need to extend LLVM classes by leveraging the existing LLVM infrastructure in a smarter way or incorporating additional logic in a post-processing step.</p>
+<h1><a class="anchor" id="autotoc_md10"></a>
+Roadmap</h1>
+<ul>
+<li>[ ] Native Windows platform support</li>
+<li>[ ] Check thread safety</li>
+<li>[ ] Add support for more LLVM versions (auto select depending on found LLVM library version)</li>
+<li>[ ] Add dynamic linking support, e. g., Arch Linux has LLVM libraries without static linking support</li>
+<li>[ ] Explore option to make LLVM apply all relocations (including adrp) by configuring <code>MCObjectWriter</code> differently or using a different writer</li>
+<li>[ ] Explore option to generate detailed instructions objects by disassembling the raw bytes output of the assembly process instead of relying on the extension of LLVM classes</li>
+<li>[ ] Explore option to implement extra range and alignment of relocations in a post-processing step instead of relying on the extension of LLVM classes</li>
+</ul>
+<h1><a class="anchor" id="autotoc_md11"></a>
+License</h1>
+<p>Nyxstone is available under the [MIT license](LICENSE).</p>
+<h1><a class="anchor" id="autotoc_md12"></a>
+Contributing</h1>
+<p>We welcome contributions from the community! If you encounter any issues with Nyxstone, please feel free to open a GitHub issue. If you're interested in contributing directly to the project, you can start by addressing an existing issue and submitting a pull request.</p>
+<h1><a class="anchor" id="autotoc_md13"></a>
+Contributers</h1>
+<p>Philipp Koppe, Rachid Mzannar, Darius Hartlief @ <a href="https://www.emproof.com">emproof.com</a> </p>
 </div></div><!-- PageDoc -->
 </div><!-- contents -->
 <!-- start footer part -->
