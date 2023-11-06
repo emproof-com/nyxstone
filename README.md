@@ -93,13 +93,13 @@ For more instructions regarding the Rust binding, refer to its [README](bindings
 
 Install Nyxstone with pip. On some distributions you may have to create a virtual environment.
 
-´´´
+```
 $ pip install nyxstone
 $ python -q
-\>\>\> from nyxstone import NyxstoneBuilder
-\>\>\> nyxstone = NyxstoneBuilder().with_triple("x86_64").build()
-\>\>\> nyxstone.assemble_to_bytes("jne .loop", 0x1100, {".loop": 0x1000})
-´´´
+>>> from nyxstone import NyxstoneBuilder
+>>> nyxstone = NyxstoneBuilder().with_triple("x86_64").build()
+>>> nyxstone.assemble_to_bytes("jne .loop", 0x1100, {".loop": 0x1000})
+```
 
 For more instructions regarding the Python binding, refer to its [README](bindings/python/README.md).
 
