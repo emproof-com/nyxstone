@@ -46,9 +46,11 @@ jobs:
   mac:
     runs-on: macos-latest
     env:
-      working-dir: ./bindings/rust
+      working-dir: bindings/rust
 
     steps:
+    - name: Prepare-ls
+      run: ls
     - name: Prepare
       run: make nyxstone
       working-directory: ${{ env.working-dir }}
