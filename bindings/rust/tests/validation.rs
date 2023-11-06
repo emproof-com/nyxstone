@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use nyxstone::{Instruction, IntegerBase, LabelDefinition, Nyxstone, NyxstoneBuilder};
+    use nyxstone::{Instruction, IntegerBase, LabelDefinition, Nyxstone, NyxstoneConfig};
     use std::assert_eq;
 
     #[test]
     fn assembler_test() -> Result<()> {
-        let nyxstone = NyxstoneBuilder::default().with_triple("x86_64-linux-gnu").build()?;
+        let nyxstone = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
 
         let result = nyxstone.assemble_to_bytes("mov rax, rax", 0x1000, &[])?;
         assert_eq!(result, vec![0x48, 0x89, 0xc0]);
@@ -16,7 +16,7 @@ mod tests {
 
     #[test]
     fn disassembler_test() -> Result<()> {
-        let nyxstone = NyxstoneBuilder::default().with_triple("x86_64-linux-gnu").build()?;
+        let nyxstone = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
 
         let result = nyxstone.disassemble_to_text(&[0x48, 0x89, 0xc0], 0x1000, 0)?;
         assert_eq!(result, "mov rax, rax\n".to_owned());
@@ -26,7 +26,7 @@ mod tests {
 
     #[test]
     fn ldr_aligned_misaligned_armv6m_test() -> Result<()> {
-        let nyxstone = NyxstoneBuilder::default().with_triple("armv6m-none-eabi").build()?;
+        let nyxstone = Nyxstone::new("armv6m-none-eabi", NyxstoneConfig::default())?;
 
         // 4 byte aligned instruction addresses
         let bytes = nyxstone.assemble_to_bytes(
@@ -116,9 +116,7 @@ mod tests {
 
     #[test]
     fn ldr_segfault_regression_test() -> Result<()> {
-        let nyxstone_armv8m = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .build()?;
+        let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
         // #8  assembly="ldr r3, .lbl_0x00c0f4\n.lbl_0x00c0f4:\n", address=49352,
         let result = nyxstone_armv8m.assemble_to_bytes(
@@ -148,10 +146,8 @@ mod tests {
 
     #[test]
     fn nyxstone_test() -> Result<()> {
-        let nyxstone_x86_64 = NyxstoneBuilder::default().with_triple("x86_64-linux-gnu").build()?;
-        let nyxstone_armv8m = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .build()?;
+        let nyxstone_x86_64 = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
+        let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
         let labels = [LabelDefinition {
             name: ".label",
@@ -212,9 +208,7 @@ mod tests {
 
     #[test]
     fn nyxstone_armv8a_ldr_regression_test() -> Result<()> {
-        let nyxstone_armv8a = NyxstoneBuilder::default()
-            .with_triple("aarch64-linux-gnueabihf")
-            .build()?;
+        let nyxstone_armv8a = Nyxstone::new("aarch64-linux-gnueabihf", NyxstoneConfig::default())?;
 
         let result = nyxstone_armv8a.assemble_to_bytes(
             "ldr x10, .label",
@@ -240,9 +234,7 @@ mod tests {
 
     #[test]
     fn nyxstone_armv8m_ldr_regression_test() -> Result<()> {
-        let nyxstone_armv8m = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .build()?;
+        let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
         let result = nyxstone_armv8m.assemble_to_bytes(
             "ldr r3, .label",
@@ -259,9 +251,7 @@ mod tests {
 
     #[test]
     fn nyxstone_armv8a_regression_test_call_fixup() -> Result<()> {
-        let nyxstone_armv8a = NyxstoneBuilder::default()
-            .with_triple("aarch64-linux-gnueabihf")
-            .build()?;
+        let nyxstone_armv8a = Nyxstone::new("aarch64-linux-gnueabihf", NyxstoneConfig::default())?;
 
         let labels = [LabelDefinition {
             name: ".label",
@@ -342,10 +332,8 @@ mod tests {
 
     #[test]
     fn nyxstone_regression_test_call_fixup() -> Result<()> {
-        let nyxstone_x86_64 = NyxstoneBuilder::default().with_triple("x86_64-linux-gnu").build()?;
-        let nyxstone_armv8m = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .build()?;
+        let nyxstone_x86_64 = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
+        let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
         let labels = [LabelDefinition {
             name: ".label",
@@ -379,9 +367,7 @@ mod tests {
 
     #[test]
     fn nyxstone_armv8m_regression_test_call_fixup() -> Result<()> {
-        let nyxstone_armv8m = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .build()?;
+        let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
         let labels = [LabelDefinition {
             name: ".label",
@@ -411,11 +397,12 @@ mod tests {
 
     #[test]
     fn nyxstone_isa() -> Result<()> {
-        let nyxstone_armv8m = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .with_feature("fp16")
-            .with_feature("mve.fp")
-            .build()?;
+        let config = NyxstoneConfig {
+            features: "+fp16,+mve.fp",
+            ..Default::default()
+        };
+        let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", config)?;
+
         // test floating point instructions
         let bytes = nyxstone_armv8m.assemble_to_bytes("vadd.f16 s0, s1, s2", 0x1000, &[])?;
         assert_eq!(bytes, vec![0x30, 0xee, 0x81, 0x09]);
@@ -439,23 +426,20 @@ mod tests {
     // as well as validating that disabling the enabled features actually disables them...
     // #[test]
     // fn nyxstone_isa_cpu() -> Result<()> {
-    //     let nyxstone = NyxstoneBuilder::default()
-    //         .with_triple("some-triple")
-    //         .with_cpu("some-cpu-with-feature-x")
-    //         .without_feature("x")
-    //         .build()?;
-    //     // test feature x
+    //     let config = NyxstoneInit {cpu: "some-cpu-with-feature-x", features: "-feature_x", ..Default::default()};
+    //         .init("some-triple")?;
+    //     // test that feature x does not work
 
     //     Ok(())
     // }
 
     #[test]
     fn nyxstone_isa_fails() -> Result<()> {
-        let nyxstone_armv8m = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .with_feature("fp16")
-            .without_feature("mve.fp")
-            .build()?;
+        let config = NyxstoneConfig {
+            features: "+fp16,-mve.fp",
+            ..Default::default()
+        };
+        let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", config)?;
 
         // Test that floating point instructions fail if the feature is not enabled.
         let result = nyxstone_armv8m.assemble_to_bytes("vadd.f16 s0, s1, s2", 0x1000, &[]);
@@ -476,27 +460,27 @@ mod tests {
         let bytes = [0x00, 0xf1, 0x0a, 0x00]; // add.w r0, r0, #10
 
         // Ensure that the default prints immediates as decimals.
-        let nyxstone = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .build()?;
+        let nyxstone = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
         let asm = nyxstone.disassemble_to_text(&bytes, 0x0, 0)?;
         assert_eq!(asm, "add.w r0, r0, #10\n");
 
         // Ensure that HexPrefix works.
-        let nyxstone = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .with_immediate_style(IntegerBase::HexPrefix)
-            .build()?;
+        let config = NyxstoneConfig {
+            immediate_style: IntegerBase::HexPrefix,
+            ..Default::default()
+        };
+        let nyxstone = Nyxstone::new("armv8m.main-none-eabi", config)?;
 
         let asm = nyxstone.disassemble_to_text(&bytes, 0x0, 0)?;
         assert_eq!(asm, "add.w r0, r0, #0xa\n");
 
         // Ensure that HexSuffix works.
-        let nyxstone = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .with_immediate_style(IntegerBase::HexSuffix)
-            .build()?;
+        let config = NyxstoneConfig {
+            immediate_style: IntegerBase::HexSuffix,
+            ..Default::default()
+        };
+        let nyxstone = Nyxstone::new("armv8m.main-none-eabi", config)?;
 
         let asm = nyxstone.disassemble_to_text(&bytes, 0x0, 0)?;
         assert_eq!(asm, "add.w r0, r0, #0ah\n");
@@ -506,9 +490,7 @@ mod tests {
 
     #[test]
     fn armv8a_adr_out_of_range_regression() -> Result<()> {
-        let nyxstone_armv8a = NyxstoneBuilder::default()
-            .with_triple("aarch64-linux-gnueabihf")
-            .build()?;
+        let nyxstone_armv8a = Nyxstone::new("aarch64-linux-gnueabihf", NyxstoneConfig::default())?;
 
         let result = nyxstone_armv8a.assemble_to_bytes(
             "adr x21, .label",
@@ -526,9 +508,7 @@ mod tests {
 
     #[test]
     fn armv8m_adr_out_of_range_regression() -> Result<()> {
-        let nyxstone_armv8m = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .build()?;
+        let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
         let result = nyxstone_armv8m.assemble_to_bytes(
             "adr r0, .label",
@@ -694,7 +674,7 @@ mod tests {
             ),
         ];
 
-        let nyxstone_armv6m = NyxstoneBuilder::default().with_triple("armv6m-none-eabi").build()?;
+        let nyxstone_armv6m = Nyxstone::new("armv6m-none-eabi", NyxstoneConfig::default())?;
 
         check_instruction_ranges(&nyxstone_armv6m, instructions)?;
 
@@ -770,11 +750,11 @@ mod tests {
             ),
         ];
 
-        let nyxstone_armv7m = NyxstoneBuilder::default()
-            .with_triple("armv7m-none-eabi")
-            .with_feature("fp16")
-            .with_feature("mve.fp")
-            .build()?;
+        let config = NyxstoneConfig {
+            features: "+fp16,+mve.fp",
+            ..Default::default()
+        };
+        let nyxstone_armv7m = Nyxstone::new("armv7m-none-eabi", config)?;
 
         check_instruction_ranges(&nyxstone_armv7m, instructions)?;
 
@@ -850,11 +830,11 @@ mod tests {
             ),
         ];
 
-        let nyxstone_armv8m = NyxstoneBuilder::default()
-            .with_triple("armv8m.main-none-eabi")
-            .with_feature("fp16")
-            .with_feature("mve.fp")
-            .build()?;
+        let config = NyxstoneConfig {
+            features: "+fp16,+mve.fp",
+            ..Default::default()
+        };
+        let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", config)?;
 
         check_instruction_ranges(&nyxstone_armv8m, instructions)?;
         Ok(())
