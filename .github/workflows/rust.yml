@@ -42,3 +42,19 @@ jobs:
     - name: Run tests
       run: cargo test
       working-directory: ${{ env.working-dir }}
+
+  build:
+    runs-on: macos-latest
+    env:
+      working-dir: ./bindings/rust
+
+    steps:
+    - name: Prepare
+      run: make nyxstone
+      working-directory: ${{ env.working-dir }}
+    - name: Build
+      run: NYXSTONE_LLVM_PREFIX=$(brew --prefix llvm@15) cargo build
+      working-directory: ${{ env.working-dir }}
+    - name: Run tests
+      run: NYXSTONE_LLVM_PREFIX=$(brew --prefix llvm@15) cargo test
+      working-directory: ${{ env.working-dir }}
