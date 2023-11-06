@@ -1,16 +1,13 @@
 use anyhow::anyhow;
-use derive_builder::Builder;
 use ffi::create_nyxstone_ffi;
 
 /// Public interface for calling nyxstone from rust.
 /// # Examples
 ///
 /// ```rust
-/// # use nyxstone::{Nyxstone, NyxstoneBuilder, Instruction};
+/// # use nyxstone::{Nyxstone, NyxstoneConfig, Instruction};
 /// # fn main() -> anyhow::Result<()> {
-/// let nyxstone = NyxstoneBuilder::default()
-///     .with_triple("x86_64")
-///     .build()?;
+/// let nyxstone = Nyxstone::new("x86_64", NyxstoneConfig::default())?;
 ///
 /// let instructions = nyxstone.assemble_to_instructions("mov rax, rbx", 0x1000, &[])?;
 ///
@@ -25,46 +22,8 @@ use ffi::create_nyxstone_ffi;
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Builder)]
-#[builder(setter(into), pattern = "owned", build_fn(error = "anyhow::Error", skip))]
 pub struct Nyxstone {
-    /// Specifies the LLVM target triple Nyxstone uses. MUST be set!
-    ///
-    /// # Parameters
-    /// - `value`: The LLVM target triple, for example `x86_64`.
-    ///
-    /// # Returns
-    /// The updated NyxstoneBuilder instance.
-    #[builder(field(type = "String"), setter(name = "with_triple"))]
-    _triple: (), // Empty variable which holds the triple in the auto-generated `NyxstoneBuilder`.
-
-    /// Specifies the CPU for which LLVM assembles/disassembles internally, which might enable/disable certain features.
-    ///
-    /// # Parameters
-    /// - `value`: The CPU name, for example `corei7`
-    ///
-    /// # Returns
-    /// The updated NyxstoneBuilder instance.
-    #[builder(field(type = "String"), setter(name = "with_cpu"))]
-    _cpu: (),
-    #[builder(field(type = "Vec<String>"), setter(custom))]
-    _enabled_features: (), // Empty variable which holds the enabled features in the auto-generated `NyxstoneBuilder`.
-    #[builder(field(type = "Vec<String>"), setter(custom))]
-    _disabled_features: (), // Empty variable which holds the disabled features in the auto-generated `NyxstoneBuilder`.
-
-    /// Specifies in what format immediates should be represented in the output.
-    ///
-    /// # Parameters
-    /// - `value`: One of the [`IntegerBase`] variants.
-    ///
-    /// # Returns
-    /// The updated NyxstoneBuilder instance.
-    #[builder(field(type = "IntegerBase"), setter(name = "with_immediate_style"))]
-    _imm_style: (), // Empty variable which holds the hex style for instruction printing in the auto-generated `NyxstoneBuilder`.
-
     /// The c++ `unique_ptr` holding the actual `NyxstoneFFI` instance.
-    /// Is an empty type in the `NyxstoneBuilder`.
-    #[builder(setter(skip), field(type = "()"))]
     inner: cxx::UniquePtr<ffi::NyxstoneFFI>,
 }
 
@@ -73,7 +32,7 @@ pub use crate::ffi::Instruction;
 pub use crate::ffi::LabelDefinition;
 
 /// Configuration options for the integer style of immediates in disassembly output.
-#[derive(Debug, PartialEq, Eq, Default)]
+#[derive(Debug, PartialEq, Eq, Default, Clone, Copy)]
 pub enum IntegerBase {
     /// Immediates are represented in decimal format.
     #[default]
@@ -95,6 +54,28 @@ impl From<IntegerBase> for ffi::IntegerBase {
 }
 
 impl Nyxstone {
+    /// Builds a Nyxstone instance with specific configuration.
+    ///
+    /// # Returns
+    /// Ok() and the Nyxstone instance on success, Err() otherwise.
+    ///
+    /// # Errors
+    /// Errors occur when the LLVM triple was not supplied to the builder or LLVM fails.
+    pub fn new(target_triple: &str, config: NyxstoneConfig) -> anyhow::Result<Nyxstone> {
+        let result = create_nyxstone_ffi(
+            target_triple,
+            config.cpu,
+            config.features,
+            config.immediate_style.into(),
+        );
+
+        if !result.error.is_empty() {
+            return Err(anyhow!("{}", result.error));
+        }
+
+        Ok(Nyxstone { inner: result.ok })
+    }
+
     /// Translates assembly instructions at a given start address to bytes.
     ///
     /// # Note:
@@ -143,7 +124,9 @@ impl Nyxstone {
         address: u64,
         labels: &[LabelDefinition],
     ) -> anyhow::Result<Vec<Instruction>> {
-        let instr_result = self.inner.assemble_to_instructions(assembly, address, labels);
+        let instr_result = self
+            .inner
+            .assemble_to_instructions(assembly, address, labels);
 
         if !instr_result.error.is_empty() {
             return Err(anyhow!("Error during disassembly: {}.", instr_result.error));
@@ -161,7 +144,12 @@ impl Nyxstone {
     ///
     /// # Returns:
     /// Ok() and disassembly text on success, Err() otherwise.
-    pub fn disassemble_to_text(&self, bytes: &[u8], address: u64, count: usize) -> anyhow::Result<String> {
+    pub fn disassemble_to_text(
+        &self,
+        bytes: &[u8],
+        address: u64,
+        count: usize,
+    ) -> anyhow::Result<String> {
         let text_result = self.inner.disassemble_to_text(bytes, address, count);
 
         if !text_result.error.is_empty() {
@@ -186,7 +174,9 @@ impl Nyxstone {
         address: u64,
         count: usize,
     ) -> anyhow::Result<Vec<Instruction>> {
-        let instr_result = self.inner.disassemble_to_instructions(bytes, address, count);
+        let instr_result = self
+            .inner
+            .disassemble_to_instructions(bytes, address, count);
 
         if !instr_result.error.is_empty() {
             return Err(anyhow!("Error during disassembly: {}.", instr_result.error));
@@ -198,99 +188,15 @@ impl Nyxstone {
 
 unsafe impl Send for Nyxstone {}
 
-impl NyxstoneBuilder {
-    /// Enables a given llvm feature.
-    ///
-    /// # Parameters
-    /// - `feature`: The feature to be enabled, should not contain a prepended '+'.
-    ///
-    /// # Returns
-    /// The updated NyxstoneBuilder instance.
-    pub fn with_feature(mut self, feature: &str) -> Self {
-        // If the feature is already enabled, we do not need to do anything
-        if self._enabled_features.iter().any(|f| f == feature) {
-            return self;
-        }
-
-        // If the feature is disabled, we need to remove it from the disabled features.
-        if let Some(pos) = self._disabled_features.iter().position(|f| f == feature) {
-            self._disabled_features.swap_remove(pos); // We do not need the features to be in-order
-        }
-
-        self._enabled_features.push(feature.into());
-
-        self
-    }
-
-    /// Disables a given llvm feature.
-    ///
-    /// # Parameters
-    /// - `feature`: The feature to be disabled, should not contain a prepended '-'.
-    ///
-    /// # Returns
-    /// The updated NyxstoneBuilder instance.
-    pub fn without_feature(mut self, feature: &str) -> Self {
-        // If the feature is already disabled, we do not need to do anything
-        if self._disabled_features.iter().any(|f| f == feature) {
-            return self;
-        }
-
-        // If the feature is enabled, we need to remove it from the enabled features.
-        if let Some(pos) = self._enabled_features.iter().position(|f| f == feature) {
-            self._enabled_features.swap_remove(pos); // We do not need the features to be in-order
-        }
-
-        self._disabled_features.push(feature.into());
-
-        self
-    }
-
-    /// Builds a Nyxstone instance from the NyxstoneBuilder.
-    ///
-    /// # Returns
-    /// Ok() and the Nyxstone instance on success, Err() otherwise.
-    ///
-    /// # Errors
-    /// Errors occur when the LLVM triple was not supplied to the builder or LLVM fails.
-    pub fn build(self) -> anyhow::Result<Nyxstone> {
-        if self._triple.is_empty() {
-            return Err(anyhow::anyhow!("No 'triple' supplied to builder."));
-        }
-
-        // Build the features string for LLVM
-        // LLVM features are comma-seperated strings representing the feature
-        // preprended with a '+' for an enabled feature and a '-' for a disabled feature.
-        let features: Vec<_> = self
-            ._enabled_features
-            .into_iter()
-            .map(|mut feature| {
-                feature.insert(0, '+');
-                feature
-            })
-            .chain(self._disabled_features.into_iter().map(|mut feature| {
-                feature.insert(0, '-');
-                feature
-            }))
-            .collect();
-
-        let features: String = features.join(",");
-
-        let nyxstone_result = create_nyxstone_ffi(&self._triple, &self._cpu, &features, self._imm_style.into());
-
-        if !nyxstone_result.error.is_empty() {
-            return Err(anyhow!(nyxstone_result.error));
-        }
-
-        Ok(Nyxstone {
-            _triple: (),
-            _cpu: (),
-            _enabled_features: (),
-            _disabled_features: (),
-            _imm_style: (),
-
-            inner: nyxstone_result.ok,
-        })
-    }
+/// Initialization configuration for Nyxstone
+#[derive(Debug, Default)]
+pub struct NyxstoneConfig<'a, 'b> {
+    /// The LLVM cpu identifier, empty for no specific cpu target.
+    pub cpu: &'a str,
+    /// An LLVM feature string, features are comma seperated strings, which are prepended with '+' when enabled and '-' if disabled.
+    pub features: &'b str,
+    /// The printing style of immediates.
+    pub immediate_style: IntegerBase,
 }
 
 #[cxx::bridge]
@@ -360,7 +266,12 @@ mod ffi {
         /// - features: llvm features string (features delimited by `,` with `+` for enable and `-` for disable), can be empty
         /// # Returns
         /// Ok() and UniquePtr holding a NyxstoneFFI on success, Err() otherwise.
-        fn create_nyxstone_ffi(triple_name: &str, cpu: &str, features: &str, style: IntegerBase) -> NyxstoneResult;
+        fn create_nyxstone_ffi(
+            triple_name: &str,
+            cpu: &str,
+            features: &str,
+            style: IntegerBase,
+        ) -> NyxstoneResult;
 
         // Translates assembly instructions at a given start address to bytes.
         // Additional label definitions by absolute address may be supplied.
@@ -383,7 +294,12 @@ mod ffi {
         ) -> InstructionResult;
 
         // Translates bytes to disassembly text at given start address.
-        fn disassemble_to_text(self: &NyxstoneFFI, bytes: &[u8], address: u64, count: usize) -> StringResult;
+        fn disassemble_to_text(
+            self: &NyxstoneFFI,
+            bytes: &[u8],
+            address: u64,
+            count: usize,
+        ) -> StringResult;
 
         // Translates bytes to instruction details containing disassembly text at a given start address.
         fn disassemble_to_instructions(

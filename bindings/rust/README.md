@@ -27,11 +27,11 @@ extern crate anyhow;
 extern crate nyxstone;
 
 use anyhow::Result;
-use nyxstone::{IntegerBase, LabelDefinition, NyxstoneBuilder};
+use nyxstone::{IntegerBase, LabelDefinition, Nyxstone, NyxstoneConfig};
 
 fn main() -> Result<()> {
     // Creating a nyxstone instance can fail, for example if the triple is invalid.
-    let nyxstone = NyxstoneBuilder::default().with_triple("x86_64").build()?;
+    let nyxstone = Nyxstone::new("x86_64", NyxstoneConfig::default())?;
 
     let instructions = nyxstone.assemble_to_instructions(
         "mov rax, rbx; cmp rax, rdx; jne .label",
@@ -55,10 +55,11 @@ fn main() -> Result<()> {
 
     assert_eq!(disassembly, "xor eax, ebx\n".to_owned());
 
-    let nyxstone = NyxstoneBuilder::default()
-        .with_triple("x86_64")
-        .with_immediate_style(IntegerBase::HexPrefix)
-        .build()?;
+    let config = NyxstoneConfig {
+        immediate_style: IntegerBase::HexPrefix,
+        ..Default::default()
+    };
+    let nyxstone = Nyxstone::new("x86_64", config)?;
 
     assert_eq!(
         nyxstone.disassemble_to_text(&[0x83, 0xc0, 0x01], 0, 0)?,
