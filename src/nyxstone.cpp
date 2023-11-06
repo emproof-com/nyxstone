@@ -367,13 +367,12 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         return tl::unexpected(error_stream.str());
     }
 
-    auto res = remove_bkpt(output_bytes, instructions, needs_prepend)
-                   .transform([&bytes](const auto& output) -> void {
-                       // Copy bytes to output
-                       bytes.clear();
-                       bytes.reserve(output.size());
-                       std::copy(output.begin(), output.end(), std::back_inserter(bytes));
-                   });
+    auto res = remove_bkpt(output_bytes, instructions, needs_prepend).transform([&bytes](const auto& output) -> void {
+        // Copy bytes to output
+        bytes.clear();
+        bytes.reserve(output.size());
+        std::copy(output.begin(), output.end(), std::back_inserter(bytes));
+    });
 
     // Assign addresses if instruction details requested
     if (instructions != nullptr) {

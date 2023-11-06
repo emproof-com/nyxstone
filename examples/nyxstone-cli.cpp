@@ -122,13 +122,13 @@ int main(int argc, char** argv)
         boost::algorithm::unhex(byte_code.begin(), byte_code.end(), std::back_inserter(bytes));
 
         nyxstone->disassemble_to_instructions(bytes, address, 0)
-                          .map_error([&bytes](const auto& error) {
-                              std::cerr << "Could not disassemble ";
-                              print_bytes(bytes);
-                              std::cerr << " (= " << error << " )\n";
-                              exit(1);
-                          })
-                          .map(print_instructions);
+            .map_error([&bytes](const auto& error) {
+                std::cerr << "Could not disassemble ";
+                print_bytes(bytes);
+                std::cerr << " (= " << error << " )\n";
+                exit(1);
+            })
+            .map(print_instructions);
     }
 
     return 0;
