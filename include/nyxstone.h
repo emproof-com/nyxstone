@@ -75,6 +75,8 @@ public:
         std::string assembly;
         /// The byte code of the instruction
         std::vector<uint8_t> bytes {};
+
+        bool operator==(const Instruction& other) const;
     };
 
     /// @brief Nyxstone constructor called by NyxstoneBuilder::build.

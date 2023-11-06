@@ -28,8 +28,8 @@ int main(int argc, char** argv)
     desc.add_options()
         ("help", "Show this message")
         ("arch", po::value<std::string>()->default_value("x86_64"),
-            R"(LLVM architecture (triple), for example "x86_64", "armv8m", "armv8meb", "thumbv8", "aarch64")")
-        ("address", po::value<uint64_t>()->default_value(0u), "Address")
+            R"(LLVM triple or architecture identifier of triple, for example "x86_64", "x86_64-linux-gnu", "armv8", "armv8eb", "thumbv8", "aarch64")")
+        ("address", po::value<std::string>()->default_value("0"), "Address")
     ;
 
     po::options_description desc_asm("Assembling");
@@ -38,7 +38,7 @@ int main(int argc, char** argv)
         ("assemble,A", po::value<std::string>(), "Assembly")
     ;
 
-    po::options_description desc_disasm("Assembling");
+    po::options_description desc_disasm("Disassembling");
     desc_disasm.add_options()
         ("disassemble,D", po::value<std::string>(), "Byte code in hex, for example: \"0203\"")
     ;
@@ -94,6 +94,15 @@ int main(int argc, char** argv)
         labels = maybe_labels.value();
     }
 
+    uint64_t address = 0;
+    auto addr = varmap["address"].as<std::string>();
+    try {
+        address = std::stoul(addr, nullptr, 0);
+    } catch (const std::exception&) {
+        std::cerr << "Could not parse address\n";
+        return 1;
+    }
+
     std::unique_ptr<Nyxstone> nyxstone { nullptr };
     try {
         nyxstone = std::move(NyxstoneBuilder().with_triple(std::move(arch)).build());
@@ -101,8 +110,6 @@ int main(int argc, char** argv)
         std::cerr << "Failure creating nyxstone instance (= " << e.what() << " )\n";
         return 1;
     }
-
-    auto address = varmap["address"].as<uint64_t>();
 
     if (has_assemble) {
         std::vector<Nyxstone::Instruction> instrs;
@@ -187,7 +194,7 @@ std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string l
 
         uint64_t value = 0;
         try {
-            value = std::stoul(val, nullptr, 16);
+            value = std::stoul(val, nullptr, 0);
         } catch (const std::exception& e) {
             std::cerr << "Could not parse label value: `" << val << "`\n";
             return {};

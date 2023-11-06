@@ -4,13 +4,13 @@ project(nyxstone VERSION 0.1.0)
 find_package(LLVM 15 CONFIG PATHS $ENV{NYXSTONE_LLVM_PREFIX} NO_DEFAULT_PATH)
 find_package(LLVM 15 CONFIG)
 
-find_package(Boost 1.40 COMPONENTS program_options)
-include_directories(${Boost_INCLUDE_DIR})
-
 include_directories(${LLVM_INCLUDE_DIRS} include/ src/)
 add_definitions(${LLVM_DEFINITIONS})
 
 llvm_map_components_to_libnames(llvm_libs core mc AllTargetsCodeGens AllTargetsAsmParsers AllTargetsDescs AllTargetsDisassemblers AllTargetsInfos AllTargetsMCAs)
+
+find_package(Boost 1.40 COMPONENTS program_options)
+include_directories(${Boost_INCLUDE_DIR})
 
 file(GLOB srcs
   "src/*.hpp"
@@ -22,8 +22,10 @@ file(GLOB srcs
 
 add_library(nyxstone ${srcs})
 
-add_executable(nstone examples/nyxstone-cli.cpp)
+add_executable(nyxstone-bin examples/nyxstone-cli.cpp)
+set_target_properties(nyxstone-bin PROPERTIES OUTPUT_NAME nyxstone)
+
 add_executable(sample examples/sample.cpp)
 
-target_link_libraries(nstone nyxstone ${llvm_libs} ${Boost_LIBRARIES})
+target_link_libraries(nyxstone-bin nyxstone ${llvm_libs} ${Boost_LIBRARIES})
 target_link_libraries(sample nyxstone ${llvm_libs})
