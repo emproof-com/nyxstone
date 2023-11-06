@@ -96,12 +96,12 @@ int main(int argc, char** argv)
         labels = maybe_labels.value();
     }
 
-    auto result { std::move(NyxstoneBuilder().with_triple(std::move(arch)).build()) };
-    if (!result) {
-        std::cerr << "Failure creating nyxstone instance (= " << result.error() << " )\n";
+    auto nyxstone_result { std::move(NyxstoneBuilder().with_triple(std::move(arch)).build()) };
+    if (!nyxstone_result) {
+        std::cerr << "Failure creating nyxstone instance (= " << nyxstone_result.error() << " )\n";
         return 1;
     }
-    auto nyxstone { std::move(result.value()) };
+    auto nyxstone { std::move(nyxstone_result.value()) };
 
     auto address = varmap["address"].as<uint64_t>();
 
@@ -121,7 +121,7 @@ int main(int argc, char** argv)
         byte_code.erase(std::remove_if(byte_code.begin(), byte_code.end(), ::isspace), byte_code.end());
         boost::algorithm::unhex(byte_code.begin(), byte_code.end(), std::back_inserter(bytes));
 
-        auto result = nyxstone->disassemble_to_instructions(bytes, address, 0)
+        nyxstone->disassemble_to_instructions(bytes, address, 0)
                           .map_error([&bytes](const auto& error) {
                               std::cerr << "Could not disassemble ";
                               print_bytes(bytes);

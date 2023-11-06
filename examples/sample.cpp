@@ -38,9 +38,6 @@ int main(int /* argc */, char** /* argv */)
     auto nyxstone_armv8m = NyxstoneBuilder().with_triple("armv8m.main-none-eabi").build().map_error(die).value();
 
     const std::vector<Nyxstone::LabelDefinition> labels { { ".label", 0x1010 } };
-    std::vector<uint8_t> bytes;
-    std::vector<Nyxstone::Instruction> instructions;
-    std::string disassembly;
 
     std::cout << "assemble_to_bytes:\n";
     std::cout << "\tmov rax, rax : [ ";

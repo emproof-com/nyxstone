@@ -195,7 +195,7 @@ namespace {
     }
 
     tl::expected<llvm::SmallVector<char, 128>, std::string> remove_bkpt(
-        llvm::SmallVector<char, 128>&& bytes, std::vector<Nyxstone::Instruction>* instructions, bool has_prepend)
+        llvm::SmallVector<char, 128> bytes, std::vector<Nyxstone::Instruction>* instructions, bool has_prepend)
     {
         // If bkpt got prepended for alignment reasons, remove it from instructions
         // and bytes
@@ -338,7 +338,10 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     streamer->initSections(false, parser->getTargetParser().getSTI());
 
     // Search first data fragment
-    auto& fragments = *streamer->getCurrentSectionOnly();
+    // Safety: cppcheck (wrongly) reports this reference can be declared as const, but does not seem to take
+    // into account that the fragment iterator will be a const iterator as a result. We need to have
+    // a non-const reference to the fragment, as the setFragment function only takes non-const pointers.
+    auto& fragments = *streamer->getCurrentSectionOnly(); // cppcheck-suppress constVariableReference
     auto fragment_it = std::find_if(std::begin(fragments), std::end(fragments),
         [](auto& fragment) { return fragment.getKind() == llvm::MCFragment::FT_Data; });
     if (fragment_it == std::end(fragments)) {
@@ -364,12 +367,12 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         return tl::unexpected(error_stream.str());
     }
 
-    auto res = remove_bkpt(std::move(output_bytes), instructions, needs_prepend)
-                   .transform([&bytes](auto output_bytes) -> void {
+    auto res = remove_bkpt(output_bytes, instructions, needs_prepend)
+                   .transform([&bytes](const auto& output) -> void {
                        // Copy bytes to output
                        bytes.clear();
-                       bytes.reserve(output_bytes.size());
-                       std::copy(output_bytes.begin(), output_bytes.end(), std::back_inserter(bytes));
+                       bytes.reserve(output.size());
+                       std::copy(output.begin(), output.end(), std::back_inserter(bytes));
                    });
 
     // Assign addresses if instruction details requested
