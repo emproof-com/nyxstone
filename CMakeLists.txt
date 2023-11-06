@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.4.3)
 project(nyxstone VERSION 0.1.0)
 
+set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD_REQUIRED ON)
+
 find_package(LLVM 15 CONFIG PATHS $ENV{NYXSTONE_LLVM_PREFIX} NO_DEFAULT_PATH)
 find_package(LLVM 15 CONFIG)
 

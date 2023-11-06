@@ -75,7 +75,8 @@ public:
     /// @param assembly The assembly instruction(s) to be assembled.
     /// @param address The absolute address of the first instruction.
     /// @param labels Label definitions, should hold all external labels used in the @p assembly.
-    /// @param bytes The assembled byte code (Note: the vector is reset before writing to it).
+    ///
+    /// @return The assembled bytes on success, an error string otherwise.
     tl::expected<std::vector<u8>, std::string> assemble_to_bytes(
         const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const;
 
@@ -87,7 +88,8 @@ public:
     /// @param assembly The assembly instruction(s) to be assembled.
     /// @param address The absolute address of the first instruction.
     /// @param labels Label definitions, should hold all external labels used in the @p assembly.
-    /// @param instructions Holds the instruction details of the assembled @p assembly.
+    ///
+    /// @return The instruction details on success, an error string otherwise.
     tl::expected<std::vector<Instruction>, std::string> assemble_to_instructions(
         const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const;
 
@@ -96,7 +98,8 @@ public:
     /// @param bytes The byte code to be disassembled.
     /// @param address The absolute address of the byte code.
     /// @param count The number of instructions which should be disassembled, 0 means all.
-    /// @param disassembly Disassembly output.
+    ///
+    /// @return The disassembly on success, an error string otherwise.
     tl::expected<std::string, std::string> disassemble_to_text(
         const std::vector<uint8_t>& bytes, uint64_t address, size_t count) const;
 
@@ -105,7 +108,8 @@ public:
     /// @param bytes The byte code to be disassembled.
     /// @param address The absolute address of the byte code.
     /// @param count The number of instructions which should be disassembled, 0 means all.
-    /// @param instructions Holds the instruction details after disassembling.
+    ///
+    /// @return The instruction details on success, an error string otherwise.
     tl::expected<std::vector<Instruction>, std::string> disassemble_to_instructions(
         const std::vector<uint8_t>& bytes, uint64_t address, size_t count) const;
 
@@ -192,8 +196,8 @@ public:
 
     /// @brief Builds a nyxstone instance from the builder.
     /// @note Should only be called after the triple has been specified via `NyxstoneBuilder::with_triple`.
-    /// @return A unique_ptr holding the created nyxstone instance.
-    /// @throws Nyxstone::Exception Thrown if initialization or object creation fails.
+    ///
+    /// @return A unique_ptr holding the created nyxstone instance on success, an error string otherwise.
     tl::expected<std::unique_ptr<Nyxstone>, std::string> build();
 };
 
