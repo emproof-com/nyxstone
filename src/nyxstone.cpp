@@ -338,11 +338,8 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     streamer->initSections(false, parser->getTargetParser().getSTI());
 
     // Search first data fragment
-    // Safety: cppcheck (wrongly) reports this reference can be declared as const, but does not seem to take
-    // into account that the fragment iterator will be a const iterator as a result. We need to have
-    // a non-const reference to the fragment, as the setFragment function only takes non-const pointers.
-    auto& fragments = *streamer->getCurrentSectionOnly(); // cppcheck-suppress constVariableReference
-    auto fragment_it = std::find_if(std::begin(fragments), std::end(fragments),
+    auto& fragments = *streamer->getCurrentSectionOnly();
+    auto fragment_it = std::find_if(fragments.begin(), fragments.end(),
         [](auto& fragment) { return fragment.getKind() == llvm::MCFragment::FT_Data; });
     if (fragment_it == std::end(fragments)) {
         return tl::unexpected("Could not find initial data fragment.");
