@@ -153,7 +153,7 @@ int main(int, char**) {
 }
 ```
 
-For a comprehensive C++ example, refer to [example.cpp](example/sample.cpp).
+For a comprehensive C++ example, refer to [example.cpp](example/example.cpp).
 
 ### C++ CLI Tool
 
