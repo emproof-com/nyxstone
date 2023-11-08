@@ -16,9 +16,10 @@ Nyxstone is an assembly and disassembly library based on LLVM. It doesn’t requ
     4. [As a C++ library](#as-a-c-library)
     5. [C++ CLI Tool](#c-cli-tool)
 3. [How it works](#how-it-works)
-4. [License](#license)
-5. [Contributing](#contributing)
-6. [Contributers](#contributers)
+4. [Roadmap](#roadmap)
+5. [License](#license)
+6. [Contributing](#contributing)
+7. [Contributers](#contributers)
 
 ## Core Features
 
