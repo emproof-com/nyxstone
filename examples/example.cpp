@@ -96,6 +96,7 @@ int main(int, char**)
     nyxstone = std::move(
         NyxstoneBuilder()
             .with_triple("thumbv8")
+            .with_cpu("cortex-m7")
             .with_immediate_style(NyxstoneBuilder::IntegerBase::HexPrefix) // Change the printing style of immediates
             .with_features("+mve.fp,+fp16") // Enable additional cpu features, here floating point instructions
             .build()

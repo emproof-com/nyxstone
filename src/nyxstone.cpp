@@ -29,21 +29,18 @@ NyxstoneBuilder& NyxstoneBuilder::with_triple(std::string&& triple) noexcept
     return *this;
 }
 
-// cppcheck-suppress unusedFunction
 NyxstoneBuilder& NyxstoneBuilder::with_cpu(std::string&& cpu) noexcept
 {
     m_cpu = std::move(cpu);
     return *this;
 }
 
-// cppcheck-suppress unusedFunction
 NyxstoneBuilder& NyxstoneBuilder::with_features(std::string&& features) noexcept
 {
     m_features = std::move(features);
     return *this;
 }
 
-// cppcheck-suppress unusedFunction
 NyxstoneBuilder& NyxstoneBuilder::with_immediate_style(NyxstoneBuilder::IntegerBase style) noexcept
 {
     m_imm_style = style;
