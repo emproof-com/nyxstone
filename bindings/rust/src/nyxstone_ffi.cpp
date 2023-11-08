@@ -137,7 +137,8 @@ NyxstoneResult create_nyxstone_ffi( // cppcheck-suppress unusedFunction
     //          instance if the function failed.
     //       2. The value_or() function can't be used in combination with a unique_ptr, since it is not
     //          copy-constructable.
-    auto maybe_ffi = bool(result) ? std::make_unique<NyxstoneFFI>(std::move(result.value())) : std::unique_ptr<NyxstoneFFI>(nullptr);
+    auto maybe_ffi = bool(result) ? std::make_unique<NyxstoneFFI>(std::move(result.value()))
+                                  : std::unique_ptr<NyxstoneFFI>(nullptr);
 
     return NyxstoneResult { std::move(maybe_ffi), result.error_or("") };
 }

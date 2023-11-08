@@ -123,7 +123,8 @@ PYBIND11_MODULE(nyxstone_cpp, m)
 
     builder.def(py::init())
         .def("with_triple", &NyxstoneBuilder::with_triple, py::arg("target_triple"), "Specify the llvm target triple")
-        .def("with_features", &NyxstoneBuilder::with_features, py::arg("feature_string"), "Specify the llvm features to be en- or disabled")
+        .def("with_features", &NyxstoneBuilder::with_features, py::arg("feature_string"),
+            "Specify the llvm features to be en- or disabled")
         .def("with_cpu", &NyxstoneBuilder::with_cpu, py::arg("cpu"), "Specify the cpu to use")
         .def("with_immediate_style", &NyxstoneBuilder::with_immediate_style, py::arg("immediate_style"),
             "Specify the style in which immediates are printed")
