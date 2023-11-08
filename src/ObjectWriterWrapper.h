@@ -21,13 +21,14 @@
 #pragma GCC diagnostic pop
 
 namespace nyxstone {
-/// This class derives from LLVM's MCObjectWriter, which enables us to include
-/// user-define symbols/labels into the internal address resolution process
-/// (via 'executePostLayoutBinding()').
-///
-/// This class also enables us to limit the final output byte stream to the
+/// This class enables us to limit the final output byte stream to the
 /// relevant bytes (as opposed to the whole ELF object file) and grab final
 /// instruction bytes (after relaxation and fixups) (via 'writeObject()').
+///
+/// This class is also used to insert custom relocations and fixup validations.
+/// These are necessary when a relocation is normally performed at link time or when
+/// LLVM does not verify a fixup according to the specification, leading to wrong
+/// output for specific instruction/label combinations.
 class ObjectWriterWrapper : public llvm::MCObjectWriter {
     // Wrapped MCObjectWriter, f. i., ELFSingleObjectWriter
     std::unique_ptr<llvm::MCObjectWriter> inner_object_writer;

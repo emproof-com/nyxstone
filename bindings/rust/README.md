@@ -74,10 +74,6 @@ fn main() -> Result<()> {
 
 The nyxstone-rs bindings are generated via the `cxx` crate. Since nyxstone is specifically a c++ library, we currently do not plan to support C bindings via bindgen. 
 
-## Future improvements
-
-The binding class `NyxstoneFFI` currently copies a lot of data between the rust and c++ code. It would be more efficient to not copy data which is only read inside the c++ code.
-
 ## Acknowledgements
 
 The build script of the rust bindings borrow heavily from the [llvm-sys](https://gitlab.com/taricorp/llvm-sys.rs) build script.

@@ -102,9 +102,7 @@ PYBIND11_MODULE(nyxstone_cpp, m)
         .def_readwrite("bytes", &Nyxstone::Instruction::bytes)
         .def_readwrite("assembly", &Nyxstone::Instruction::assembly)
         .def("__eq__",
-            [](const Nyxstone::Instruction& self, const Nyxstone::Instruction& other) {
-                return self.address == other.address && self.assembly == other.assembly && self.bytes == other.bytes;
-            })
+            [](const Nyxstone::Instruction& self, const Nyxstone::Instruction& other) { return self == other; })
         .def("__repr__", [](const Nyxstone::Instruction& i) {
             std::stringstream out;
             out << "<address: 0x" << std::hex << std::setw(8) << std::setfill('0') << i.address << ", assembly: \""
