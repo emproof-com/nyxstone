@@ -30,10 +30,12 @@ jobs:
     - name: Packages
       run: sudo apt-get install llvm-15 llvm-15-dev zlib1g-dev libzstd-dev libboost-program-options-dev cppcheck clang-tidy clang-format
     - name: Code quality
-      run: ./tool/format.sh check && ./tool/static-analysis-cppcheck.sh && ./tool/static-analysis-tidy.sh
+      run: ./tool/format.sh check 
+      run: ./tool/static-analysis-cppcheck.sh
+      run: ./tool/static-analysis-tidy.sh
     - name: Build
       run: mkdir build/ && cd build && cmake .. && make
-    - name: Sample
-      run: ./build/sample
+    - name: Test
+      run: make test
     - name: cli
       run: ./build/nyxstone -A "mov rax, rbx"

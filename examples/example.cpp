@@ -5,7 +5,7 @@
 
 using namespace nyxstone;
 
-int main(int, char**)
+int main(int /*argc*/, char** /*argv*/)
 {
     // Create the nyxstone instance:
     auto nyxstone { NyxstoneBuilder().with_triple("x86_64").build().value() };
@@ -15,7 +15,7 @@ int main(int, char**)
         nyxstone->assemble_to_bytes(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}).value()
     };
     {
-        std::vector<uint8_t> expected { 0x48, 0x89, 0xd8 };
+        const std::vector<uint8_t> expected { 0x48, 0x89, 0xd8 };
         assert(bytes == expected);
     }
 
@@ -27,7 +27,7 @@ int main(int, char**)
                                                     .value() };
     {
 
-        std::vector<Nyxstone::Instruction> expected { Nyxstone::Instruction { /*address=*/0x1000,
+        const std::vector<Nyxstone::Instruction> expected { Nyxstone::Instruction { /*address=*/0x1000,
             /*assembly=*/"mov rax, rbx",
             /*bytes=*/ { 0x48, 0x89, 0xd8 } } };
         assert(instrs == expected);
@@ -36,7 +36,7 @@ int main(int, char**)
     // Assemble with inline label
     instrs = nyxstone->assemble_to_instructions("je .label; nop; .label:", 0x1000, {}).value();
     {
-        std::vector<Nyxstone::Instruction> expected {
+        const std::vector<Nyxstone::Instruction> expected {
             Nyxstone::Instruction { /*address=*/0x1000, /*assembly=*/"je .label", /*bytes=*/ { 0x74, 0x01 } },
             Nyxstone::Instruction { /*address=*/0x1002, /*assembly=*/"nop", /*bytes=*/ { 0x90 } },
         };
@@ -47,12 +47,12 @@ int main(int, char**)
     bytes
         = nyxstone->assemble_to_bytes("jmp .label", 0x1000, { Nyxstone::LabelDefinition { ".label", 0x100 } }).value();
     {
-        std::vector<uint8_t> expected { 0xe9, 0xfb, 0xf0, 0xff, 0xff };
+        const std::vector<uint8_t> expected { 0xe9, 0xfb, 0xf0, 0xff, 0xff };
         assert(bytes == expected);
     }
 
     // Disassemble some bytes
-    std::vector<uint8_t> two_instruction_bytes
+    const std::vector<uint8_t> two_instruction_bytes
         = { 0x48, 0x31, 0xc0, 0x66, 0x83, 0xc4, 0x08 }; // xor rax, rax; add sp, 8
     std::string disassembly = nyxstone
                                   ->disassemble_to_text(
@@ -84,7 +84,7 @@ int main(int, char**)
                      )
                  .value();
     {
-        std::vector<Nyxstone::Instruction> expected {
+        const std::vector<Nyxstone::Instruction> expected {
             Nyxstone::Instruction { /*address=*/0x1000, /*assembly=*/"xor rax, rax", /*bytes=*/ { 0x48, 0x31, 0xc0 } },
             Nyxstone::Instruction {
                 /*address=*/0x1003, /*assembly=*/"add sp, 8", /*bytes=*/ { 0x66, 0x83, 0xc4, 0x08 } },
@@ -105,14 +105,14 @@ int main(int, char**)
     // This fp instruction can be assembled via the new nyxstone instance
     bytes = nyxstone->assemble_to_bytes("vadd.f16 s0, s1", 0x1000, {}).value();
     {
-        std::vector<uint8_t> expected { 0x30, 0xee, 0x20, 0x09 };
+        const std::vector<uint8_t> expected { 0x30, 0xee, 0x20, 0x09 };
         assert(bytes == expected);
     }
 
     // And the disassembly immediates are printed in hexadecimal style with a 0x-prefix
     instrs = nyxstone->assemble_to_instructions("mov r0, #16", 0x1000, {}).value();
     {
-        std::vector<Nyxstone::Instruction> expected { Nyxstone::Instruction { /*address=*/0x1000,
+        const std::vector<Nyxstone::Instruction> expected { Nyxstone::Instruction { /*address=*/0x1000,
             /*assembly=*/"mov.w r0, #0x10",
             /*bytes=*/ { 0x4f, 0xf0, 0x10, 0x00 } } };
         assert(instrs == expected);
