@@ -152,7 +152,6 @@ target_link_libraries(my_executable nyxstone ${llvm_libs})
 
 The corresponding C++ usage example:
 
-C++ usage example.
 
 ```c++
 #include <cassert>
