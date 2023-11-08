@@ -131,17 +131,23 @@ C++ usage example.
 
 #include "nyxstone.h"
 
+using namespace nyxstone;
+
 int main(int, char**) {
     // Create the nyxstone instance:
-    auto nyxstone {NyxstoneBuilder().with_triple("x86_64").build()};
+    auto nyxstone {
+        NyxstoneBuilder()
+            .with_triple("x86_64")
+            .build()
+            .value()
+    };
 
     // Assemble to bytes
-    std::vector<uint8_t> bytes {};
-    nyxstone->assemble_to_bytes(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}, bytes);
-    {
-        std::vector<uint8_t> expected {0x48, 0x89, 0xd8};
-        assert(bytes == expected);
-    }
+    std::vector<uint8_t> bytes = 
+        nyxstone->assemble_to_bytes(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}).value();
+
+    std::vector<uint8_t> expected {0x48, 0x89, 0xd8};
+    assert(bytes == expected);
 
     return 0;
 }
