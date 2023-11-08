@@ -15,8 +15,6 @@ struct Instruction final {
     rust::Vec<uint8_t> bytes {};
 };
 
-#define ERROR_OR(e, default) (!(e)) ? (e).error() : (default)
-
 struct NyxstoneResult {
     std::unique_ptr<NyxstoneFFI> ok;
     rust::String error;
@@ -54,7 +52,7 @@ ByteResult NyxstoneFFI::assemble_to_bytes(
               return bytes;
           });
 
-    return ByteResult { result.value_or(rust::Vec<uint8_t> {}), ERROR_OR(result, "") };
+    return ByteResult { result.value_or(rust::Vec<uint8_t> {}), result.error_or("") };
 }
 
 InstructionResult NyxstoneFFI::assemble_to_instructions(
@@ -81,7 +79,7 @@ InstructionResult NyxstoneFFI::assemble_to_instructions(
                           return instructions;
                       });
 
-    return InstructionResult { result.value_or(rust::Vec<Instruction> {}), ERROR_OR(result, "") };
+    return InstructionResult { result.value_or(rust::Vec<Instruction> {}), result.error_or("") };
 }
 
 StringResult NyxstoneFFI::disassemble_to_text(
@@ -96,7 +94,7 @@ StringResult NyxstoneFFI::disassemble_to_text(
         return rust::String { std::move(text) };
     });
 
-    return StringResult { result.value_or(rust::String {}), ERROR_OR(result, "") };
+    return StringResult { result.value_or(rust::String {}), result.error_or("") };
 }
 
 InstructionResult NyxstoneFFI::disassemble_to_instructions(
@@ -119,7 +117,7 @@ InstructionResult NyxstoneFFI::disassemble_to_instructions(
               return instructions;
           });
 
-    return InstructionResult { result.value_or(rust::Vec<Instruction> {}), ERROR_OR(result, "") };
+    return InstructionResult { result.value_or(rust::Vec<Instruction> {}), result.error_or("") };
 }
 
 NyxstoneResult create_nyxstone_ffi( // cppcheck-suppress unusedFunction
@@ -134,7 +132,12 @@ NyxstoneResult create_nyxstone_ffi( // cppcheck-suppress unusedFunction
                       .with_immediate_style(style)
                       .build();
 
-    return NyxstoneResult { std::make_unique<NyxstoneFFI>(
-                                (result) ? std::move(result.value()) : std::move(std::unique_ptr<Nyxstone>(nullptr))),
-        ERROR_OR(result, "") };
+    // Note: This is disgusting, but this is necesarry for two reasons:
+    //       1. We can not return any kind of variant to Rust, thus need to have some kind of emtpy nyxstone
+    //          instance if the function failed.
+    //       2. The value_or() function can't be used in combination with a unique_ptr, since it is not
+    //          copy-constructable.
+    auto maybe_ffi = bool(result) ? std::make_unique<NyxstoneFFI>(std::move(result.value())) : std::unique_ptr<NyxstoneFFI>(nullptr);
+
+    return NyxstoneResult { std::move(maybe_ffi), result.error_or("") };
 }
