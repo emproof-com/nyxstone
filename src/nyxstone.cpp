@@ -220,7 +220,7 @@ namespace {
             bytes.erase(bytes.begin(), bytes.begin() + 2);
         }
 
-        return std::move(bytes);
+        return bytes;
     }
 } // namespace
 
