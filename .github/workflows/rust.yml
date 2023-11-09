@@ -21,11 +21,10 @@ env:
   NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"
 
 jobs:
-  build:
+  linux:
     runs-on: ubuntu-latest
     env:
       working-dir: ./bindings/rust
-
     steps:
     - uses: actions/checkout@v3
     - name: Packages
@@ -39,3 +38,17 @@ jobs:
     - name: Run tests
       run: cargo test
       working-directory: ${{ env.working-dir }}
+
+  mac:
+    runs-on: macos-latest
+    env:
+      working-dir: ./bindings/rust
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: NYXSTONE_LLVM_PREFIX=$(brew --prefix llvm@15) cargo build
+      working-directory: ${{ env.working-dir }}
+    - name: Run tests
+      run: NYXSTONE_LLVM_PREFIX=$(brew --prefix llvm@15) cargo test
+      working-directory: ${{ env.working-dir }}
+

@@ -22,8 +22,6 @@
 #include <numeric>
 #include <sstream>
 
-using namespace llvm;
-
 namespace nyxstone {
 NyxstoneBuilder& NyxstoneBuilder::with_triple(std::string&& triple) noexcept
 {
@@ -31,28 +29,25 @@ NyxstoneBuilder& NyxstoneBuilder::with_triple(std::string&& triple) noexcept
     return *this;
 }
 
-// cppcheck-suppress unusedFunction
 NyxstoneBuilder& NyxstoneBuilder::with_cpu(std::string&& cpu) noexcept
 {
     m_cpu = std::move(cpu);
     return *this;
 }
 
-// cppcheck-suppress unusedFunction
 NyxstoneBuilder& NyxstoneBuilder::with_features(std::string&& features) noexcept
 {
     m_features = std::move(features);
     return *this;
 }
 
-// cppcheck-suppress unusedFunction
 NyxstoneBuilder& NyxstoneBuilder::with_immediate_style(NyxstoneBuilder::IntegerBase style) noexcept
 {
     m_imm_style = style;
     return *this;
 }
 
-std::unique_ptr<Nyxstone> NyxstoneBuilder::build()
+tl::expected<std::unique_ptr<Nyxstone>, std::string> NyxstoneBuilder::build()
 {
     // # Note
     // We observed that the initialization of LLVM (in build()) is not thread
@@ -69,56 +64,56 @@ std::unique_ptr<Nyxstone> NyxstoneBuilder::build()
     llvm::InitializeAllDisassemblers();
 
     // Resolve architecture from user-supplied target triple name
-    auto triple = Triple(Triple::normalize(m_triple));
-    if (triple.getArch() == Triple::UnknownArch) {
-        throw Nyxstone::Exception("Invalid architecture / LLVM target triple");
+    auto triple = llvm::Triple(llvm::Triple::normalize(m_triple));
+    if (triple.getArch() == llvm::Triple::UnknownArch) {
+        return tl::unexpected("Invalid architecture / LLVM target triple");
     }
 
     std::string lookup_target_error;
-    const Target* target = TargetRegistry::lookupTarget(triple.getTriple(), lookup_target_error);
+    const llvm::Target* target = llvm::TargetRegistry::lookupTarget(triple.getTriple(), lookup_target_error);
     if (target == nullptr) {
-        throw Nyxstone::Exception(lookup_target_error);
+        return tl::unexpected(lookup_target_error);
     }
 
     // Init reusable llvm info objects
-    auto register_info = std::unique_ptr<MCRegisterInfo>(target->createMCRegInfo(triple.getTriple()));
+    auto register_info = std::unique_ptr<llvm::MCRegisterInfo>(target->createMCRegInfo(triple.getTriple()));
     if (!register_info) {
-        throw Nyxstone::Exception("Could not create LLVM object (= MCRegisterInfo )");
+        throw tl::unexpected("Could not create LLVM object (= MCRegisterInfo )");
     }
 
     llvm::MCTargetOptions target_options;
     auto assembler_info
-        = std::unique_ptr<MCAsmInfo>(target->createMCAsmInfo(*register_info, triple.getTriple(), target_options));
+        = std::unique_ptr<llvm::MCAsmInfo>(target->createMCAsmInfo(*register_info, triple.getTriple(), target_options));
     if (!assembler_info) {
-        throw Nyxstone::Exception("Could not create LLVM object (= MCAsmInfo )");
+        return tl::unexpected("Could not create LLVM object (= MCAsmInfo )");
     }
 
-    auto instruction_info = std::unique_ptr<MCInstrInfo>(target->createMCInstrInfo());
+    auto instruction_info = std::unique_ptr<llvm::MCInstrInfo>(target->createMCInstrInfo());
     if (!instruction_info) {
-        throw Nyxstone::Exception("Could not create LLVM object (= MCInstrInfo )");
+        return tl::unexpected("Could not create LLVM object (= MCInstrInfo )");
     }
 
     auto subtarget_info
-        = std::unique_ptr<MCSubtargetInfo>(target->createMCSubtargetInfo(triple.getTriple(), m_cpu, m_features));
+        = std::unique_ptr<llvm::MCSubtargetInfo>(target->createMCSubtargetInfo(triple.getTriple(), m_cpu, m_features));
     if (!subtarget_info) {
-        throw Nyxstone::Exception("Could not create LLVM object (= MCSubtargetInfo )");
+        return tl::unexpected("Could not create LLVM object (= MCSubtargetInfo )");
     }
 
     // Create instruction printer
     // For x86 and x86_64 switch to intel assembler dialect
     auto syntax_variant = assembler_info->getAssemblerDialect();
-    if (triple.getArch() == Triple::x86 || triple.getArch() == Triple::x86_64) {
+    if (triple.getArch() == llvm::Triple::x86 || triple.getArch() == llvm::Triple::x86_64) {
         syntax_variant = 1;
     }
-    auto instruction_printer = std::unique_ptr<MCInstPrinter>(
+    auto instruction_printer = std::unique_ptr<llvm::MCInstPrinter>(
         target->createMCInstPrinter(triple, syntax_variant, *assembler_info, *instruction_info, *register_info));
     if (!instruction_printer) {
-        throw Nyxstone::Exception("Could not create LLVM object (= MCInstPrinter )");
+        return tl::unexpected("Could not create LLVM object (= MCInstPrinter )");
     }
 
     switch (m_imm_style) {
     case IntegerBase::HexSuffix:
-        instruction_printer->setPrintHexStyle(HexStyle::Style::Asm);
+        instruction_printer->setPrintHexStyle(llvm::HexStyle::Style::Asm);
         [[fallthrough]];
     case IntegerBase::HexPrefix:
         instruction_printer->setPrintImmHex(true);
@@ -135,41 +130,52 @@ std::unique_ptr<Nyxstone> NyxstoneBuilder::build()
         std::move(instruction_info), std::move(subtarget_info), std::move(instruction_printer));
 }
 
-void Nyxstone::assemble_to_bytes(const std::string& assembly, uint64_t address,
-    const std::vector<LabelDefinition>& labels, std::vector<uint8_t>& bytes) const
+tl::expected<std::vector<u8>, std::string> Nyxstone::assemble_to_bytes(
+    const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const
 {
-    bytes.clear();
-    assemble_impl(assembly, address, labels, bytes, nullptr);
+    std::vector<u8> bytes;
+    return assemble_impl(assembly, address, labels, bytes, nullptr).transform([bytes]() { return bytes; });
 }
 
-void Nyxstone::assemble_to_instructions(const std::string& assembly, uint64_t address,
-    const std::vector<LabelDefinition>& labels, std::vector<Instruction>& instructions) const
+tl::expected<std::vector<Nyxstone::Instruction>, std::string> Nyxstone::assemble_to_instructions(
+    const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const
 {
-    instructions.clear();
-    std::vector<uint8_t> output_bytes;
-    assemble_impl(assembly, address, labels, output_bytes, &instructions);
+    std::vector<Instruction> instructions;
+    std::vector<u8> output_bytes;
+    return assemble_impl(assembly, address, labels, output_bytes, &instructions)
+        .and_then([instructions, &output_bytes]() -> tl::expected<std::vector<Instruction>, std::string> {
+            // Pedantic: Ensure accumulated instruction byte length matches output byte length
+            // This also leads to nyxstone not supporting directives which insert data into the assembly,
+            // since the bytes will not match the assembled instructions.
+            const size_t insn_byte_length = std::accumulate(instructions.begin(), instructions.end(),
+                static_cast<size_t>(0), [](size_t acc, const Instruction& insn) { return acc + insn.bytes.size(); });
+            if (insn_byte_length != output_bytes.size()) {
+                std::stringstream error_stream;
+                error_stream << "Internal error (= insn_byte_length '" << insn_byte_length << "' != output_bytes.size "
+                             << output_bytes.size() << ")";
+                return tl::unexpected(error_stream.str());
+            }
 
-    // Ensure accumulated instruction byte length matches output byte length
-    const size_t insn_byte_length = std::accumulate(instructions.begin(), instructions.end(), static_cast<size_t>(0),
-        [](size_t acc, const Instruction& insn) { return acc + insn.bytes.size(); });
-    if (insn_byte_length != output_bytes.size()) {
-        std::stringstream error_stream;
-        error_stream << "Internal error (= insn_byte_length '" << insn_byte_length << "' != output_bytes.size "
-                     << output_bytes.size() << ")";
-        throw Nyxstone::Exception(error_stream.str());
-    }
+            return instructions;
+        });
 }
 
-void Nyxstone::disassemble_to_text(
-    const std::vector<uint8_t>& bytes, uint64_t address, size_t count, std::string& disassembly) const
+tl::expected<std::string, std::string> Nyxstone::disassemble_to_text(
+    const std::vector<uint8_t>& bytes, uint64_t address, size_t count) const
 {
-    disassemble_impl(bytes, address, count, &disassembly, nullptr);
+    std::string disassembly;
+    return disassemble_impl(bytes, address, count, &disassembly, nullptr).transform([disassembly]() {
+        return disassembly;
+    });
 }
 
-void Nyxstone::disassemble_to_instructions(
-    const std::vector<uint8_t>& bytes, uint64_t address, size_t count, std::vector<Instruction>& instructions) const
+tl::expected<std::vector<Nyxstone::Instruction>, std::string> Nyxstone::disassemble_to_instructions(
+    const std::vector<uint8_t>& bytes, uint64_t address, size_t count) const
 {
-    disassemble_impl(bytes, address, count, nullptr, &instructions);
+    std::vector<Nyxstone::Instruction> instructions;
+    return disassemble_impl(bytes, address, count, nullptr, &instructions).transform([instructions]() {
+        return instructions;
+    });
 }
 
 namespace {
@@ -185,8 +191,8 @@ namespace {
         return assembly;
     }
 
-    SmallVector<char, 128> remove_bkpt(
-        SmallVector<char, 128>&& bytes, std::vector<Nyxstone::Instruction>* instructions, bool has_prepend)
+    tl::expected<llvm::SmallVector<char, 128>, std::string> remove_bkpt(
+        llvm::SmallVector<char, 128> bytes, std::vector<Nyxstone::Instruction>* instructions, bool has_prepend)
     {
         // If bkpt got prepended for alignment reasons, remove it from instructions
         // and bytes
@@ -196,7 +202,7 @@ namespace {
                 const bool has_prepended_bytes = !instructions->empty() && first_instr_bytes.size() == 2
                     && std::equal(begin(first_instr_bytes), end(first_instr_bytes), begin(PREPENDED_BYTES));
                 if (!has_prepended_bytes) {
-                    throw Nyxstone::Exception("Did not find prepended bkpt at first instruction.");
+                    return tl::unexpected("Did not find prepended bkpt at first instruction.");
                 }
                 instructions->erase(instructions->begin());
             }
@@ -206,17 +212,18 @@ namespace {
                 error_stream << "Did not find prepended bkpt at first two bytes.";
                 error_stream << " Found bytes 0x" << std::hex << static_cast<unsigned int>(bytes[0]) << " 0x"
                              << static_cast<unsigned int>(bytes[1]);
-                throw Nyxstone::Exception(error_stream.str());
+                return tl::unexpected(error_stream.str());
             }
             bytes.erase(bytes.begin(), bytes.begin() + 2);
         }
 
-        return std::move(bytes);
+        return bytes;
     }
 } // namespace
 
-void Nyxstone::assemble_impl(const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels,
-    std::vector<uint8_t>& bytes, std::vector<Instruction>* instructions) const
+tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assembly, uint64_t address,
+    const std::vector<LabelDefinition>& labels, std::vector<uint8_t>& bytes,
+    std::vector<Instruction>* instructions) const
 {
     bytes.clear();
     if (instructions != nullptr) {
@@ -240,60 +247,61 @@ void Nyxstone::assemble_impl(const std::string& assembly, uint64_t address, cons
     // For Thumb prepend 2 byte in assembly if `(address % 4) == 2` to get correct
     // alignment behavior.
     const bool needs_prepend { is_ArmT16_or_ArmT32(triple) && address % 4 == 2 };
-    const std::string input_assembly { prepend_bkpt(std::move(std::string { assembly }), needs_prepend) };
+    const std::string input_assembly { prepend_bkpt(std::string { assembly }, needs_prepend) };
 
     // Add input assembly text
     llvm::SourceMgr source_manager;
-    source_manager.AddNewSourceBuffer(llvm::MemoryBuffer::getMemBuffer(input_assembly), SMLoc());
+    source_manager.AddNewSourceBuffer(llvm::MemoryBuffer::getMemBuffer(input_assembly), llvm::SMLoc());
 
     std::string extended_error;
 
     // Equip context with info objects and custom error handling
-    MCContext context(
+    llvm::MCContext context(
         triple, assembler_info.get(), register_info.get(), subtarget_info.get(), &source_manager, &target_options);
-    context.setDiagnosticHandler([&extended_error](const SMDiagnostic& SMD, bool IsInlineAsm, const SourceMgr& SrcMgr,
-                                     std::vector<const MDNode*>& LocInfos) {
+    context.setDiagnosticHandler([&extended_error](const llvm::SMDiagnostic& SMD, bool IsInlineAsm,
+                                     const llvm::SourceMgr& SrcMgr, std::vector<const llvm::MDNode*>& LocInfos) {
         // Suppress unused parameter warning
         (void)IsInlineAsm;
         (void)SrcMgr;
         (void)LocInfos;
 
-        SmallString<128> error_msg;
+        llvm::SmallString<128> error_msg;
 
-        raw_svector_ostream error_stream(error_msg);
+        llvm::raw_svector_ostream error_stream(error_msg);
         SMD.print(nullptr, error_stream, /* ShowColors */ false);
         extended_error += error_msg.c_str();
     });
 
-    auto object_file_info = std::unique_ptr<MCObjectFileInfo>(target.createMCObjectFileInfo(context, /*PIC=*/false));
+    auto object_file_info
+        = std::unique_ptr<llvm::MCObjectFileInfo>(target.createMCObjectFileInfo(context, /*PIC=*/false));
     if (!object_file_info) {
-        throw Nyxstone::Exception("Could not create LLVM object (= MCObjectFileInfo )");
+        return tl::unexpected("Could not create LLVM object (= MCObjectFileInfo )");
     }
     context.setObjectFileInfo(object_file_info.get());
 
     // Create code emitter (for llvm 15)
-    auto code_emitter = std::unique_ptr<MCCodeEmitter>(target.createMCCodeEmitter(*instruction_info, context));
+    auto code_emitter = std::unique_ptr<llvm::MCCodeEmitter>(target.createMCCodeEmitter(*instruction_info, context));
     if (!code_emitter) {
-        throw Nyxstone::Exception("Could not create LLVM object (= MCCodeEmitter )");
+        return tl::unexpected("Could not create LLVM object (= MCCodeEmitter )");
     }
 
     // Create assembler backend
-    auto assembler_backend
-        = std::unique_ptr<MCAsmBackend>(target.createMCAsmBackend(*subtarget_info, *register_info, target_options));
+    auto assembler_backend = std::unique_ptr<llvm::MCAsmBackend>(
+        target.createMCAsmBackend(*subtarget_info, *register_info, target_options));
     if (!assembler_backend) {
-        throw Nyxstone::Exception("Could not create LLVM object (= MCAsmBackend )");
+        return tl::unexpected("Could not create LLVM object (= MCAsmBackend )");
     }
 
     // Create object writer and object writer wrapper (that handles custom fixup
     // and output handling)
-    SmallVector<char, 128> output_bytes;
-    raw_svector_ostream stream(output_bytes);
+    llvm::SmallVector<char, 128> output_bytes;
+    llvm::raw_svector_ostream stream(output_bytes);
     auto object_writer = assembler_backend->createObjectWriter(stream);
     auto object_writer_wrapper
         = ObjectWriterWrapper::createObjectWriterWrapper(std::move(object_writer), stream, context,
             /* write_text_section_only */ true, extended_error, instructions);
     if (!object_writer_wrapper) {
-        throw Nyxstone::Exception("Could not create LLVM object (= ObjectWriterWrapper )");
+        return tl::unexpected("Could not create LLVM object (= ObjectWriterWrapper )");
     }
 
     // Create object streamer and object streamer wrapper (that records
@@ -301,7 +309,7 @@ void Nyxstone::assemble_impl(const std::string& assembly, uint64_t address, cons
     if (!triple.isOSBinFormatELF()) {
         std::stringstream error_stream;
         error_stream << "ELF does not support target triple '" << triple.getTriple() << "'.";
-        throw Nyxstone::Exception(error_stream.str());
+        return tl::unexpected(error_stream.str());
     }
     auto streamer = ELFStreamerWrapper::createELFStreamerWrapper(context, std::move(assembler_backend),
         std::move(object_writer_wrapper), std::move(code_emitter),
@@ -309,15 +317,16 @@ void Nyxstone::assemble_impl(const std::string& assembly, uint64_t address, cons
     streamer->setUseAssemblerInfoForParsing(true);
 
     // Create assembly parser and target specific assembly parser
-    auto parser = std::unique_ptr<MCAsmParser>(createMCAsmParser(source_manager, context, *streamer, *assembler_info));
+    auto parser
+        = std::unique_ptr<llvm::MCAsmParser>(createMCAsmParser(source_manager, context, *streamer, *assembler_info));
     if (!parser) {
-        throw Nyxstone::Exception("Could not create LLVM object (= MCAsmParser )");
+        return tl::unexpected("Could not create LLVM object (= MCAsmParser )");
     }
 
-    auto target_parser = std::unique_ptr<MCTargetAsmParser>(
+    auto target_parser = std::unique_ptr<llvm::MCTargetAsmParser>(
         target.createMCAsmParser(*subtarget_info, *parser, *instruction_info, target_options));
     if (!target_parser) {
-        throw Nyxstone::Exception("Could not create LLVM object (= MCTargetAsmParser )");
+        return tl::unexpected("Could not create LLVM object (= MCTargetAsmParser )");
     }
     parser->setAssemblerDialect(1);
     parser->setTargetParser(*target_parser);
@@ -327,10 +336,10 @@ void Nyxstone::assemble_impl(const std::string& assembly, uint64_t address, cons
 
     // Search first data fragment
     auto& fragments = *streamer->getCurrentSectionOnly();
-    auto fragment_it = std::find_if(std::begin(fragments), std::end(fragments),
-        [](auto& fragment) { return fragment.getKind() == MCFragment::FT_Data; });
+    auto fragment_it = std::find_if(fragments.begin(), fragments.end(),
+        [](auto& fragment) { return fragment.getKind() == llvm::MCFragment::FT_Data; });
     if (fragment_it == std::end(fragments)) {
-        throw Nyxstone::Exception("Could not find initial data fragment.");
+        return tl::unexpected("Could not find initial data fragment.");
     }
 
     // Inject user-defined labels
@@ -349,10 +358,15 @@ void Nyxstone::assemble_impl(const std::string& assembly, uint64_t address, cons
         if (!extended_error.empty()) {
             error_stream << ": " << extended_error;
         }
-        throw Nyxstone::Exception(error_stream.str());
+        return tl::unexpected(error_stream.str());
     }
 
-    output_bytes = std::move(remove_bkpt(std::move(output_bytes), instructions, needs_prepend));
+    auto res = remove_bkpt(output_bytes, instructions, needs_prepend).transform([&bytes](const auto& output) -> void {
+        // Copy bytes to output
+        bytes.clear();
+        bytes.reserve(output.size());
+        std::copy(output.begin(), output.end(), std::back_inserter(bytes));
+    });
 
     // Assign addresses if instruction details requested
     if (instructions != nullptr) {
@@ -363,17 +377,14 @@ void Nyxstone::assemble_impl(const std::string& assembly, uint64_t address, cons
         }
     }
 
-    // Copy bytes to output
-    bytes.clear();
-    bytes.reserve(output_bytes.size());
-    std::copy(output_bytes.begin(), output_bytes.end(), std::back_inserter(bytes));
+    return res;
 }
 
-void Nyxstone::disassemble_impl(const std::vector<uint8_t>& bytes, uint64_t address, size_t count,
-    std::string* disassembly, std::vector<Instruction>* instructions) const
+tl::expected<void, std::string> Nyxstone::disassemble_impl(const std::vector<uint8_t>& bytes, uint64_t address,
+    size_t count, std::string* disassembly, std::vector<Instruction>* instructions) const
 {
     if (disassembly == nullptr && instructions == nullptr) {
-        return;
+        return {};
     }
 
     if (disassembly != nullptr) {
@@ -384,47 +395,47 @@ void Nyxstone::disassemble_impl(const std::vector<uint8_t>& bytes, uint64_t addr
     }
 
     // Equip context with info objects and custom error handling
-    SmallString<128> error_msg;
-    MCContext context(
+    llvm::SmallString<128> error_msg;
+    llvm::MCContext context(
         triple, assembler_info.get(), register_info.get(), subtarget_info.get(), nullptr, &target_options);
-    context.setDiagnosticHandler([&error_msg](const SMDiagnostic& SMD, bool IsInlineAsm, const SourceMgr& SrcMgr,
-                                     std::vector<const MDNode*>& LocInfos) {
+    context.setDiagnosticHandler([&error_msg](const llvm::SMDiagnostic& SMD, bool IsInlineAsm,
+                                     const llvm::SourceMgr& SrcMgr, std::vector<const llvm::MDNode*>& LocInfos) {
         // Suppress unused parameter warning
         (void)IsInlineAsm;
         (void)SrcMgr;
         (void)LocInfos;
 
-        raw_svector_ostream error_stream(error_msg);
+        llvm::raw_svector_ostream error_stream(error_msg);
         SMD.print(nullptr, error_stream, /* ShowColors */ false);
     });
 
     // Create disassembler
-    auto disassembler = std::unique_ptr<MCDisassembler>(target.createMCDisassembler(*subtarget_info, context));
+    auto disassembler = std::unique_ptr<llvm::MCDisassembler>(target.createMCDisassembler(*subtarget_info, context));
     if (!disassembler) {
-        throw Nyxstone::Exception("Invalid architecture / LLVM target triple");
+        return tl::unexpected("Invalid architecture / LLVM target triple");
     }
 
     // Disassemble
-    const ArrayRef<uint8_t> data(bytes.data(), bytes.size());
+    const llvm::ArrayRef<u8> data(bytes.data(), bytes.size());
     uint64_t pos = 0;
     uint64_t insn_count = 0;
     while (true) {
         // Decompose one instruction
-        MCInst insn;
+        llvm::MCInst insn;
         uint64_t insn_size = 0;
-        auto res = disassembler->getInstruction(insn, insn_size, data.slice(pos), address + pos, nulls());
-        if (res == MCDisassembler::Fail || res == MCDisassembler::SoftFail || !error_msg.empty()) {
+        auto res = disassembler->getInstruction(insn, insn_size, data.slice(pos), address + pos, llvm::nulls());
+        if (res == llvm::MCDisassembler::Fail || res == llvm::MCDisassembler::SoftFail || !error_msg.empty()) {
             std::stringstream error_stream;
             error_stream << "Could not disassemble at position " << pos << " / address " << std::hex << address + pos;
             if (!error_msg.empty()) {
                 error_stream << "(= " << error_msg.c_str() << " )";
             }
-            throw Nyxstone::Exception(error_stream.str());
+            return tl::unexpected(error_stream.str());
         }
 
         // Generate instruction disassembly text
         std::string insn_str;
-        raw_string_ostream str_stream(insn_str);
+        llvm::raw_string_ostream str_stream(insn_str);
         instruction_printer->printInst(&insn,
             /* Address */ address + pos,
             /* Annot */ "", *subtarget_info, str_stream);
@@ -459,6 +470,8 @@ void Nyxstone::disassemble_impl(const std::vector<uint8_t>& bytes, uint64_t addr
             break;
         }
     }
+
+    return {};
 }
 
 bool Nyxstone::Instruction::operator==(const Instruction& other) const
@@ -469,12 +482,12 @@ bool Nyxstone::Instruction::operator==(const Instruction& other) const
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.
 bool is_ArmT16_or_ArmT32(const llvm::Triple& triple)
 {
-    return (triple.getSubArch() == Triple::SubArchType::ARMSubArch_v6m
-        || triple.getSubArch() == Triple::SubArchType::ARMSubArch_v6t2
-        || triple.getSubArch() == Triple::SubArchType::ARMSubArch_v7m
-        || triple.getSubArch() == Triple::SubArchType::ARMSubArch_v7em
-        || triple.getSubArch() == Triple::SubArchType::ARMSubArch_v8m_baseline
-        || triple.getSubArch() == Triple::SubArchType::ARMSubArch_v8m_mainline
-        || triple.getSubArch() == Triple::SubArchType::ARMSubArch_v8_1m_mainline);
+    return (triple.getSubArch() == llvm::Triple::SubArchType::ARMSubArch_v6m
+        || triple.getSubArch() == llvm::Triple::SubArchType::ARMSubArch_v6t2
+        || triple.getSubArch() == llvm::Triple::SubArchType::ARMSubArch_v7m
+        || triple.getSubArch() == llvm::Triple::SubArchType::ARMSubArch_v7em
+        || triple.getSubArch() == llvm::Triple::SubArchType::ARMSubArch_v8m_baseline
+        || triple.getSubArch() == llvm::Triple::SubArchType::ARMSubArch_v8m_mainline
+        || triple.getSubArch() == llvm::Triple::SubArchType::ARMSubArch_v8_1m_mainline);
 }
 } // namespace nyxstone

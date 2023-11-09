@@ -11,6 +11,11 @@ namespace py = pybind11;
 
 using namespace nyxstone;
 
+class NyxstoneError {
+public:
+    std::string err;
+};
+
 std::vector<Nyxstone::LabelDefinition> convert_labels(std::unordered_map<std::string, uint64_t>&& labels)
 {
     std::vector<Nyxstone::LabelDefinition> vlabels {};
@@ -23,42 +28,70 @@ std::vector<Nyxstone::LabelDefinition> convert_labels(std::unordered_map<std::st
     return vlabels;
 }
 
-std::vector<uint8_t> assemble_to_bytes(
+std::variant<std::vector<uint8_t>, NyxstoneError> assemble_to_bytes(
     Nyxstone& nyxstone, std::string assembly, uint64_t address, std::unordered_map<std::string, uint64_t> labels)
 {
     auto vlabels = convert_labels(std::move(labels));
 
-    std::vector<uint8_t> bytes;
-    nyxstone.assemble_to_bytes(assembly, address, vlabels, bytes);
-    return bytes;
+    auto res = nyxstone.assemble_to_bytes(assembly, address, vlabels);
+
+    if (!res) {
+        return NyxstoneError { std::move(res.error()) };
+    }
+
+    return res.value();
 }
 
-std::vector<Nyxstone::Instruction> assemble_to_instructions(
+std::variant<std::vector<Nyxstone::Instruction>, NyxstoneError> assemble_to_instructions(
     Nyxstone& nyxstone, std::string assembly, uint64_t address, std::unordered_map<std::string, uint64_t> labels)
 {
     auto vlabels = convert_labels(std::move(labels));
 
-    std::vector<Nyxstone::Instruction> instructions;
-    nyxstone.assemble_to_instructions(assembly, address, vlabels, instructions);
-    return instructions;
+    auto res = nyxstone.assemble_to_instructions(assembly, address, vlabels);
+
+    if (!res) {
+        return NyxstoneError { std::move(res.error()) };
+    }
+
+    return res.value();
 }
 
-std::string disassemble_to_text(Nyxstone& nyxstone, std::vector<uint8_t> bytes, uint64_t address, uint64_t count)
-{
-    std::string assembly;
-    nyxstone.disassemble_to_text(bytes, address, count, assembly);
-    return assembly;
-}
-
-std::vector<Nyxstone::Instruction> disassemble_to_instructions(
+std::variant<std::string, NyxstoneError> disassemble_to_text(
     Nyxstone& nyxstone, std::vector<uint8_t> bytes, uint64_t address, uint64_t count)
 {
-    std::vector<Nyxstone::Instruction> instructions;
-    nyxstone.disassemble_to_instructions(bytes, address, count, instructions);
-    return instructions;
+    auto res = nyxstone.disassemble_to_text(bytes, address, count);
+
+    if (!res) {
+        return NyxstoneError { std::move(res.error()) };
+    }
+
+    return res.value();
 }
 
-PYBIND11_MODULE(nyxstone, m)
+std::variant<std::vector<Nyxstone::Instruction>, NyxstoneError> disassemble_to_instructions(
+    Nyxstone& nyxstone, std::vector<uint8_t> bytes, uint64_t address, uint64_t count)
+{
+    auto res = nyxstone.disassemble_to_instructions(bytes, address, count);
+
+    if (!res) {
+        return NyxstoneError { std::move(res.error()) };
+    }
+
+    return res.value();
+}
+
+std::variant<std::unique_ptr<Nyxstone>, NyxstoneError> build(NyxstoneBuilder& builder)
+{
+    auto res = builder.build();
+
+    if (!res) {
+        return NyxstoneError { res.error() };
+    }
+
+    return std::move(res.value());
+}
+
+PYBIND11_MODULE(nyxstone_cpp, m)
 {
     m.doc() = "pybind11 plugin for nyxstone";
 
@@ -81,7 +114,7 @@ PYBIND11_MODULE(nyxstone, m)
             return out.str();
         });
 
-    py::class_<NyxstoneBuilder> builder(m, "NyxstoneBuilder");
+    py::class_<NyxstoneBuilder> builder(m, "NyxstoneBuilderFFI");
 
     py::enum_<NyxstoneBuilder::IntegerBase>(builder, "IntegerBase")
         .value("Dec", NyxstoneBuilder::IntegerBase::Dec, "Decimal printing")
@@ -89,14 +122,17 @@ PYBIND11_MODULE(nyxstone, m)
         .value("HexSuffix", NyxstoneBuilder::IntegerBase::HexSuffix, "Hex, suffixed with 'h'");
 
     builder.def(py::init())
-        .def("with_triple", &NyxstoneBuilder::with_triple, "Specify the llvm target triple")
-        .def("with_features", &NyxstoneBuilder::with_features, "Specify the llvm features to be en- or disabled")
-        .def("with_cpu", &NyxstoneBuilder::with_cpu, "Specify the cpu to use")
-        .def("with_immediate_style", &NyxstoneBuilder::with_immediate_style,
+        .def("with_triple", &NyxstoneBuilder::with_triple, py::arg("target_triple"), "Specify the llvm target triple")
+        .def("with_features", &NyxstoneBuilder::with_features, py::arg("feature_string"),
+            "Specify the llvm features to be en- or disabled")
+        .def("with_cpu", &NyxstoneBuilder::with_cpu, py::arg("cpu"), "Specify the cpu to use")
+        .def("with_immediate_style", &NyxstoneBuilder::with_immediate_style, py::arg("immediate_style"),
             "Specify the style in which immediates are printed")
-        .def("build", &NyxstoneBuilder::build, "Build the Nyxstone instance");
+        .def("build", &build, "Build the Nyxstone instance");
 
-    py::class_<Nyxstone>(m, "Nyxstone")
+    py::class_<NyxstoneError>(m, "NyxstoneError").def(py::init()).def_readwrite("err", &NyxstoneError::err);
+
+    py::class_<Nyxstone>(m, "NyxstoneFFI")
         .def("assemble_to_bytes", &assemble_to_bytes, py::arg("assembly"), py::arg("address") = 0x0,
             py::arg("labels") = py::dict {})
         .def("assemble_to_instructions", &assemble_to_instructions, py::arg("assembly"), py::arg("address") = 0x0,

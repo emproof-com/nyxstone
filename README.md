@@ -16,9 +16,10 @@ Nyxstone is an assembly and disassembly library based on LLVM. It doesn’t requ
     4. [As a C++ library](#as-a-c-library)
     5. [C++ CLI Tool](#c-cli-tool)
 3. [How it works](#how-it-works)
-4. [License](#license)
-5. [Contributing](#contributing)
-6. [Contributers](#contributers)
+4. [Roadmap](#roadmap)
+5. [License](#license)
+6. [Contributing](#contributing)
+7. [Contributers](#contributers)
 
 ## Core Features
 
@@ -131,23 +132,29 @@ C++ usage example.
 
 #include "nyxstone.h"
 
+using namespace nyxstone;
+
 int main(int, char**) {
     // Create the nyxstone instance:
-    auto nyxstone {NyxstoneBuilder().with_triple("x86_64").build()};
+    auto nyxstone {
+        NyxstoneBuilder()
+            .with_triple("x86_64")
+            .build()
+            .value()
+    };
 
     // Assemble to bytes
-    std::vector<uint8_t> bytes {};
-    nyxstone->assemble_to_bytes(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}, bytes);
-    {
-        std::vector<uint8_t> expected {0x48, 0x89, 0xd8};
-        assert(bytes == expected);
-    }
+    std::vector<uint8_t> bytes = 
+        nyxstone->assemble_to_bytes(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}).value();
+
+    std::vector<uint8_t> expected {0x48, 0x89, 0xd8};
+    assert(bytes == expected);
 
     return 0;
 }
 ```
 
-For a comprehensive C++ example, refer to [example.cpp](example/sample.cpp).
+For a comprehensive C++ example, refer to [example.cpp](example/example.cpp).
 
 ### C++ CLI Tool
 

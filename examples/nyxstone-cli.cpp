@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 #include "nyxstone.h"
+#include "tl/expected.hpp"
 
 namespace po = boost::program_options;
 
@@ -20,6 +21,7 @@ std::optional<Architecture> arch_parse_from_string(const std::string& arch);
 void print_bytes(const std::vector<uint8_t>& bytes);
 std::string arch_to_llvm_string(Architecture arch);
 std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string labelstr);
+void print_instructions(const std::vector<Nyxstone::Instruction>& instructions);
 
 int main(int argc, char** argv)
 {
@@ -103,60 +105,50 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    std::unique_ptr<Nyxstone> nyxstone { nullptr };
-    try {
-        nyxstone = std::move(NyxstoneBuilder().with_triple(std::move(arch)).build());
-    } catch (const std::exception& e) {
-        std::cerr << "Failure creating nyxstone instance (= " << e.what() << " )\n";
+    auto nyxstone_result { std::move(NyxstoneBuilder().with_triple(std::move(arch)).build()) };
+    if (!nyxstone_result) {
+        std::cerr << "Failure creating nyxstone instance (= " << nyxstone_result.error() << " )\n";
         return 1;
     }
+    auto nyxstone { std::move(nyxstone_result.value()) };
 
     if (has_assemble) {
-        std::vector<Nyxstone::Instruction> instrs;
         const auto& assembly = varmap["assemble"].as<std::string>();
-
-        try {
-            nyxstone->assemble_to_instructions(assembly, address, labels, instrs);
-        } catch (const std::exception& e) {
-            std::cerr << "Could not assemble " << assembly << " (= " << e.what() << " )\n";
-            return 1;
-        }
-
-        std::cout << "Assembled:\n";
-        for (const auto& instr : instrs) {
-            std::cout << "\t0x" << std::hex << std::setfill('0') << std::setw(8) << instr.address << ": "
-                      << instr.assembly << " - ";
-            print_bytes(instr.bytes);
-            std::cout << "\n";
-        }
+        nyxstone->assemble_to_instructions(assembly, address, labels)
+            .map_error([&assembly](const auto& error) {
+                std::cerr << "Could not assemble " << assembly << " (= " << error << " )\n";
+                exit(1);
+            })
+            .map(print_instructions);
     }
 
     if (has_disassemble) {
-        std::vector<Nyxstone::Instruction> instrs {};
         std::vector<uint8_t> bytes {};
         auto byte_code = varmap["disassemble"].as<std::string>();
-        bytes.clear();
         byte_code.erase(std::remove_if(byte_code.begin(), byte_code.end(), ::isspace), byte_code.end());
         boost::algorithm::unhex(byte_code.begin(), byte_code.end(), std::back_inserter(bytes));
-        try {
-            nyxstone->disassemble_to_instructions(bytes, address, 0, instrs);
-        } catch (const std::exception& e) {
-            std::cerr << "Could not disassemble ";
-            print_bytes(bytes);
-            std::cerr << " (= " << e.what() << " )\n";
-            return 1;
-        }
 
-        std::cout << "Disassembled:\n";
-        for (const auto& instr : instrs) {
-            std::cout << "\t0x" << std::hex << std::setfill('0') << std::setw(8) << instr.address << ": "
-                      << instr.assembly << " - ";
-            print_bytes(instr.bytes);
-            std::cout << "\n";
-        }
+        nyxstone->disassemble_to_instructions(bytes, address, 0)
+            .map_error([&bytes](const auto& error) {
+                std::cerr << "Could not disassemble ";
+                print_bytes(bytes);
+                std::cerr << " (= " << error << " )\n";
+                exit(1);
+            })
+            .map(print_instructions);
     }
 
     return 0;
+}
+
+void print_instructions(const std::vector<Nyxstone::Instruction>& instructions)
+{
+    for (const auto& instr : instructions) {
+        std::cout << "\t0x" << std::hex << std::setfill('0') << std::setw(8) << instr.address << ": " << instr.assembly
+                  << " - ";
+        print_bytes(instr.bytes);
+        std::cout << "\n";
+    }
 }
 
 void print_bytes(const std::vector<uint8_t>& bytes)
