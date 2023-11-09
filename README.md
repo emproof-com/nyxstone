@@ -127,6 +127,16 @@ Assembled:
     0x00000000: mov rax, rbx - [ 48 89 d8 ]
 ```
 
+We can also assemble a sequence of instructions. In the following, we make use of label-based addressing and assume the first instruction is mapped to address `0xdeadbeef`:
+
+```
+$ ./nyxstone --arch "x86_64" --address 0xdeadbeef -A "cmp rax, rbx; jz .exit ; inc rax ; .exit: ret"
+    0xdeadbeef: cmp rax, rbx - [ 48 39 d8 ]
+    0xdeadbef2: je .exit - [ 74 03 ]
+    0xdeadbef4: inc rax - [ 48 ff c0 ]
+    0xdeadbef7: ret - [ c3 ]
+```
+
 We can also disassemble an instruction for the ARM32 thumb instruction set:
 
 ```
