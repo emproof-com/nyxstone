@@ -301,7 +301,7 @@ Once you're ready, submit a pull request with your changes. We are looking forwa
 
 ## Contributors
 
-The current contributors from [emproof.com](https://www.emproof.com) are:
+The current contributors from [emproof](https://www.emproof.com) are:
 
 * Philipp Koppe
 * Rachid Mzannar
