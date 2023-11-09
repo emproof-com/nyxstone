@@ -16,9 +16,10 @@ Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesnâ
     4. [Rust Bindings](#rust-bindings)
     5. [Python Bindings](#python-bindings)
 3. [How it works](#how-it-works)
-4. [License](#license)
-5. [Contributing](#contributing)
-6. [Contributors](#contributors)
+4. [Roadmap](#roadmap)
+5. [License](#license)
+6. [Contributing](#contributing)
+7. [Contributors](#contributors)
 
 ## Core Features
 
@@ -60,7 +61,7 @@ export NYXSTONE_LLVM_PREFIX=/usr/lib/llvm-15/
 * Homebrew (macOS):
 ```bash
 brew install llvm@15
-export NYXSTONE_LLVM_PREFIX=/opt/brew/opt/llvm@15
+export NYXSTONE_LLVM_PREFIX=/opt/homebrew/opt/llvm@15
 ```
 
 * From LLVM Source:
@@ -167,21 +168,25 @@ The corresponding C++ usage example:
 
 int main(int, char**) {
     // Create the nyxstone instance:
-    auto nyxstone {NyxstoneBuilder().with_triple("x86_64").build()};
+    auto nyxstone {
+        NyxstoneBuilder()
+            .with_triple("x86_64")
+            .build()
+            .value()
+    };
 
-    // Assemble to bytes
-    std::vector<uint8_t> bytes {};
-    nyxstone->assemble_to_bytes(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}, bytes);
-    {
-        std::vector<uint8_t> expected {0x48, 0x89, 0xd8};
-        assert(bytes == expected);
-    }
+     // Assemble to bytes
+    std::vector<uint8_t> bytes = 
+        nyxstone->assemble_to_bytes(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}).value();
+
+    std::vector<uint8_t> expected {0x48, 0x89, 0xd8};
+    assert(bytes == expected);
 
     return 0;
 }
 ```
 
-For a comprehensive C++ example, take a look at [example.cpp](examples/sample.cpp).
+For a comprehensive C++ example, take a look at [example.cpp](examples/example.cpp).
 
 
 ### Rust Bindings
