@@ -2,7 +2,7 @@
 
 [![Github Cpp CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml)
 
-Nyxstone is a powerful assembly and disassembly library built atop the LLVM ecosystem, emphasizing seamless interoperability and straightforward integration. Designed as a C++ library, it facilitates direct, unmodified linkage to LLVM's source tree, enhancing usability with additional Python and Rust bindings. Nyxstone supports all official LLVM architectures and allows for the setting of architecture-specific target settings.
+Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesn’t require patches to the LLVM source tree and links against standard LLVM libraries available in most Linux distributions. Implemented as a C++ library, Nyxstone also offers Rust and Python bindings. It supports all official LLVM architectures and allows to configure architecture-specific settings.
 
 ![Nyxstone Python binding demo](/images/demo.svg)
 
@@ -11,10 +11,10 @@ Nyxstone is a powerful assembly and disassembly library built atop the LLVM ecos
 1. [Core Features](#core-features)
 2. [Using Nyxstone](#using-nyxstone)
     1. [Prerequisites](#prerequisites)
-    2. [As a Rust library](#rust-bindings)
-    3. [As a Python library](#python-bindings)
-    4. [As a C++ library](#c-library)
-    5. [C++ CLI Tool](#cli-tool)
+    2. [CLI Tool](#cli-tool)
+    3. [C++ Library](#c-library)
+    4. [Rust Bindings](#rust-bindings)
+    5. [Python Bindings](#python-bindings)
 3. [How it works](#how-it-works)
 4. [License](#license)
 5. [Contributing](#contributing)
@@ -22,37 +22,34 @@ Nyxstone is a powerful assembly and disassembly library built atop the LLVM ecos
 
 ## Core Features
 
-* Comprehensive assembly and disassembly across all LLVM 15-supported architectures, including but not limited to x86, ARM, MIPS, and RISC-V.
+* Assembles and disassembles code for all architectures supported by LLVM 15, including x86, ARM, MIPS, RISC-V and others.
 
-* Offers a versatile C++ core with extensible Rust and Python interfaces.
+* C++ library based on LLVM with Rust and Python bindings.
 
-* Cross-platform compatibility with full support for Linux and macOS environments.
+* Native platform support for Linux and macOS.
 
-* Customizable assembly processing with options for start address specification, label definition, and label-to-address mapping.
+* Supports instruction labels in the assembler. It is also possible to specify concrete start addresses or define label-to-address mappings.
 
-* Assembles and disassembles to raw bytes and text, but also provides detailed instruction objects, encompassing address, raw bytes, and assembly representation.
+* Assembles and disassembles to raw bytes and text, but also provides detailed instruction objects containing the address, raw bytes, and their assembly representation.
 
-* Disassembly can be constrained to a specified number of instructions from byte sequences.
+* Disassembly can be limited to a user-specified number of instructions from byte sequences.
 
-* Extensive architecture-specific feature tailoring, including ISA extensions and hardware features
-
+* Allows to configure architecture-specific features, such as ISA extensions and hardware features.
 
 For a comprehensive list of supported architectures, you can use `clang -print-targets`. For a comprehensive list of features for each architecture, refer to `llc -march=ARCH -mattr=help`.
 
-
 > [!NOTE]
-> Disclaimer: Nyxstone has been primarily developed and tested for x86_64, AArch64, and ARM32 architectures, ensuring a high level of accuracy in assembly generation and error detection for these platforms. For other supported architectures, its effectiveness corresponds with the robustness of the respective LLVM backend implementations.
+> Disclaimer: Nyxstone has been primarily developed and tested for x86_64, AArch64, and ARM32 architectures. We have a high degree of confidence in its ability to accurately generate assembly and identify errors for these platforms. For other architectures, Nyxstone's effectiveness depends on the reliability and performance of their respective LLVM backends.
 
 ## Using Nyxstone
 
-Below you will find concise guidelines to get you up and running with Nyxstone, including the setup of the environment for C++, Rust, and Python, and the use of the CLI tool.
-
+This section provides instructions on how to get started with Nyxstone, covering the necessary prerequisites, how to use the CLI tool, and step-by-step guidelines for using the library with C++, Rust, and Python.
 
 ### Prerequisites
 
-Before installing Nyxstone, ensure clang and LLVM 15 are present as statically linked libraries. Nyxstone looks for `llvm-config` in your system's `$PATH` or a specified `$NYXSTONE_LLVM_PREFIX/bin`.
+Before building Nyxstone, ensure clang and LLVM 15 are present as statically linked libraries. Nyxstone looks for `llvm-config` in your system's `$PATH` or a specified `$NYXSTONE_LLVM_PREFIX/bin`.
 
-Installation Options:
+Installation Options for LLVM 15:
 
 * Debian/Ubuntu
 ```bash
@@ -84,49 +81,58 @@ export NYXSTONE_LLVM_PREFIX=~/lib/my-llvm-15
 
 Also make sure to install any system dependent libraries needed by your LLVM version for static linking. They can be viewed with the command `llvm-config --system-libs`; the list can be empty. On Ubuntu/Debian, you will need the packages `zlib1g-dev` and `zlibstd-dev`.
 
-### Rust Bindings
 
-To use Nyxstone as a Rust library, add it to your `Cargo.toml`and use it as shown in the following example:
+### CLI Tool
 
-```rust
-use anyhow::Result;
-use nyxstone::{LabelDefinition, NyxstoneBuilder};
-
-fn main() -> Result<()> {
-    let nyxstone = NyxstoneBuilder::default().with_triple("x86_64").build()?;
-
-    let bytes = nyxstone.assemble_to_bytes(
-        "mov rax, rbx; cmp rax, rdx; jne .label",
-        0x1000,
-        &[LabelDefinition { name: ".label", address: 0x1200 }],
-    )?;
-
-    println!("Bytes: {:x?}", bytes);
-
-    Ok(())
-}
-```
-
-For more instructions regarding the Rust binding, take a look at the corresponding [README](bindings/rust/README.md).
-
-### Python Bindings
-
-To use Nyxstone from Python, install it using pip:
+Nyxstone comes with a handy [CLI tool](examples/nyxstone-cli.cpp) for quick assembly and disassembly tasks. Install boost with your distribution's package manager, checkout the Nyxstone repository, and build the tool with cmake:
 
 ```bash
-pip install nyxstone
+# install boost on Ubuntu/Debian
+apt install boost
+
+# clone directory
+git clone https://github.com/emproof-com/nyxstone
+cd nyxstone
+
+# build nyxstone
+mkdir build && cd build && cmake .. && make 
 ```
 
-Then, you can use it from Python:
+Then, `nyxstone` can be used from the command line. Here's an output of its help menu:
 
 ```
-$ python -q
->>> from nyxstone import NyxstoneBuilder
->>> nyxstone = NyxstoneBuilder().with_triple("x86_64").build()
->>> nyxstone.assemble_to_bytes("jne .loop", 0x1100, {".loop": 0x1000})
+$ ./nyxstone --help
+Allowed options:
+  --help                    Show this message
+  --arch arg (=x86_64)      LLVM triple or architecture identifier of triple,
+                            for example "x86_64", "x86_64-linux-gnu", "armv8",
+                            "armv8eb", "thumbv8", "aarch64"
+  --address arg (=0)        Address
+
+Assembling:
+  --labels arg              Labels, for example "label0=0x10,label1=0x20"
+  -A [ --assemble ] arg     Assembly
+
+Disassembling:
+  -D [ --disassemble ] arg  Byte code in hex, for example: "0203"
+
 ```
 
-Detailed instructions are available in the corresponding [README](bindings/python/README.md).
+Now, we can assemble an instruction for the x86_64 architecture:
+
+```
+$ ./nyxstone --arch "x86_64" -A "mov rax, rbx"
+Assembled:
+    0x00000000: mov rax, rbx - [ 48 89 d8 ]
+```
+
+We can also disassemble an instruction for the ARM32 thumb instruction set:
+
+```
+$ ./nyxstone --arch "thumbv8" -D "13 37"
+Disassembled:
+    0x00000000: adds r7, #19 - [ 13 37 ]
+```
 
 ### C++ Library
 
@@ -178,62 +184,60 @@ int main(int, char**) {
 For a comprehensive C++ example, take a look at [example.cpp](examples/sample.cpp).
 
 
-### CLI Tool
+### Rust Bindings
 
-Nyxstone also comes with a handy [CLI tool](examples/nyxstone-cli.cpp) for quick assembly and disassembly tasks. Install boost with your distribution's package manager and build the tool with cmake:
+To use Nyxstone as a Rust library, add it to your `Cargo.toml`and use it as shown in the following example:
+
+```rust
+use anyhow::Result;
+use nyxstone::{LabelDefinition, NyxstoneBuilder};
+
+fn main() -> Result<()> {
+    let nyxstone = NyxstoneBuilder::default().with_triple("x86_64").build()?;
+
+    let bytes = nyxstone.assemble_to_bytes(
+        "mov rax, rbx; cmp rax, rdx; jne .label",
+        0x1000,
+        &[LabelDefinition { name: ".label", address: 0x1200 }],
+    )?;
+
+    println!("Bytes: {:x?}", bytes);
+
+    Ok(())
+}
+```
+
+For more instructions regarding the Rust binding, take a look at the corresponding [README](bindings/rust/README.md).
+
+### Python Bindings
+
+To use Nyxstone from Python, install it using pip:
 
 ```bash
-# install boost on Ubuntu/Debian
-apt install boost
-
-# run in nyxstone folder
-mkdir build && cd build && cmake .. && make 
+pip install nyxstone
 ```
 
-Then, `nyxstone` can be used from the command line. Here's an output of its help menu:
+Then, you can use it from Python:
 
 ```
-$ ./nyxstone --help
-Allowed options:
-  --help                    Show this message
-  --arch arg (=x86_64)      LLVM triple or architecture identifier of triple,
-                            for example "x86_64", "x86_64-linux-gnu", "armv8",
-                            "armv8eb", "thumbv8", "aarch64"
-  --address arg (=0)        Address
-
-Assembling:
-  --labels arg              Labels, for example "label0=0x10,label1=0x20"
-  -A [ --assemble ] arg     Assembly
-
-Disassembling:
-  -D [ --disassemble ] arg  Byte code in hex, for example: "0203"
-
+$ python -q
+>>> from nyxstone import NyxstoneBuilder
+>>> nyxstone = NyxstoneBuilder().with_triple("x86_64").build()
+>>> nyxstone.assemble_to_bytes("jne .loop", 0x1100, {".loop": 0x1000})
 ```
 
-Now, we can assemble an instruction for the x86_64 architecture:
+Detailed instructions are available in the corresponding [README](bindings/python/README.md).
 
-```
-$ ./nyxstone --arch "x86_64 " -A "mov rax, rbx"
-Assembled:
-	0x00000000: mov rax, rbx - [ 48 89 d8 ]
-```
 
-We can also disassemble an instruction for the ARM32 thumb instruction set:
-
-```
-$ ./nyxstone --arch "thumbv8" -D "13 37"
-Disassembled:
-	0x00000000: adds r7, #19 - [ 13 37 ]
-```
 
 ## How it works
 
 
-Nyxstone orchestrates LLVM's public C++ API, utilizing functions such as `Target::createMCAsmParser` and `Target::createMCDisassembler`, to execute assembly and disassembly operations. Nyxstone extends two core LLVM classes---`MCELFStreamer` and `MCObjectWriter`---to inject custom functionalities and facilitate additional data extraction. Specifically, Nyxstone enhances the assembly process through several key augmentations:
+Nyxstone leverages public C++ API functions from LLVM such as `Target::createMCAsmParser` and `Target::createMCDisassembler` to perform assembly and disassembly tasks. Nyxstone also extends two LLVM classes, `MCELFStreamer` and `MCObjectWriter`, to inject custom logic and extract additional information. Specifically, Nyxstone augments the assembly process with the following steps:
 
 * `ELFStreamerWrapper::emitInstruction`: Captures assembly representation and initial raw bytes of instructions if detailed instruction objects are requested by the user.
 
-* `ObjectWriterWrapper::writeObject`: Writes the final raw bytes of instructions---with relocation adjustments---to detailed instruction objects. Furthermore, it switches raw bytes output from complete ELF file to just the .text section.
+* `ObjectWriterWrapper::writeObject`: Writes the final raw bytes of instructions (with relocation adjustments) to detailed instruction objects. Furthermore, it switches raw bytes output from complete ELF file to just the .text section.
 
 * `ObjectWriterWrapper::validate_fixups`: Conducts extra checks, such as verifying the range and alignment of relocations.
 
@@ -272,7 +276,7 @@ Nyxstone is available under the [MIT license](LICENSE).
 
 We welcome contributions from the community! If you encounter any issues with Nyxstone, please feel free to open a GitHub issue. 
 
-If you are interested in contributing directly to the project, you can:
+If you are interested in contributing directly to the project, you can for example:
 
 * Address an existing issue
 * Develop new features
