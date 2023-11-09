@@ -62,15 +62,18 @@ impl Nyxstone {
     /// # Errors
     /// Errors occur when the LLVM triple was not supplied to the builder or LLVM fails.
     pub fn new(target_triple: &str, config: NyxstoneConfig) -> anyhow::Result<Nyxstone> {
-        Ok(Nyxstone {
-            inner: create_nyxstone_ffi(
-                target_triple,
-                config.cpu,
-                config.features,
-                config.immediate_style.into(),
-            )
-            .map_err(|e| anyhow!(e.what().to_owned()))?,
-        })
+        let result = create_nyxstone_ffi(
+            target_triple,
+            config.cpu,
+            config.features,
+            config.immediate_style.into(),
+        );
+
+        if !result.error.is_empty() {
+            return Err(anyhow!("{}", result.error));
+        }
+
+        Ok(Nyxstone { inner: result.ok })
     }
 
     /// Translates assembly instructions at a given start address to bytes.
@@ -91,9 +94,16 @@ impl Nyxstone {
         address: u64,
         labels: &[LabelDefinition],
     ) -> anyhow::Result<Vec<u8>> {
-        self.inner
-            .assemble_to_bytes(assembly, address, labels)
-            .map_err(|err| anyhow!("Error during assemble (= '{assembly}' at {address}): {err}."))
+        let byte_result = self.inner.assemble_to_bytes(assembly, address, labels);
+
+        if !byte_result.error.is_empty() {
+            return Err(anyhow!(
+                "Error during assemble (= '{assembly}' at {address}): {}.",
+                byte_result.error
+            ));
+        }
+
+        Ok(byte_result.ok)
     }
 
     /// Translates assembly instructions at a given start address to instruction details containing bytes.
@@ -114,9 +124,13 @@ impl Nyxstone {
         address: u64,
         labels: &[LabelDefinition],
     ) -> anyhow::Result<Vec<Instruction>> {
-        self.inner
-            .assemble_to_instructions(assembly, address, labels)
-            .map_err(|err| anyhow!("Error during assemble (= '{assembly}' at {address}): {err}."))
+        let instr_result = self.inner.assemble_to_instructions(assembly, address, labels);
+
+        if !instr_result.error.is_empty() {
+            return Err(anyhow!("Error during disassembly: {}.", instr_result.error));
+        }
+
+        Ok(instr_result.ok)
     }
 
     /// Translates bytes to disassembly text at a given start address.
@@ -129,9 +143,13 @@ impl Nyxstone {
     /// # Returns:
     /// Ok() and disassembly text on success, Err() otherwise.
     pub fn disassemble_to_text(&self, bytes: &[u8], address: u64, count: usize) -> anyhow::Result<String> {
-        self.inner
-            .disassemble_to_text(bytes, address, count)
-            .map_err(|err| anyhow!("Error during disassembly: {err}."))
+        let text_result = self.inner.disassemble_to_text(bytes, address, count);
+
+        if !text_result.error.is_empty() {
+            return Err(anyhow!("Error during disassembly: {}.", text_result.error));
+        }
+
+        Ok(text_result.ok)
     }
 
     /// Translates bytes to instruction details containing disassembly text at a given start address.
@@ -149,9 +167,13 @@ impl Nyxstone {
         address: u64,
         count: usize,
     ) -> anyhow::Result<Vec<Instruction>> {
-        self.inner
-            .disassemble_to_instructions(bytes, address, count)
-            .map_err(|err| anyhow!("Error during disassembly: {err}."))
+        let instr_result = self.inner.disassemble_to_instructions(bytes, address, count);
+
+        if !instr_result.error.is_empty() {
+            return Err(anyhow!("Error during disassembly: {}.", instr_result.error));
+        }
+
+        Ok(instr_result.ok)
     }
 }
 
@@ -190,6 +212,26 @@ mod ffi {
         bytes: Vec<u8>,
     }
 
+    pub struct ByteResult {
+        pub ok: Vec<u8>,
+        pub error: String,
+    }
+
+    pub struct InstructionResult {
+        pub ok: Vec<Instruction>,
+        pub error: String,
+    }
+
+    pub struct StringResult {
+        pub ok: String,
+        pub error: String,
+    }
+
+    pub struct NyxstoneResult {
+        pub ok: UniquePtr<NyxstoneFFI>,
+        pub error: String,
+    }
+
     /// Configuration options for the integer style of immediates in disassembly output.
     pub enum IntegerBase {
         /// Immediates are represented in decimal format.
@@ -215,12 +257,7 @@ mod ffi {
         /// - features: llvm features string (features delimited by `,` with `+` for enable and `-` for disable), can be empty
         /// # Returns
         /// Ok() and UniquePtr holding a NyxstoneFFI on success, Err() otherwise.
-        fn create_nyxstone_ffi(
-            triple_name: &str,
-            cpu: &str,
-            features: &str,
-            style: IntegerBase,
-        ) -> Result<UniquePtr<NyxstoneFFI>>;
+        fn create_nyxstone_ffi(triple_name: &str, cpu: &str, features: &str, style: IntegerBase) -> NyxstoneResult;
 
         // Translates assembly instructions at a given start address to bytes.
         // Additional label definitions by absolute address may be supplied.
@@ -230,7 +267,7 @@ mod ffi {
             assembly: &str,
             address: u64,
             labels: &[LabelDefinition],
-        ) -> Result<Vec<u8>>;
+        ) -> ByteResult;
 
         // Translates assembly instructions at a given start address to instruction details containing bytes.
         // Additional label definitions by absolute address may be supplied.
@@ -240,10 +277,10 @@ mod ffi {
             assembly: &str,
             address: u64,
             labels: &[LabelDefinition],
-        ) -> Result<Vec<Instruction>>;
+        ) -> InstructionResult;
 
         // Translates bytes to disassembly text at given start address.
-        fn disassemble_to_text(self: &NyxstoneFFI, bytes: &[u8], address: u64, count: usize) -> Result<String>;
+        fn disassemble_to_text(self: &NyxstoneFFI, bytes: &[u8], address: u64, count: usize) -> StringResult;
 
         // Translates bytes to instruction details containing disassembly text at a given start address.
         fn disassemble_to_instructions(
@@ -251,7 +288,7 @@ mod ffi {
             bytes: &[u8],
             address: u64,
             count: usize,
-        ) -> Result<Vec<Instruction>>;
+        ) -> InstructionResult;
     }
 }
 

@@ -114,9 +114,9 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a20c172daa50e489a0bc79865f43dc5f0"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classnyxstone_1_1NyxstoneBuilder.html">NyxstoneBuilder</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classnyxstone_1_1NyxstoneBuilder.html#a20c172daa50e489a0bc79865f43dc5f0">with_immediate_style</a> (<a class="el" href="classnyxstone_1_1NyxstoneBuilder.html#aa07bc9d094ac56a598ddd5c0c5f61209">IntegerBase</a> style) noexcept</td></tr>
 <tr class="memdesc:a20c172daa50e489a0bc79865f43dc5f0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Specify the style in which immediates should be represented.  <a href="classnyxstone_1_1NyxstoneBuilder.html#a20c172daa50e489a0bc79865f43dc5f0">More...</a><br /></td></tr>
 <tr class="separator:a20c172daa50e489a0bc79865f43dc5f0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a28a7eaf1261de93272bebc578843b123"><td class="memItemLeft" align="right" valign="top">std::unique_ptr&lt; <a class="el" href="classnyxstone_1_1Nyxstone.html">Nyxstone</a> &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classnyxstone_1_1NyxstoneBuilder.html#a28a7eaf1261de93272bebc578843b123">build</a> ()</td></tr>
-<tr class="memdesc:a28a7eaf1261de93272bebc578843b123"><td class="mdescLeft">&#160;</td><td class="mdescRight">Builds a nyxstone instance from the builder.  <a href="classnyxstone_1_1NyxstoneBuilder.html#a28a7eaf1261de93272bebc578843b123">More...</a><br /></td></tr>
-<tr class="separator:a28a7eaf1261de93272bebc578843b123"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a1c9ab3b9119363541859838e21b5328e"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::unique_ptr&lt; <a class="el" href="classnyxstone_1_1Nyxstone.html">Nyxstone</a> &gt;, std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classnyxstone_1_1NyxstoneBuilder.html#a1c9ab3b9119363541859838e21b5328e">build</a> ()</td></tr>
+<tr class="memdesc:a1c9ab3b9119363541859838e21b5328e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Builds a nyxstone instance from the builder.  <a href="classnyxstone_1_1NyxstoneBuilder.html#a1c9ab3b9119363541859838e21b5328e">More...</a><br /></td></tr>
+<tr class="separator:a1c9ab3b9119363541859838e21b5328e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Builder for <a class="el" href="classnyxstone_1_1Nyxstone.html" title="Nyxstone class for assembling and disassembling for a given architecture.">Nyxstone</a> instances. </p>
@@ -154,14 +154,14 @@ Public Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a28a7eaf1261de93272bebc578843b123"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a28a7eaf1261de93272bebc578843b123">&#9670;&nbsp;</a></span>build()</h2>
+<a id="a1c9ab3b9119363541859838e21b5328e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a1c9ab3b9119363541859838e21b5328e">&#9670;&nbsp;</a></span>build()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">std::unique_ptr&lt; <a class="el" href="classnyxstone_1_1Nyxstone.html">Nyxstone</a> &gt; nyxstone::NyxstoneBuilder::build </td>
+          <td class="memname"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::unique_ptr&lt; <a class="el" href="classnyxstone_1_1Nyxstone.html">Nyxstone</a> &gt;, std::string &gt; nyxstone::NyxstoneBuilder::build </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
@@ -170,14 +170,8 @@ Public Member Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Builds a nyxstone instance from the builder. </p>
-<dl class="section note"><dt>Note</dt><dd>Should only be called after the triple has been specified via <code><a class="el" href="classnyxstone_1_1NyxstoneBuilder.html#af81a561df0d7e45fa7bbf66db35417d6" title="Specifies the llvm target triple for which to assemble/disassemble in nyxstone.">NyxstoneBuilder::with_triple</a></code>. </dd></dl>
-<dl class="section return"><dt>Returns</dt><dd>A unique_ptr holding the created nyxstone instance. </dd></dl>
-<dl class="exception"><dt>Exceptions</dt><dd>
-  <table class="exception">
-    <tr><td class="paramname"><a class="el" href="classnyxstone_1_1Nyxstone_1_1Exception.html" title="Custom exception class used throughout nyxstone to pass any kind of String describing an error upward...">Nyxstone::Exception</a></td><td>Thrown if initialization or object creation fails. </td></tr>
-  </table>
-  </dd>
-</dl>
+<dl class="section note"><dt>Note</dt><dd>Should only be called after the triple has been specified via <code><a class="el" href="classnyxstone_1_1NyxstoneBuilder.html#af81a561df0d7e45fa7bbf66db35417d6" title="Specifies the llvm target triple for which to assemble/disassemble in nyxstone.">NyxstoneBuilder::with_triple</a></code>.</dd></dl>
+<dl class="section return"><dt>Returns</dt><dd>A unique_ptr holding the created nyxstone instance on success, an error string otherwise. </dd></dl>
 
 </div>
 </div>

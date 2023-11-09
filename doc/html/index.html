@@ -81,6 +81,7 @@ Index</h1>
 </ol>
 </li>
 <li><a href="#how-it-works">How it works</a></li>
+<li><a href="#roadmap">Roadmap</a></li>
 <li><a href="#license">License</a></li>
 <li><a href="#contributing">Contributing</a></li>
 <li><a href="#contributers">Contributers</a></li>
@@ -172,21 +173,27 @@ As a C++ library</h2>
 <div class="line"> </div>
 <div class="line">#include &quot;nyxstone.h&quot;</div>
 <div class="line"> </div>
+<div class="line">using namespace nyxstone;</div>
+<div class="line"> </div>
 <div class="line">int main(int, char**) {</div>
 <div class="line">    // Create the nyxstone instance:</div>
-<div class="line">    auto nyxstone {NyxstoneBuilder().with_triple(&quot;x86_64&quot;).build()};</div>
+<div class="line">    auto nyxstone {</div>
+<div class="line">        NyxstoneBuilder()</div>
+<div class="line">            .with_triple(&quot;x86_64&quot;)</div>
+<div class="line">            .build()</div>
+<div class="line">            .value()</div>
+<div class="line">    };</div>
 <div class="line"> </div>
 <div class="line">    // Assemble to bytes</div>
-<div class="line">    std::vector&lt;uint8_t&gt; bytes {};</div>
-<div class="line">    nyxstone-&gt;assemble_to_bytes(/*assembly=*/&quot;mov rax, rbx&quot;, /*address=*/0x1000, /* labels= */ {}, bytes);</div>
-<div class="line">    {</div>
-<div class="line">        std::vector&lt;uint8_t&gt; expected {0x48, 0x89, 0xd8};</div>
-<div class="line">        assert(bytes == expected);</div>
-<div class="line">    }</div>
+<div class="line">    std::vector&lt;uint8_t&gt; bytes = </div>
+<div class="line">        nyxstone-&gt;assemble_to_bytes(/*assembly=*/&quot;mov rax, rbx&quot;, /*address=*/0x1000, /* labels= */ {}).value();</div>
+<div class="line"> </div>
+<div class="line">    std::vector&lt;uint8_t&gt; expected {0x48, 0x89, 0xd8};</div>
+<div class="line">    assert(bytes == expected);</div>
 <div class="line"> </div>
 <div class="line">    return 0;</div>
 <div class="line">}</div>
-</div><!-- fragment --><p>For a comprehensive C++ example, refer to <a href="example/sample.cpp">example.cpp</a>.</p>
+</div><!-- fragment --><p>For a comprehensive C++ example, refer to <a href="example/example.cpp">example.cpp</a>.</p>
 <h2><a class="anchor" id="autotoc_md8"></a>
 C++ CLI Tool</h2>
 <p>Nyxstone also comes with a handy CLI tool for quick assembly and disassembly tasks. Install boost with your distribution's package manager and build the tool with cmake.</p>

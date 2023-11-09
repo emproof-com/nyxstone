@@ -1,4 +1,7 @@
 var searchData=
 [
-  ['objectwriterwrapper_23',['ObjectWriterWrapper',['../classnyxstone_1_1ObjectWriterWrapper.html',1,'nyxstone::ObjectWriterWrapper'],['../classnyxstone_1_1ObjectWriterWrapper.html#a214e774f2b6c86e9e5f0144074cd9bec',1,'nyxstone::ObjectWriterWrapper::ObjectWriterWrapper()']]]
+  ['name_65',['name',['../structnyxstone_1_1Nyxstone_1_1LabelDefinition.html#a347c8c09f359253fe92bb2bb43925662',1,'nyxstone::Nyxstone::LabelDefinition']]],
+  ['no_5finit_5ft_66',['no_init_t',['../structtl_1_1detail_1_1no__init__t.html',1,'tl::detail']]],
+  ['nyxstone_67',['Nyxstone',['../index.html',1,'(Global Namespace)'],['../classnyxstone_1_1Nyxstone.html#a2afad39971fd205ca240294c23ab0992',1,'nyxstone::Nyxstone::Nyxstone()'],['../classnyxstone_1_1Nyxstone.html',1,'nyxstone::Nyxstone']]],
+  ['nyxstonebuilder_68',['NyxstoneBuilder',['../classnyxstone_1_1NyxstoneBuilder.html',1,'nyxstone']]]
 ];

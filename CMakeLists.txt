@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.4.3)
 project(nyxstone VERSION 0.1.0)
 
+set (CMAKE_CXX_STANDARD 17)
+set (CMAKE_CXX_STANDARD_REQUIRED ON)
+
+include(CTest)
+
 find_package(LLVM 15 CONFIG PATHS $ENV{NYXSTONE_LLVM_PREFIX} NO_DEFAULT_PATH)
 find_package(LLVM 15 CONFIG)
 
@@ -25,7 +30,9 @@ add_library(nyxstone ${srcs})
 add_executable(nyxstone-bin examples/nyxstone-cli.cpp)
 set_target_properties(nyxstone-bin PROPERTIES OUTPUT_NAME nyxstone)
 
-add_executable(sample examples/sample.cpp)
+add_executable(example examples/example.cpp)
 
 target_link_libraries(nyxstone-bin nyxstone ${llvm_libs} ${Boost_LIBRARIES})
-target_link_libraries(sample nyxstone ${llvm_libs})
+target_link_libraries(example nyxstone ${llvm_libs})
+
+add_test(NAME TestExample COMMAND example)
