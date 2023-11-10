@@ -303,11 +303,11 @@ Once you're ready, submit a pull request with your changes. We are looking forwa
 The current contributors are:
 
 **Core**:
-    * Philipp Koppe (emproof)
-    * Rachid Mzannar (emproof)
-    * Darius Hartlief (emproof)
+* Philipp Koppe (emproof)
+* Rachid Mzannar (emproof)
+* Darius Hartlief (emproof)
 
 **Minor**:
-    * Marc Fyrbiak (emproof)
-    * Tim Blazytko (emproof)
+* Marc Fyrbiak (emproof)
+* Tim Blazytko (emproof)
 
