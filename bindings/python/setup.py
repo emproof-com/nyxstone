@@ -125,8 +125,8 @@ setup(
     name="nyxstone",
     version="0.1.0",
     description=desc,
-    author="emproof GmbH",
-    author_email="oss@emproof.de",
+    author="emproof B.V.",
+    author_email="oss@emproof.com",
     packages=['nyxstone'],
     ext_modules=ext_modules,
 )
