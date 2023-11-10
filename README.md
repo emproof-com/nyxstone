@@ -2,7 +2,7 @@
 
 [![Github Cpp CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml)
 
-Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesn’t require patches to the LLVM source tree and links against standard LLVM libraries available in most Linux distributions. Implemented as a C++ library, Nyxstone also offers Rust and Python bindings. It supports all official LLVM architectures and allows to configure architecture-specific settings.
+Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesn’t require patches to the LLVM source tree and links against standard LLVM libraries available in most Linux distributions. Implemented as a C++ library, Nyxstone also offers Rust and Python bindings. It supports all official LLVM architectures and allows to configure architecture-specific target settings.
 
 ![Nyxstone Python binding demo](/images/demo.svg)
 
@@ -29,13 +29,13 @@ Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesn�
 
 * Native platform support for Linux and macOS.
 
-* Supports instruction labels in the assembler. It is also possible to specify concrete start addresses or define label-to-address mappings.
+* Supports labels in the assembler, including the specification of label-to-address mappings
 
-* Assembles and disassembles to raw bytes and text, but also provides detailed instruction objects containing the address, raw bytes, and their assembly representation.
+* Assembles and disassembles to raw bytes and text, but also provides detailed instruction objects containing the address, raw bytes, and the assembly representation.
 
 * Disassembly can be limited to a user-specified number of instructions from byte sequences.
 
-* Allows to configure architecture-specific features, such as ISA extensions and hardware features.
+* Allows to configure architecture-specific target features, such as ISA extensions and hardware features.
 
 For a comprehensive list of supported architectures, you can use `clang -print-targets`. For a comprehensive list of features for each architecture, refer to `llc -march=ARCH -mattr=help`.
 
@@ -48,7 +48,7 @@ This section provides instructions on how to get started with Nyxstone, covering
 
 ### Prerequisites
 
-Before building Nyxstone, ensure clang and LLVM 15 are present as statically linked libraries. Nyxstone looks for `llvm-config` in your system's `$PATH` or a specified `$NYXSTONE_LLVM_PREFIX/bin`.
+Before building Nyxstone, ensure clang and LLVM 15 are present as statically linked libraries. Nyxstone looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
 
 Installation Options for LLVM 15:
 
@@ -58,7 +58,7 @@ sudo apt install llvm-15 llvm-15-dev
 export NYXSTONE_LLVM_PREFIX=/usr/lib/llvm-15/
 ```
 
-* Homebrew (macOS):
+* Homebrew (macOS, Linux and others):
 ```bash
 brew install llvm@15
 export NYXSTONE_LLVM_PREFIX=/opt/homebrew/opt/llvm@15
@@ -247,7 +247,6 @@ Detailed instructions are available in the corresponding [README](bindings/pytho
 
 ## How it works
 
-
 Nyxstone leverages public C++ API functions from LLVM such as `Target::createMCAsmParser` and `Target::createMCDisassembler` to perform assembly and disassembly tasks. Nyxstone also extends two LLVM classes, `MCELFStreamer` and `MCObjectWriter`, to inject custom logic and extract additional information. Specifically, Nyxstone augments the assembly process with the following steps:
 
 * `ELFStreamerWrapper::emitInstruction`: Captures assembly representation and initial raw bytes of instructions if detailed instruction objects are requested by the user.
@@ -256,7 +255,7 @@ Nyxstone leverages public C++ API functions from LLVM such as `Target::createMCA
 
 * `ObjectWriterWrapper::validate_fixups`: Conducts extra checks, such as verifying the range and alignment of relocations.
 
-* `ObjectWriterWrapper::recordRelocation`: Applies additional relocations. `MCObjectWriter` skips some relocations that are only applied during linking. Right now, this is only relevant for the `fixup_aarch64_pcrel_adrp_imm21` in the Aarch64 `adrp` instruction.
+* `ObjectWriterWrapper::recordRelocation`: Applies additional relocations. `MCObjectWriter` skips some relocations that are only applied during linking. Right now, this is only relevant for the `fixup_aarch64_pcrel_adrp_imm21` relocation of the Aarch64 instruction `adrp`.
 
 While extending LLVM classes introduces some drawbacks, like a strong dependency on a specific LLVM version, we believe this approach is still preferable over alternatives that require hard to maintain patches in the LLVM source tree.
 
@@ -301,9 +300,14 @@ Once you're ready, submit a pull request with your changes. We are looking forwa
 
 ## Contributors
 
-The current contributors from [emproof](https://www.emproof.com) are:
+The current contributors are:
 
-* Philipp Koppe
-* Rachid Mzannar
-* Darius Hartlief
-* Tim Blazytko
+**Core**:
+    * Philipp Koppe (emproof)
+    * Rachid Mzannar (emproof)
+    * Darius Hartlief (emproof)
+
+**Minor**:
+    * Marc Fyrbiak (emproof)
+    * Tim Blazytko (emproof)
+
