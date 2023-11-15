@@ -142,6 +142,5 @@ PYBIND11_MODULE(nyxstone_cpp, m)
             "count specifies the number of instructions to disassemble, '0' means all instructions");
 
     m.def("create_nyxstone", &create_nyxstone, py::arg("target_triple"), py::arg("cpu") = "", py::arg("features") = "",
-            py::arg("immediate_style") = NyxstoneBuilder::IntegerBase::Dec, "Create a NyxstoneFFI instance");
-
+        py::arg("immediate_style") = NyxstoneBuilder::IntegerBase::Dec, "Create a NyxstoneFFI instance");
 }

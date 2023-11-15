@@ -159,7 +159,8 @@ public:
 
     /// @brief Creates a NyxstoneBuilder instance.
     /// @param triple Llvm target triple or architecture identifier of a triple.
-    explicit NyxstoneBuilder(std::string&& triple) : m_triple(std::move(triple)) {};
+    explicit NyxstoneBuilder(std::string&& triple)
+        : m_triple(std::move(triple)) {};
     NyxstoneBuilder(const NyxstoneBuilder&) = default;
     NyxstoneBuilder(NyxstoneBuilder&&) = default;
     NyxstoneBuilder& operator=(const NyxstoneBuilder&) = default;
@@ -200,7 +201,6 @@ private:
     std::string m_features;
     /// @brief In which style immediates should be represented in disassembly.
     IntegerBase m_imm_style = IntegerBase::Dec;
-
 };
 
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.
