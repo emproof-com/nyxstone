@@ -8,7 +8,7 @@ using namespace nyxstone;
 int main(int /*argc*/, char** /*argv*/)
 {
     // Create the nyxstone instance:
-    auto nyxstone { NyxstoneBuilder().with_triple("x86_64").build().value() };
+    auto nyxstone { NyxstoneBuilder("x86_64").build().value() };
 
     // Assemble to bytes
     std::vector<uint8_t> bytes {
@@ -94,8 +94,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     // Configure nyxstone to your liking:
     nyxstone = std::move(
-        NyxstoneBuilder()
-            .with_triple("thumbv8")
+        NyxstoneBuilder("thumbv8")
             .with_cpu("cortex-m7")
             .with_immediate_style(NyxstoneBuilder::IntegerBase::HexPrefix) // Change the printing style of immediates
             .with_features("+mve.fp,+fp16") // Enable additional cpu features, here floating point instructions

@@ -69,7 +69,7 @@ public:
     {
     }
 
-    /// @brief Translates assembly instructions at given start address to bytes.
+    /// @brief Translates assembly instructions at a given start address to bytes.
     ///
     /// Additional label definitions by absolute address may be supplied.
     /// Does not support assembly directives that impact the layout (f. i., .section, .org).
@@ -157,18 +157,9 @@ public:
         HexSuffix = 2,
     };
 
-private:
-    ///@brief The llvm target triple.
-    std::string m_triple;
-    /// @brief Specific CPU for LLVM, default is empty.
-    std::string m_cpu;
-    /// @brief Specific CPU Features for LLVM, default is empty.
-    std::string m_features;
-    /// @brief In which style immediates should be represented in disassembly.
-    IntegerBase m_imm_style = IntegerBase::Dec;
-
-public:
-    NyxstoneBuilder() = default;
+    /// @brief Creates a NyxstoneBuilder instance.
+    /// @param triple Llvm target triple or architecture identifier of a triple.
+    explicit NyxstoneBuilder(std::string&& triple) : m_triple(std::move(triple)) {};
     NyxstoneBuilder(const NyxstoneBuilder&) = default;
     NyxstoneBuilder(NyxstoneBuilder&&) = default;
     NyxstoneBuilder& operator=(const NyxstoneBuilder&) = default;
@@ -176,8 +167,7 @@ public:
     ~NyxstoneBuilder() = default;
 
     /// @brief Specifies the llvm target triple for which to assemble/disassemble in nyxstone.
-    /// @note This function must be called before building the nyxstone object.
-    /// @param triple The llvm target triple
+    /// @param triple Llvm target triple or architecture identifier of a triple.
     /// @return Reference to the updated NyxstoneBuilder object.
     NyxstoneBuilder& with_triple(std::string&& triple) noexcept;
 
@@ -197,10 +187,20 @@ public:
     NyxstoneBuilder& with_immediate_style(IntegerBase style) noexcept;
 
     /// @brief Builds a nyxstone instance from the builder.
-    /// @note Should only be called after the triple has been specified via `NyxstoneBuilder::with_triple`.
     ///
     /// @return A unique_ptr holding the created nyxstone instance on success, an error string otherwise.
     tl::expected<std::unique_ptr<Nyxstone>, std::string> build();
+
+private:
+    ///@brief The llvm target triple.
+    std::string m_triple;
+    /// @brief Specific CPU for LLVM, default is empty.
+    std::string m_cpu;
+    /// @brief Specific CPU Features for LLVM, default is empty.
+    std::string m_features;
+    /// @brief In which style immediates should be represented in disassembly.
+    IntegerBase m_imm_style = IntegerBase::Dec;
+
 };
 
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.

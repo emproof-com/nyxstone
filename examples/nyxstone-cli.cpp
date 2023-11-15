@@ -105,7 +105,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    auto nyxstone_result { std::move(NyxstoneBuilder().with_triple(std::move(arch)).build()) };
+    auto nyxstone_result { std::move(NyxstoneBuilder(std::move(arch)).build()) };
     if (!nyxstone_result) {
         std::cerr << "Failure creating nyxstone instance (= " << nyxstone_result.error() << " )\n";
         return 1;
