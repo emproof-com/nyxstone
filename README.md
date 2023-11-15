@@ -205,15 +205,15 @@ To use Nyxstone as a Rust library, add it to your `Cargo.toml`and use it as show
 
 ```rust
 use anyhow::Result;
-use nyxstone::{LabelDefinition, NyxstoneBuilder};
+use nyxstone::{Nyxstone, NyxstoneConfig};
 
 fn main() -> Result<()> {
-    let nyxstone = NyxstoneBuilder::default().with_triple("x86_64").build()?;
+    let nyxstone = Nyxstone::new("x86_64", NyxstoneConfig::default())?;
 
     let bytes = nyxstone.assemble_to_bytes(
         "mov rax, rbx; cmp rax, rdx; jne .label",
         0x1000,
-        &[LabelDefinition { name: ".label", address: 0x1200 }],
+        &HashMap::from([(".label", 0x1200)]),
     )?;
 
     println!("Bytes: {:x?}", bytes);
