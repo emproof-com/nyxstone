@@ -1,14 +1,16 @@
+fn main() {}
+
 #[cfg(test)]
 mod tests {
     use anyhow::Result;
-    use nyxstone::{Instruction, IntegerBase, LabelDefinition, Nyxstone, NyxstoneConfig};
-    use std::assert_eq;
+    use nyxstone::{Instruction, IntegerBase, Nyxstone, NyxstoneConfig};
+    use std::{assert_eq, collections::HashMap};
 
     #[test]
     fn assembler_test() -> Result<()> {
         let nyxstone = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
 
-        let result = nyxstone.assemble_to_bytes("mov rax, rax", 0x1000, &[])?;
+        let result = nyxstone.assemble_to_bytes("mov rax, rax", 0x1000, &HashMap::with_capacity(0))?;
         assert_eq!(result, vec![0x48, 0x89, 0xc0]);
 
         Ok(())
@@ -29,86 +31,34 @@ mod tests {
         let nyxstone = Nyxstone::new("armv6m-none-eabi", NyxstoneConfig::default())?;
 
         // 4 byte aligned instruction addresses
-        let bytes = nyxstone.assemble_to_bytes(
-            "ldr r0, .label",
-            0x00,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x04,
-            }],
-        )?;
+        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x00, &HashMap::from([(".label", 0x04)]))?;
         assert_eq!(bytes, vec![0x00, 0x48]);
 
-        let bytes = nyxstone.assemble_to_bytes(
-            "ldr r0, .label",
-            0x00,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x08,
-            }],
-        )?;
+        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x00, &HashMap::from([(".label", 0x08)]))?;
         assert_eq!(bytes, vec![0x01, 0x48]);
 
-        let bytes = nyxstone.assemble_to_bytes(
-            "ldr r0, .label",
-            0x00,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x0c,
-            }],
-        )?;
+        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x00, &HashMap::from([(".label", 0x0c)]))?;
         assert_eq!(bytes, vec![0x02, 0x48]);
 
         // 2 byte aligned instruction addresses
-        let bytes = nyxstone.assemble_to_bytes(
-            "ldr r0, .label",
-            0x02,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x04,
-            }],
-        )?;
+        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x02, &HashMap::from([(".label", 0x04)]))?;
         assert_eq!(bytes, vec![0x00, 0x48]);
 
-        let bytes = nyxstone.assemble_to_bytes(
-            "ldr r0, .label",
-            0x02,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x08,
-            }],
-        )?;
+        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x02, &HashMap::from([(".label", 0x08)]))?;
         assert_eq!(bytes, vec![0x01, 0x48]);
 
-        let bytes = nyxstone.assemble_to_bytes(
-            "ldr r0, .label",
-            0x02,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x0c,
-            }],
-        )?;
+        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x02, &HashMap::from([(".label", 0x0c)]))?;
         assert_eq!(bytes, vec![0x02, 0x48]);
 
         let bytes = nyxstone.assemble_to_bytes(
             "ldr r0, .label\nldr r0, .label",
             0x02,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x0c,
-            }],
+            &HashMap::from([(".label", 0x0c)]),
         )?;
         assert_eq!(bytes, vec![0x02, 0x48, 0x01, 0x48]);
 
         // this should fail because the label target address for ldr instruction is not 4 byte aligned!
-        let bytes = nyxstone.assemble_to_bytes(
-            "ldr r0, .label",
-            0x0a,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x0e,
-            }],
-        );
+        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x0a, &HashMap::from([(".label", 0x0e)]));
         assert!(bytes.is_err());
 
         Ok(())
@@ -122,22 +72,12 @@ mod tests {
         let result = nyxstone_armv8m.assemble_to_bytes(
             "ldr r3, .lbl_0x00c0f4",
             0xC0C8,
-            &[LabelDefinition {
-                name: ".lbl_0x00c0f4",
-                address: 0xc0f4,
-            }],
+            &HashMap::from([(".lbl_0x00c0f4", 0xc0f4)]),
         )?;
 
         assert_eq!(result, vec![0x0a, 0x4b]);
 
-        let result = nyxstone_armv8m.assemble_to_bytes(
-            "ldr r3, .label",
-            0,
-            &[LabelDefinition {
-                name: ".label",
-                address: 4000,
-            }],
-        )?;
+        let result = nyxstone_armv8m.assemble_to_bytes("ldr r3, .label", 0, &HashMap::from([(".label", 4000)]))?;
 
         assert_eq!(result, vec![0xDF, 0xF8, 0x9C, 0x3F]);
 
@@ -149,10 +89,7 @@ mod tests {
         let nyxstone_x86_64 = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
-        let labels = [LabelDefinition {
-            name: ".label",
-            address: 0x1010,
-        }];
+        let labels = HashMap::from([(".label", 0x1010)]);
 
         let result = nyxstone_x86_64.assemble_to_bytes("mov rax, rax", 0x1000, &labels)?;
         assert_eq!(result, vec![0x48, 0x89, 0xc0]);
@@ -210,24 +147,10 @@ mod tests {
     fn nyxstone_armv8a_ldr_regression_test() -> Result<()> {
         let nyxstone_armv8a = Nyxstone::new("aarch64-linux-gnueabihf", NyxstoneConfig::default())?;
 
-        let result = nyxstone_armv8a.assemble_to_bytes(
-            "ldr x10, .label",
-            0x0,
-            &[LabelDefinition {
-                name: ".label".into(),
-                address: 4000,
-            }],
-        )?;
+        let result = nyxstone_armv8a.assemble_to_bytes("ldr x10, .label", 0x0, &HashMap::from([(".label", 4000)]))?;
         assert_eq!(result, vec![0x0A, 0x7D, 0x00, 0x58]);
 
-        let _ = nyxstone_armv8a.assemble_to_instructions(
-            "ldr x10, .label",
-            0x0,
-            &[LabelDefinition {
-                name: ".label".into(),
-                address: 4000,
-            }],
-        )?;
+        let _ = nyxstone_armv8a.assemble_to_instructions("ldr x10, .label", 0x0, &HashMap::from([(".label", 4000)]))?;
 
         Ok(())
     }
@@ -236,14 +159,7 @@ mod tests {
     fn nyxstone_armv8m_ldr_regression_test() -> Result<()> {
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
-        let result = nyxstone_armv8m.assemble_to_bytes(
-            "ldr r3, .label",
-            0x0,
-            &[LabelDefinition {
-                name: ".label".into(),
-                address: 4000,
-            }],
-        )?;
+        let result = nyxstone_armv8m.assemble_to_bytes("ldr r3, .label", 0x0, &HashMap::from([(".label", 4000)]))?;
         assert_eq!(result, vec![0xdf, 0xf8, 0x9c, 0x3f]);
 
         Ok(())
@@ -253,10 +169,7 @@ mod tests {
     fn nyxstone_armv8a_regression_test_call_fixup() -> Result<()> {
         let nyxstone_armv8a = Nyxstone::new("aarch64-linux-gnueabihf", NyxstoneConfig::default())?;
 
-        let labels = [LabelDefinition {
-            name: ".label",
-            address: 0x1010,
-        }];
+        let labels = HashMap::from([(".label", 0x1010)]);
 
         // test adr/adrp instructions
         let result = nyxstone_armv8a.assemble_to_bytes("adr x0, .label", 0x1000, &labels)?;
@@ -272,33 +185,18 @@ mod tests {
             "assemble_to_instructions"
         );
 
-        let result = nyxstone_armv8a.assemble_to_bytes(
-            "adrp x3, .label",
-            0x1000,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x3000,
-            }],
-        )?;
+        let result =
+            nyxstone_armv8a.assemble_to_bytes("adrp x3, .label", 0x1000, &HashMap::from([(".label", 0x3000)]))?;
         assert_eq!(result, vec![0x03, 0x00, 0x00, 0xd0], "assemble_to_bytes");
 
-        let result = nyxstone_armv8a.assemble_to_bytes(
-            "adrp x3, .label",
-            0x3000,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x1000,
-            }],
-        )?;
+        let result =
+            nyxstone_armv8a.assemble_to_bytes("adrp x3, .label", 0x3000, &HashMap::from([(".label", 0x1000)]))?;
         assert_eq!(result, vec![0xe3, 0xff, 0xff, 0xd0], "assemble_to_bytes");
 
         let result = nyxstone_armv8a.assemble_to_instructions(
             "adrp x3, .label",
             0x1000,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x3000,
-            }],
+            &HashMap::from([(".label", 0x3000)]),
         )?;
         assert_eq!(result.len(), 1);
         assert_eq!(
@@ -307,24 +205,12 @@ mod tests {
             "assemble_to_instructions"
         );
 
-        let result = nyxstone_armv8a.assemble_to_bytes(
-            "adrp x30, .label",
-            0x1000,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x2000,
-            }],
-        )?;
+        let result =
+            nyxstone_armv8a.assemble_to_bytes("adrp x30, .label", 0x1000, &HashMap::from([(".label", 0x2000)]))?;
         assert_eq!(result, vec![0x1e, 0x00, 0x00, 0xb0], "assemble_to_bytes");
 
-        let result = nyxstone_armv8a.assemble_to_bytes(
-            "adrp x15, .label",
-            0x1000,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x1010,
-            }],
-        )?;
+        let result =
+            nyxstone_armv8a.assemble_to_bytes("adrp x15, .label", 0x1000, &HashMap::from([(".label", 0x1010)]))?;
         assert_eq!(result, vec![0x0F, 0x00, 0x00, 0xb0], "assemble_to_bytes");
 
         Ok(())
@@ -335,10 +221,7 @@ mod tests {
         let nyxstone_x86_64 = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
-        let labels = [LabelDefinition {
-            name: ".label",
-            address: 0x1010,
-        }];
+        let labels = HashMap::from([(".label", 0x1010)]);
 
         let result = nyxstone_armv8m.assemble_to_bytes("bl .label", 0x1000, &labels)?;
         assert_eq!(result, vec![0x00, 0xf0, 0x06, 0xf8], "assemble_to_bytes");
@@ -369,10 +252,7 @@ mod tests {
     fn nyxstone_armv8m_regression_test_call_fixup() -> Result<()> {
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
-        let labels = [LabelDefinition {
-            name: ".label",
-            address: 0x1010,
-        }];
+        let labels = HashMap::from([(".label", 0x1010)]);
 
         // test adr/adrp instructions
         let result = nyxstone_armv8m.assemble_to_bytes("adr r0, .label", 0x1000, &labels)?;
@@ -404,7 +284,7 @@ mod tests {
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", config)?;
 
         // test floating point instructions
-        let bytes = nyxstone_armv8m.assemble_to_bytes("vadd.f16 s0, s1, s2", 0x1000, &[])?;
+        let bytes = nyxstone_armv8m.assemble_to_bytes("vadd.f16 s0, s1, s2", 0x1000, &HashMap::with_capacity(0))?;
         assert_eq!(bytes, vec![0x30, 0xee, 0x81, 0x09]);
 
         let instructions = nyxstone_armv8m.disassemble_to_instructions(&bytes, 0x1000, 0)?;
@@ -442,14 +322,13 @@ mod tests {
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", config)?;
 
         // Test that floating point instructions fail if the feature is not enabled.
-        let result = nyxstone_armv8m.assemble_to_bytes("vadd.f16 s0, s1, s2", 0x1000, &[]);
+        let result = nyxstone_armv8m.assemble_to_bytes("vadd.f16 s0, s1, s2", 0x1000, &HashMap::with_capacity(0));
         assert!(result.is_err());
 
         let result = nyxstone_armv8m.disassemble_to_text(&[0x30, 0xee, 0x81, 0x09], 0x1000, 0);
 
-        match result {
-            Ok(instructions) => assert_ne!(instructions, "vadd.f16 s0, s1, s2".to_owned(),),
-            Err(_) => {}
+        if let Ok(instructions) = result {
+            assert_ne!(instructions, "vadd.f16 s0, s1, s2".to_owned());
         }
 
         Ok(())
@@ -492,14 +371,7 @@ mod tests {
     fn armv8a_adr_out_of_range_regression() -> Result<()> {
         let nyxstone_armv8a = Nyxstone::new("aarch64-linux-gnueabihf", NyxstoneConfig::default())?;
 
-        let result = nyxstone_armv8a.assemble_to_bytes(
-            "adr x21, .label",
-            0x0,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x100000,
-            }],
-        );
+        let result = nyxstone_armv8a.assemble_to_bytes("adr x21, .label", 0x0, &HashMap::from([(".label", 0x100000)]));
 
         assert!(result.is_err());
 
@@ -510,14 +382,7 @@ mod tests {
     fn armv8m_adr_out_of_range_regression() -> Result<()> {
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
-        let result = nyxstone_armv8m.assemble_to_bytes(
-            "adr r0, .label",
-            0x0,
-            &[LabelDefinition {
-                name: ".label",
-                address: 0x1010,
-            }],
-        );
+        let result = nyxstone_armv8m.assemble_to_bytes("adr r0, .label", 0x0, &HashMap::from([(".label", 0x1010)]));
 
         assert!(result.is_err());
 
@@ -558,10 +423,7 @@ mod tests {
     // Both the range of the offset and the alignment verification is checked. This function does
     // NOT verify that the generated bytecode is correct.
     fn check_instruction_ranges(nyxstone: &Nyxstone, instructions: Vec<InstructionRange>) -> Result<()> {
-        let mut label = vec![LabelDefinition {
-            name: ".label",
-            address: 0,
-        }];
+        let mut label = HashMap::with_capacity(1);
 
         // Use an address big enough that address + offset is never < 0.
         let address = 0x10000000;
@@ -603,7 +465,7 @@ mod tests {
                             // We calculate the offset from the start address to be the lower/upper bound + our testing offset
                             let offset = bound + offset;
 
-                            label[0].address = (start_address as i64 + offset).try_into()?;
+                            label.insert(".label", (start_address as i64 + offset).try_into()?);
 
                             let result = nyxstone.assemble_to_bytes(instruction, address, &label);
 
@@ -618,7 +480,7 @@ mod tests {
                                     if let Ok(ref bytes) = result {
                                         assert_ne!(bytes.len(), instruction_size,
                                         "Falsely assembled (= expected larger encoding ):{address:#x}: {instruction} (= {:#x}, offset = {offset})",
-                                        label[0].address);
+                                        label[".label"]);
                                         continue;
                                     }
                                 }
@@ -626,14 +488,14 @@ mod tests {
                                 assert!(
                                     result.is_err(),
                                     "Falsely assembled (= invalid offset: {is_invalid_offset}, invalid alignment: {is_not_aligned} ):\n{address:#x}: {instruction} (= {:#x}, offset = {offset})",
-                                    label[0].address
+                                    label[".label"]
                                 );
                             } else {
                                 // If the offset is valid, assembling must work. Normally, this test function fails because we are assembling invalid instructions, not because we are failing to assemble valid instructions.
                                 assert!(result.is_ok(), "Unexpected error (= {:#?})", result.unwrap_err());
 
                                 // Additionally we make sure that the assembled instruction has the expected size, to have some verification that we are assembling correctly.
-                                assert_eq!(result.as_ref().unwrap().len(), instruction_size, "Falsely assembled (= expected different encoding ):{address:#x}: {instruction} (= {:#x}, offset = {offset}), {result:#x?}", label[0].address);
+                                assert_eq!(result.as_ref().unwrap().len(), instruction_size, "Falsely assembled (= expected different encoding ):{address:#x}: {instruction} (= {:#x}, offset = {offset}), {result:#x?}", label[".label"]);
                             }
                         }
                     }
@@ -840,5 +702,3 @@ mod tests {
         Ok(())
     }
 }
-
-fn main() {}
