@@ -125,8 +125,7 @@ NyxstoneResult create_nyxstone_ffi( // cppcheck-suppress unusedFunction
 {
     NyxstoneBuilder::IntegerBase style = static_cast<NyxstoneBuilder::IntegerBase>(static_cast<uint8_t>(imm_style));
 
-    auto result = NyxstoneBuilder()
-                      .with_triple(std::string { triple_name })
+    auto result = NyxstoneBuilder(std::string { triple_name })
                       .with_cpu(std::string { cpu })
                       .with_features(std::string { features })
                       .with_immediate_style(style)

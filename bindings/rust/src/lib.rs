@@ -69,6 +69,10 @@ impl<'name> From<(&&'name str, &u64)> for LabelDefinition<'name> {
 impl Nyxstone {
     /// Builds a Nyxstone instance with specific configuration.
     ///
+    /// # Parameters:
+    /// - `target_triple`: Llvm target triple or architecture identifier of triple.
+    /// - `config`: Optional configuration for the `Nyxstone` instance.
+    ///
     /// # Returns
     /// Ok() and the Nyxstone instance on success, Err() otherwise.
     ///
