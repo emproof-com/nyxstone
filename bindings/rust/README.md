@@ -26,8 +26,10 @@ In the following is a short sample of what using Nyxstone can look like:
 extern crate anyhow;
 extern crate nyxstone;
 
+use std::collections::HashMap;
+
 use anyhow::Result;
-use nyxstone::{IntegerBase, LabelDefinition, Nyxstone, NyxstoneConfig};
+use nyxstone::{IntegerBase, Nyxstone, NyxstoneConfig};
 
 fn main() -> Result<()> {
     // Creating a nyxstone instance can fail, for example if the triple is invalid.
@@ -36,10 +38,7 @@ fn main() -> Result<()> {
     let instructions = nyxstone.assemble_to_instructions(
         "mov rax, rbx; cmp rax, rdx; jne .label",
         0x100,
-        &[LabelDefinition {
-            name: ".label",
-            address: 0x1200,
-        }],
+        &HashMap::from([(".label", 0x1200)]),
     )?;
 
     println!("Assembled: ");
