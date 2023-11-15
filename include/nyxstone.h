@@ -167,11 +167,6 @@ public:
     NyxstoneBuilder& operator=(NyxstoneBuilder&&) = default;
     ~NyxstoneBuilder() = default;
 
-    /// @brief Specifies the llvm target triple for which to assemble/disassemble in nyxstone.
-    /// @param triple Llvm target triple or architecture identifier of a triple.
-    /// @return Reference to the updated NyxstoneBuilder object.
-    NyxstoneBuilder& with_triple(std::string&& triple) noexcept;
-
     /// @brief Specifies the cpu for which to assemble/disassemble in nyxstone.
     ///
     /// @return Reference to the updated NyxstoneBuilder object.

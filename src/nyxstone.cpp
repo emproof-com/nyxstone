@@ -23,12 +23,6 @@
 #include <sstream>
 
 namespace nyxstone {
-NyxstoneBuilder& NyxstoneBuilder::with_triple(std::string&& triple) noexcept
-{
-    m_triple = std::move(triple);
-    return *this;
-}
-
 NyxstoneBuilder& NyxstoneBuilder::with_cpu(std::string&& cpu) noexcept
 {
     m_cpu = std::move(cpu);
