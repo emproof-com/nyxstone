@@ -179,8 +179,7 @@ The corresponding C++ usage example:
 int main(int, char**) {
     // Create the nyxstone instance:
     auto nyxstone {
-        NyxstoneBuilder()
-            .with_triple("x86_64")
+        NyxstoneBuilder("x86_64")
             .build()
             .value()
     };
@@ -237,7 +236,7 @@ Then, you can use it from Python:
 ```
 $ python -q
 >>> from nyxstone import NyxstoneBuilder
->>> nyxstone = NyxstoneBuilder().with_triple("x86_64").build()
+>>> nyxstone = Nyxstone("x86_64")
 >>> nyxstone.assemble_to_bytes("jne .loop", 0x1100, {".loop": 0x1000})
 ```
 

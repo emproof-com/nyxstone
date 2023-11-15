@@ -24,13 +24,13 @@ pip install .
 After you have installed nyxstone, import the `Nyxstone`, `NyxstoneBuilder`, and `Instruction` classes from nyxstone.
 
 ```python
-from nyxstone import Nyxstone, NyxstoneBuilder, Instruction
+from nyxstone import Nyxstone, Instruction
 ```
 
 Now you can use the `NyxstoneBuilder` to build a nyxstone object.
 
 ```python
-nyxstone = NyxstoneBuilder().with_triple("x86_64").build()
+nyxstone = NyxstoneBuilder("x86_64")
 ```
 
 The nyxstone object can be used to assemble and disassemble for the architecture it was initialized for.
