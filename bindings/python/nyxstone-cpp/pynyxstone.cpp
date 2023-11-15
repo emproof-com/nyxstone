@@ -80,9 +80,15 @@ std::variant<std::vector<Nyxstone::Instruction>, NyxstoneError> disassemble_to_i
     return res.value();
 }
 
-std::variant<std::unique_ptr<Nyxstone>, NyxstoneError> build(NyxstoneBuilder& builder)
+std::variant<std::unique_ptr<Nyxstone>, NyxstoneError> create_nyxstone(
+    std::string&& triple, std::string&& cpu, std::string&& features, NyxstoneBuilder::IntegerBase immediate_style)
 {
-    auto res = builder.build();
+
+    auto res = NyxstoneBuilder(std::move(triple))
+                   .with_cpu(std::move(cpu))
+                   .with_features(std::move(features))
+                   .with_immediate_style(immediate_style)
+                   .build();
 
     if (!res) {
         return NyxstoneError { res.error() };
@@ -98,9 +104,9 @@ PYBIND11_MODULE(nyxstone_cpp, m)
     py::class_<Nyxstone::Instruction>(m, "Instruction")
         .def(py::init<uint64_t, std::string, std::vector<uint8_t>>(), py::arg("address"), py::arg("assembly"),
             py::arg("bytes"))
-        .def_readwrite("address", &Nyxstone::Instruction::address)
-        .def_readwrite("bytes", &Nyxstone::Instruction::bytes)
-        .def_readwrite("assembly", &Nyxstone::Instruction::assembly)
+        .def_readwrite("address", &Nyxstone::Instruction::address, "The address of the instruction")
+        .def_readwrite("bytes", &Nyxstone::Instruction::bytes, "The assembled bytes of the instruction")
+        .def_readwrite("assembly", &Nyxstone::Instruction::assembly, "The assembly of the instruction")
         .def("__eq__",
             [](const Nyxstone::Instruction& self, const Nyxstone::Instruction& other) { return self == other; })
         .def("__repr__", [](const Nyxstone::Instruction& i) {
@@ -114,21 +120,10 @@ PYBIND11_MODULE(nyxstone_cpp, m)
             return out.str();
         });
 
-    py::class_<NyxstoneBuilder> builder(m, "NyxstoneBuilderFFI");
-
-    py::enum_<NyxstoneBuilder::IntegerBase>(builder, "IntegerBase")
+    py::enum_<NyxstoneBuilder::IntegerBase>(m, "IntegerBase")
         .value("Dec", NyxstoneBuilder::IntegerBase::Dec, "Decimal printing")
         .value("HexPrefix", NyxstoneBuilder::IntegerBase::HexPrefix, "Hex, prefixed with '0x'")
         .value("HexSuffix", NyxstoneBuilder::IntegerBase::HexSuffix, "Hex, suffixed with 'h'");
-
-    builder.def(py::init())
-        .def("with_triple", &NyxstoneBuilder::with_triple, py::arg("target_triple"), "Specify the llvm target triple")
-        .def("with_features", &NyxstoneBuilder::with_features, py::arg("feature_string"),
-            "Specify the llvm features to be en- or disabled")
-        .def("with_cpu", &NyxstoneBuilder::with_cpu, py::arg("cpu"), "Specify the cpu to use")
-        .def("with_immediate_style", &NyxstoneBuilder::with_immediate_style, py::arg("immediate_style"),
-            "Specify the style in which immediates are printed")
-        .def("build", &build, "Build the Nyxstone instance");
 
     py::class_<NyxstoneError>(m, "NyxstoneError").def(py::init()).def_readwrite("err", &NyxstoneError::err);
 
@@ -145,4 +140,8 @@ PYBIND11_MODULE(nyxstone_cpp, m)
             py::arg("count") = 0x0,
             "Disassemble bytes to instruction information.\n"
             "count specifies the number of instructions to disassemble, '0' means all instructions");
+
+    m.def("create_nyxstone", &create_nyxstone, py::arg("target_triple"), py::arg("cpu") = "", py::arg("features") = "",
+            py::arg("immediate_style") = NyxstoneBuilder::IntegerBase::Dec, "Create a NyxstoneFFI instance");
+
 }
