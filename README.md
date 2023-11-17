@@ -186,7 +186,7 @@ int main(int, char**) {
 
      // Assemble to bytes
     std::vector<uint8_t> bytes = 
-        nyxstone->assemble_to_bytes(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}).value();
+        nyxstone->assemble(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}).value();
 
     std::vector<uint8_t> expected {0x48, 0x89, 0xd8};
     assert(bytes == expected);
@@ -209,7 +209,7 @@ use nyxstone::{Nyxstone, NyxstoneConfig};
 fn main() -> Result<()> {
     let nyxstone = Nyxstone::new("x86_64", NyxstoneConfig::default())?;
 
-    let bytes = nyxstone.assemble_to_bytes(
+    let bytes = nyxstone.assemble(
         "mov rax, rbx; cmp rax, rdx; jne .label",
         0x1000,
         &HashMap::from([(".label", 0x1200)]),
@@ -237,7 +237,7 @@ Then, you can use it from Python:
 $ python -q
 >>> from nyxstone import NyxstoneBuilder
 >>> nyxstone = Nyxstone("x86_64")
->>> nyxstone.assemble_to_bytes("jne .loop", 0x1100, {".loop": 0x1000})
+>>> nyxstone.assemble("jne .loop", 0x1100, {".loop": 0x1000})
 ```
 
 Detailed instructions are available in the corresponding [README](bindings/python/README.md).
