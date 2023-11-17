@@ -28,12 +28,12 @@ std::vector<Nyxstone::LabelDefinition> convert_labels(std::unordered_map<std::st
     return vlabels;
 }
 
-std::variant<std::vector<uint8_t>, NyxstoneError> assemble_to_bytes(
+std::variant<std::vector<uint8_t>, NyxstoneError> assemble(
     Nyxstone& nyxstone, std::string assembly, uint64_t address, std::unordered_map<std::string, uint64_t> labels)
 {
     auto vlabels = convert_labels(std::move(labels));
 
-    auto res = nyxstone.assemble_to_bytes(assembly, address, vlabels);
+    auto res = nyxstone.assemble(assembly, address, vlabels);
 
     if (!res) {
         return NyxstoneError { std::move(res.error()) };
@@ -56,10 +56,10 @@ std::variant<std::vector<Nyxstone::Instruction>, NyxstoneError> assemble_to_inst
     return res.value();
 }
 
-std::variant<std::string, NyxstoneError> disassemble_to_text(
+std::variant<std::string, NyxstoneError> disassemble(
     Nyxstone& nyxstone, std::vector<uint8_t> bytes, uint64_t address, uint64_t count)
 {
-    auto res = nyxstone.disassemble_to_text(bytes, address, count);
+    auto res = nyxstone.disassemble(bytes, address, count);
 
     if (!res) {
         return NyxstoneError { std::move(res.error()) };
@@ -128,12 +128,10 @@ PYBIND11_MODULE(nyxstone_cpp, m)
     py::class_<NyxstoneError>(m, "NyxstoneError").def(py::init()).def_readwrite("err", &NyxstoneError::err);
 
     py::class_<Nyxstone>(m, "NyxstoneFFI")
-        .def("assemble_to_bytes", &assemble_to_bytes, py::arg("assembly"), py::arg("address") = 0x0,
-            py::arg("labels") = py::dict {})
+        .def("assemble", &assemble, py::arg("assembly"), py::arg("address") = 0x0, py::arg("labels") = py::dict {})
         .def("assemble_to_instructions", &assemble_to_instructions, py::arg("assembly"), py::arg("address") = 0x0,
             py::arg("labels") = py::dict {})
-        .def("disassemble_to_text", &disassemble_to_text, py::arg("bytes"), py::arg("address") = 0x0,
-            py::arg("count") = 0,
+        .def("disassemble", &disassemble, py::arg("bytes"), py::arg("address") = 0x0, py::arg("count") = 0,
             "Disassemble bytes to assembly text.\n"
             "count specifies the number of instructions to disassemble, '0' means all instructions")
         .def("disassemble_to_instructions", &disassemble_to_instructions, py::arg("bytes"), py::arg("address") = 0x0,

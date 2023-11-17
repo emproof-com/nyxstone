@@ -3,16 +3,16 @@ from nyxstone import Nyxstone, Instruction, IntegerBase
 nyxstone = Nyxstone("x86_64")
 
 # basic functionality
-assert nyxstone.assemble_to_bytes("mov rax, rax") == [0x48, 0x89, 0xC0]
-assert nyxstone.disassemble_to_text([0x48, 0x89, 0xC0]) == "mov rax, rax\n"
+assert nyxstone.assemble("mov rax, rax") == [0x48, 0x89, 0xC0]
+assert nyxstone.disassemble([0x48, 0x89, 0xC0]) == "mov rax, rax\n"
 # reordering of arguments
-assert nyxstone.assemble_to_bytes(
+assert nyxstone.assemble(
     address=0x1000, labels={".label": 0x1200}, assembly="mov rax, rax"
 ) == [0x48, 0x89, 0xC0]
 
 # inline/external labels
-assert nyxstone.assemble_to_bytes("jmp .label; nop; .label:") == [0xEB, 0x01, 0x90]
-assert nyxstone.assemble_to_bytes("jmp .label", labels={".label": 0x1000}) == [
+assert nyxstone.assemble("jmp .label; nop; .label:") == [0xEB, 0x01, 0x90]
+assert nyxstone.assemble("jmp .label", labels={".label": 0x1000}) == [
     0xE9,
     0xFB,
     0x0F,
@@ -37,7 +37,7 @@ assert nyxstone.disassemble_to_instructions(
 # specify additional features
 nyxstone = Nyxstone("thumbv8", features="+mve.fp,+fp16")
 
-nyxstone.assemble_to_bytes("vadd.f16 s0, s1, s2")
+nyxstone.assemble("vadd.f16 s0, s1, s2")
 
 # specify the immediate style
 nyxstone = Nyxstone("thumbv8", immediate_style=IntegerBase.HexPrefix)
@@ -51,7 +51,7 @@ assert nyxstone.assemble_to_instructions("add r0, r0, #1") == [
 
 # handling an error:
 try:
-    invalid = nyxstone.assemble_to_bytes("mov r20, r20")
+    invalid = nyxstone.assemble("mov r20, r20")
     assert false, "Unreachable"
 except Exception as e:
     assert (

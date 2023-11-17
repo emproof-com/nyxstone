@@ -68,7 +68,7 @@ class Nyxstone:
             raise ValueError(res.err)
         self.nyxstone = res
 
-    def assemble_to_bytes(
+    def assemble(
         self, assembly: str, address: int = 0x0, labels: dict[str, int] = {}
     ) -> list[int]:
         """Translates assembly instructions at a given start address to bytes.
@@ -96,7 +96,7 @@ class Nyxstone:
             A list of 8-bit integers representing the assembled byte code.
         """
 
-        res = self.nyxstone.assemble_to_bytes(assembly, address, labels)
+        res = self.nyxstone.assemble(assembly, address, labels)
         if isinstance(res, nyxstone_cpp.NyxstoneError):
             raise ValueError(res.err)
         return res
@@ -134,7 +134,7 @@ class Nyxstone:
             raise ValueError(res.err)
         return list(map(Instruction._from_cpp_instruction, res))
 
-    def disassemble_to_text(
+    def disassemble(
         self, bytecode: list[int], address: int = 0x0, count: int = 0
     ) -> str:
         """Translates bytes to disassembly text at given start address.
@@ -159,7 +159,7 @@ class Nyxstone:
             The disassembled text.
         """
 
-        res = self.nyxstone.disassemble_to_text(bytecode, address, count)
+        res = self.nyxstone.disassemble(bytecode, address, count)
         if isinstance(res, nyxstone_cpp.NyxstoneError):
             raise ValueError(res.err)
         return res
