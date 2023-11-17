@@ -35,7 +35,7 @@ struct StringResult {
     rust::String error;
 };
 
-ByteResult NyxstoneFFI::assemble_to_bytes(
+ByteResult NyxstoneFFI::assemble(
     const rust::str assembly, uint64_t address, const rust::Slice<const LabelDefinition> labels) const
 {
     std::vector<Nyxstone::LabelDefinition> cpp_labels {};
@@ -44,13 +44,12 @@ ByteResult NyxstoneFFI::assemble_to_bytes(
         return Nyxstone::LabelDefinition { std::string(label.name), label.address };
     });
 
-    auto result
-        = nyxstone->assemble_to_bytes(std::string { assembly }, address, cpp_labels).map([](const auto& cpp_bytes) {
-              rust::Vec<uint8_t> bytes {};
-              bytes.reserve(cpp_bytes.size());
-              std::copy(cpp_bytes.begin(), cpp_bytes.end(), std::back_inserter(bytes));
-              return bytes;
-          });
+    auto result = nyxstone->assemble(std::string { assembly }, address, cpp_labels).map([](const auto& cpp_bytes) {
+        rust::Vec<uint8_t> bytes {};
+        bytes.reserve(cpp_bytes.size());
+        std::copy(cpp_bytes.begin(), cpp_bytes.end(), std::back_inserter(bytes));
+        return bytes;
+    });
 
     return ByteResult { result.value_or(rust::Vec<uint8_t> {}), result.error_or("") };
 }
@@ -82,15 +81,14 @@ InstructionResult NyxstoneFFI::assemble_to_instructions(
     return InstructionResult { result.value_or(rust::Vec<Instruction> {}), result.error_or("") };
 }
 
-StringResult NyxstoneFFI::disassemble_to_text(
-    const rust::Slice<const uint8_t> bytes, uint64_t address, size_t count) const
+StringResult NyxstoneFFI::disassemble(const rust::Slice<const uint8_t> bytes, uint64_t address, size_t count) const
 {
     std::vector<uint8_t> cpp_bytes;
     cpp_bytes.reserve(bytes.size());
     std::copy(bytes.begin(), bytes.end(), std::back_inserter(cpp_bytes));
     std::string cpp_disassembly;
 
-    auto result = nyxstone->disassemble_to_text(cpp_bytes, address, count).map([](auto&& text) {
+    auto result = nyxstone->disassemble(cpp_bytes, address, count).map([](auto&& text) {
         return rust::String { std::move(text) };
     });
 

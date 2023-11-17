@@ -10,7 +10,7 @@ mod tests {
     fn assembler_test() -> Result<()> {
         let nyxstone = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
 
-        let result = nyxstone.assemble_to_bytes("mov rax, rax", 0x1000, &HashMap::with_capacity(0))?;
+        let result = nyxstone.assemble("mov rax, rax", 0x1000, &HashMap::with_capacity(0))?;
         assert_eq!(result, vec![0x48, 0x89, 0xc0]);
 
         Ok(())
@@ -20,7 +20,7 @@ mod tests {
     fn disassembler_test() -> Result<()> {
         let nyxstone = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
 
-        let result = nyxstone.disassemble_to_text(&[0x48, 0x89, 0xc0], 0x1000, 0)?;
+        let result = nyxstone.disassemble(&[0x48, 0x89, 0xc0], 0x1000, 0)?;
         assert_eq!(result, "mov rax, rax\n".to_owned());
 
         Ok(())
@@ -31,26 +31,26 @@ mod tests {
         let nyxstone = Nyxstone::new("armv6m-none-eabi", NyxstoneConfig::default())?;
 
         // 4 byte aligned instruction addresses
-        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x00, &HashMap::from([(".label", 0x04)]))?;
+        let bytes = nyxstone.assemble("ldr r0, .label", 0x00, &HashMap::from([(".label", 0x04)]))?;
         assert_eq!(bytes, vec![0x00, 0x48]);
 
-        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x00, &HashMap::from([(".label", 0x08)]))?;
+        let bytes = nyxstone.assemble("ldr r0, .label", 0x00, &HashMap::from([(".label", 0x08)]))?;
         assert_eq!(bytes, vec![0x01, 0x48]);
 
-        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x00, &HashMap::from([(".label", 0x0c)]))?;
+        let bytes = nyxstone.assemble("ldr r0, .label", 0x00, &HashMap::from([(".label", 0x0c)]))?;
         assert_eq!(bytes, vec![0x02, 0x48]);
 
         // 2 byte aligned instruction addresses
-        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x02, &HashMap::from([(".label", 0x04)]))?;
+        let bytes = nyxstone.assemble("ldr r0, .label", 0x02, &HashMap::from([(".label", 0x04)]))?;
         assert_eq!(bytes, vec![0x00, 0x48]);
 
-        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x02, &HashMap::from([(".label", 0x08)]))?;
+        let bytes = nyxstone.assemble("ldr r0, .label", 0x02, &HashMap::from([(".label", 0x08)]))?;
         assert_eq!(bytes, vec![0x01, 0x48]);
 
-        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x02, &HashMap::from([(".label", 0x0c)]))?;
+        let bytes = nyxstone.assemble("ldr r0, .label", 0x02, &HashMap::from([(".label", 0x0c)]))?;
         assert_eq!(bytes, vec![0x02, 0x48]);
 
-        let bytes = nyxstone.assemble_to_bytes(
+        let bytes = nyxstone.assemble(
             "ldr r0, .label\nldr r0, .label",
             0x02,
             &HashMap::from([(".label", 0x0c)]),
@@ -58,7 +58,7 @@ mod tests {
         assert_eq!(bytes, vec![0x02, 0x48, 0x01, 0x48]);
 
         // this should fail because the label target address for ldr instruction is not 4 byte aligned!
-        let bytes = nyxstone.assemble_to_bytes("ldr r0, .label", 0x0a, &HashMap::from([(".label", 0x0e)]));
+        let bytes = nyxstone.assemble("ldr r0, .label", 0x0a, &HashMap::from([(".label", 0x0e)]));
         assert!(bytes.is_err());
 
         Ok(())
@@ -69,7 +69,7 @@ mod tests {
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
         // #8  assembly="ldr r3, .lbl_0x00c0f4\n.lbl_0x00c0f4:\n", address=49352,
-        let result = nyxstone_armv8m.assemble_to_bytes(
+        let result = nyxstone_armv8m.assemble(
             "ldr r3, .lbl_0x00c0f4",
             0xC0C8,
             &HashMap::from([(".lbl_0x00c0f4", 0xc0f4)]),
@@ -77,7 +77,7 @@ mod tests {
 
         assert_eq!(result, vec![0x0a, 0x4b]);
 
-        let result = nyxstone_armv8m.assemble_to_bytes("ldr r3, .label", 0, &HashMap::from([(".label", 4000)]))?;
+        let result = nyxstone_armv8m.assemble("ldr r3, .label", 0, &HashMap::from([(".label", 4000)]))?;
 
         assert_eq!(result, vec![0xDF, 0xF8, 0x9C, 0x3F]);
 
@@ -91,10 +91,10 @@ mod tests {
 
         let labels = HashMap::from([(".label", 0x1010)]);
 
-        let result = nyxstone_x86_64.assemble_to_bytes("mov rax, rax", 0x1000, &labels)?;
+        let result = nyxstone_x86_64.assemble("mov rax, rax", 0x1000, &labels)?;
         assert_eq!(result, vec![0x48, 0x89, 0xc0]);
 
-        let result = nyxstone_armv8m.assemble_to_bytes("bne .label", 0x1000, &labels)?;
+        let result = nyxstone_armv8m.assemble("bne .label", 0x1000, &labels)?;
         assert_eq!(result, vec![0x06, 0xd1]);
 
         let result = nyxstone_x86_64.assemble_to_instructions("mov rax, rax", 0x1000, &labels)?;
@@ -147,7 +147,7 @@ mod tests {
     fn nyxstone_armv8a_ldr_regression_test() -> Result<()> {
         let nyxstone_armv8a = Nyxstone::new("aarch64-linux-gnueabihf", NyxstoneConfig::default())?;
 
-        let result = nyxstone_armv8a.assemble_to_bytes("ldr x10, .label", 0x0, &HashMap::from([(".label", 4000)]))?;
+        let result = nyxstone_armv8a.assemble("ldr x10, .label", 0x0, &HashMap::from([(".label", 4000)]))?;
         assert_eq!(result, vec![0x0A, 0x7D, 0x00, 0x58]);
 
         let _ = nyxstone_armv8a.assemble_to_instructions("ldr x10, .label", 0x0, &HashMap::from([(".label", 4000)]))?;
@@ -159,7 +159,7 @@ mod tests {
     fn nyxstone_armv8m_ldr_regression_test() -> Result<()> {
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
-        let result = nyxstone_armv8m.assemble_to_bytes("ldr r3, .label", 0x0, &HashMap::from([(".label", 4000)]))?;
+        let result = nyxstone_armv8m.assemble("ldr r3, .label", 0x0, &HashMap::from([(".label", 4000)]))?;
         assert_eq!(result, vec![0xdf, 0xf8, 0x9c, 0x3f]);
 
         Ok(())
@@ -172,10 +172,10 @@ mod tests {
         let labels = HashMap::from([(".label", 0x1010)]);
 
         // test adr/adrp instructions
-        let result = nyxstone_armv8a.assemble_to_bytes("adr x0, .label", 0x1000, &labels)?;
+        let result = nyxstone_armv8a.assemble("adr x0, .label", 0x1000, &labels)?;
         // 0x0000000000001000:  80 00 00 10    adr x0, #0x1010
         // because pc + offset = 0x1000 + 0x10 = 0x1010
-        assert_eq!(result, vec![0x80, 0x00, 0x00, 0x10], "assemble_to_bytes");
+        assert_eq!(result, vec![0x80, 0x00, 0x00, 0x10], "assemble");
 
         let result = nyxstone_armv8a.assemble_to_instructions("adr x0, .label", 0x1000, &labels)?;
         assert_eq!(result.len(), 1);
@@ -185,13 +185,11 @@ mod tests {
             "assemble_to_instructions"
         );
 
-        let result =
-            nyxstone_armv8a.assemble_to_bytes("adrp x3, .label", 0x1000, &HashMap::from([(".label", 0x3000)]))?;
-        assert_eq!(result, vec![0x03, 0x00, 0x00, 0xd0], "assemble_to_bytes");
+        let result = nyxstone_armv8a.assemble("adrp x3, .label", 0x1000, &HashMap::from([(".label", 0x3000)]))?;
+        assert_eq!(result, vec![0x03, 0x00, 0x00, 0xd0], "assemble");
 
-        let result =
-            nyxstone_armv8a.assemble_to_bytes("adrp x3, .label", 0x3000, &HashMap::from([(".label", 0x1000)]))?;
-        assert_eq!(result, vec![0xe3, 0xff, 0xff, 0xd0], "assemble_to_bytes");
+        let result = nyxstone_armv8a.assemble("adrp x3, .label", 0x3000, &HashMap::from([(".label", 0x1000)]))?;
+        assert_eq!(result, vec![0xe3, 0xff, 0xff, 0xd0], "assemble");
 
         let result = nyxstone_armv8a.assemble_to_instructions(
             "adrp x3, .label",
@@ -205,13 +203,11 @@ mod tests {
             "assemble_to_instructions"
         );
 
-        let result =
-            nyxstone_armv8a.assemble_to_bytes("adrp x30, .label", 0x1000, &HashMap::from([(".label", 0x2000)]))?;
-        assert_eq!(result, vec![0x1e, 0x00, 0x00, 0xb0], "assemble_to_bytes");
+        let result = nyxstone_armv8a.assemble("adrp x30, .label", 0x1000, &HashMap::from([(".label", 0x2000)]))?;
+        assert_eq!(result, vec![0x1e, 0x00, 0x00, 0xb0], "assemble");
 
-        let result =
-            nyxstone_armv8a.assemble_to_bytes("adrp x15, .label", 0x1000, &HashMap::from([(".label", 0x1010)]))?;
-        assert_eq!(result, vec![0x0F, 0x00, 0x00, 0xb0], "assemble_to_bytes");
+        let result = nyxstone_armv8a.assemble("adrp x15, .label", 0x1000, &HashMap::from([(".label", 0x1010)]))?;
+        assert_eq!(result, vec![0x0F, 0x00, 0x00, 0xb0], "assemble");
 
         Ok(())
     }
@@ -223,8 +219,8 @@ mod tests {
 
         let labels = HashMap::from([(".label", 0x1010)]);
 
-        let result = nyxstone_armv8m.assemble_to_bytes("bl .label", 0x1000, &labels)?;
-        assert_eq!(result, vec![0x00, 0xf0, 0x06, 0xf8], "assemble_to_bytes");
+        let result = nyxstone_armv8m.assemble("bl .label", 0x1000, &labels)?;
+        assert_eq!(result, vec![0x00, 0xf0, 0x06, 0xf8], "assemble");
 
         let result = nyxstone_armv8m.assemble_to_instructions("bl .label", 0x1000, &labels)?;
         assert_eq!(result.len(), 1);
@@ -234,8 +230,8 @@ mod tests {
             "assemble_to_instructions"
         );
 
-        let result = nyxstone_x86_64.assemble_to_bytes("call .label", 0x1000, &labels)?;
-        assert_eq!(result, vec![0xe8, 0x0b, 0x00, 0x00, 0x00], "assemble_to_bytes");
+        let result = nyxstone_x86_64.assemble("call .label", 0x1000, &labels)?;
+        assert_eq!(result, vec![0xe8, 0x0b, 0x00, 0x00, 0x00], "assemble");
 
         let result = nyxstone_x86_64.assemble_to_instructions("call .label", 0x1000, &labels)?;
         assert_eq!(result.len(), 1);
@@ -255,10 +251,10 @@ mod tests {
         let labels = HashMap::from([(".label", 0x1010)]);
 
         // test adr/adrp instructions
-        let result = nyxstone_armv8m.assemble_to_bytes("adr r0, .label", 0x1000, &labels)?;
+        let result = nyxstone_armv8m.assemble("adr r0, .label", 0x1000, &labels)?;
         // 0x0000000000001000:  80 00 00 10    adr x0, #0x1010
         // because pc + offset = 0x1000 + 0x10 = 0x1010
-        assert_eq!(result, vec![0x03, 0xa0], "assemble_to_bytes");
+        assert_eq!(result, vec![0x03, 0xa0], "assemble");
 
         let result = nyxstone_armv8m.assemble_to_instructions("adr r0, .label", 0x1000, &labels)?;
         assert_eq!(result.len(), 1);
@@ -284,7 +280,7 @@ mod tests {
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", config)?;
 
         // test floating point instructions
-        let bytes = nyxstone_armv8m.assemble_to_bytes("vadd.f16 s0, s1, s2", 0x1000, &HashMap::with_capacity(0))?;
+        let bytes = nyxstone_armv8m.assemble("vadd.f16 s0, s1, s2", 0x1000, &HashMap::with_capacity(0))?;
         assert_eq!(bytes, vec![0x30, 0xee, 0x81, 0x09]);
 
         let instructions = nyxstone_armv8m.disassemble_to_instructions(&bytes, 0x1000, 0)?;
@@ -322,10 +318,10 @@ mod tests {
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", config)?;
 
         // Test that floating point instructions fail if the feature is not enabled.
-        let result = nyxstone_armv8m.assemble_to_bytes("vadd.f16 s0, s1, s2", 0x1000, &HashMap::with_capacity(0));
+        let result = nyxstone_armv8m.assemble("vadd.f16 s0, s1, s2", 0x1000, &HashMap::with_capacity(0));
         assert!(result.is_err());
 
-        let result = nyxstone_armv8m.disassemble_to_text(&[0x30, 0xee, 0x81, 0x09], 0x1000, 0);
+        let result = nyxstone_armv8m.disassemble(&[0x30, 0xee, 0x81, 0x09], 0x1000, 0);
 
         if let Ok(instructions) = result {
             assert_ne!(instructions, "vadd.f16 s0, s1, s2".to_owned());
@@ -341,7 +337,7 @@ mod tests {
         // Ensure that the default prints immediates as decimals.
         let nyxstone = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
-        let asm = nyxstone.disassemble_to_text(&bytes, 0x0, 0)?;
+        let asm = nyxstone.disassemble(&bytes, 0x0, 0)?;
         assert_eq!(asm, "add.w r0, r0, #10\n");
 
         // Ensure that HexPrefix works.
@@ -351,7 +347,7 @@ mod tests {
         };
         let nyxstone = Nyxstone::new("armv8m.main-none-eabi", config)?;
 
-        let asm = nyxstone.disassemble_to_text(&bytes, 0x0, 0)?;
+        let asm = nyxstone.disassemble(&bytes, 0x0, 0)?;
         assert_eq!(asm, "add.w r0, r0, #0xa\n");
 
         // Ensure that HexSuffix works.
@@ -361,7 +357,7 @@ mod tests {
         };
         let nyxstone = Nyxstone::new("armv8m.main-none-eabi", config)?;
 
-        let asm = nyxstone.disassemble_to_text(&bytes, 0x0, 0)?;
+        let asm = nyxstone.disassemble(&bytes, 0x0, 0)?;
         assert_eq!(asm, "add.w r0, r0, #0ah\n");
 
         Ok(())
@@ -371,7 +367,7 @@ mod tests {
     fn armv8a_adr_out_of_range_regression() -> Result<()> {
         let nyxstone_armv8a = Nyxstone::new("aarch64-linux-gnueabihf", NyxstoneConfig::default())?;
 
-        let result = nyxstone_armv8a.assemble_to_bytes("adr x21, .label", 0x0, &HashMap::from([(".label", 0x100000)]));
+        let result = nyxstone_armv8a.assemble("adr x21, .label", 0x0, &HashMap::from([(".label", 0x100000)]));
 
         assert!(result.is_err());
 
@@ -382,7 +378,7 @@ mod tests {
     fn armv8m_adr_out_of_range_regression() -> Result<()> {
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;
 
-        let result = nyxstone_armv8m.assemble_to_bytes("adr r0, .label", 0x0, &HashMap::from([(".label", 0x1010)]));
+        let result = nyxstone_armv8m.assemble("adr r0, .label", 0x0, &HashMap::from([(".label", 0x1010)]));
 
         assert!(result.is_err());
 
@@ -467,7 +463,7 @@ mod tests {
 
                             label.insert(".label", (start_address as i64 + offset).try_into()?);
 
-                            let result = nyxstone.assemble_to_bytes(instruction, address, &label);
+                            let result = nyxstone.assemble(instruction, address, &label);
 
                             let is_not_aligned = offset % align.unwrap_or(offset) != 0;
 

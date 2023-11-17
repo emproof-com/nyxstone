@@ -105,7 +105,7 @@ impl Nyxstone {
     ///
     /// # Returns:
     /// Ok() and bytecode on success, Err() otherwise.
-    pub fn assemble_to_bytes<'iter, 'label: 'iter, T>(
+    pub fn assemble<'iter, 'label: 'iter, T>(
         &self,
         assembly: &str,
         address: u64,
@@ -116,7 +116,7 @@ impl Nyxstone {
     {
         let labels: Vec<LabelDefinition> = labels.into_iter().map(LabelDefinition::from).collect();
 
-        let byte_result = self.inner.assemble_to_bytes(assembly, address, &labels);
+        let byte_result = self.inner.assemble(assembly, address, &labels);
 
         if !byte_result.error.is_empty() {
             return Err(anyhow!(
@@ -169,8 +169,8 @@ impl Nyxstone {
     ///
     /// # Returns:
     /// Ok() and disassembly text on success, Err() otherwise.
-    pub fn disassemble_to_text(&self, bytes: &[u8], address: u64, count: usize) -> anyhow::Result<String> {
-        let text_result = self.inner.disassemble_to_text(bytes, address, count);
+    pub fn disassemble(&self, bytes: &[u8], address: u64, count: usize) -> anyhow::Result<String> {
+        let text_result = self.inner.disassemble(bytes, address, count);
 
         if !text_result.error.is_empty() {
             return Err(anyhow!("Error during disassembly: {}.", text_result.error));
@@ -289,12 +289,7 @@ mod ffi {
         // Translates assembly instructions at a given start address to bytes.
         // Additional label definitions by absolute address may be supplied.
         // Does not support assembly directives that impact the layout (f. i., .section, .org).
-        fn assemble_to_bytes(
-            self: &NyxstoneFFI,
-            assembly: &str,
-            address: u64,
-            labels: &[LabelDefinition],
-        ) -> ByteResult;
+        fn assemble(self: &NyxstoneFFI, assembly: &str, address: u64, labels: &[LabelDefinition]) -> ByteResult;
 
         // Translates assembly instructions at a given start address to instruction details containing bytes.
         // Additional label definitions by absolute address may be supplied.
@@ -307,7 +302,7 @@ mod ffi {
         ) -> InstructionResult;
 
         // Translates bytes to disassembly text at given start address.
-        fn disassemble_to_text(self: &NyxstoneFFI, bytes: &[u8], address: u64, count: usize) -> StringResult;
+        fn disassemble(self: &NyxstoneFFI, bytes: &[u8], address: u64, count: usize) -> StringResult;
 
         // Translates bytes to instruction details containing disassembly text at a given start address.
         fn disassemble_to_instructions(
