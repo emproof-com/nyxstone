@@ -124,7 +124,7 @@ tl::expected<std::unique_ptr<Nyxstone>, std::string> NyxstoneBuilder::build()
         std::move(instruction_info), std::move(subtarget_info), std::move(instruction_printer));
 }
 
-tl::expected<std::vector<u8>, std::string> Nyxstone::assemble_to_bytes(
+tl::expected<std::vector<u8>, std::string> Nyxstone::assemble(
     const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const
 {
     std::vector<u8> bytes;
@@ -154,7 +154,7 @@ tl::expected<std::vector<Nyxstone::Instruction>, std::string> Nyxstone::assemble
         });
 }
 
-tl::expected<std::string, std::string> Nyxstone::disassemble_to_text(
+tl::expected<std::string, std::string> Nyxstone::disassemble(
     const std::vector<uint8_t>& bytes, uint64_t address, size_t count) const
 {
     std::string disassembly;

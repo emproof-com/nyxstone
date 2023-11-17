@@ -79,7 +79,7 @@ public:
     /// @param labels Label definitions, should hold all external labels used in the @p assembly.
     ///
     /// @return The assembled bytes on success, an error string otherwise.
-    tl::expected<std::vector<u8>, std::string> assemble_to_bytes(
+    tl::expected<std::vector<u8>, std::string> assemble(
         const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const;
 
     /// @brief Translates assembly instructions at given start address to instruction details containing bytes.
@@ -102,7 +102,7 @@ public:
     /// @param count The number of instructions which should be disassembled, 0 means all.
     ///
     /// @return The disassembly on success, an error string otherwise.
-    tl::expected<std::string, std::string> disassemble_to_text(
+    tl::expected<std::string, std::string> disassemble(
         const std::vector<uint8_t>& bytes, uint64_t address, size_t count) const;
 
     /// @brief Translates bytes to instruction details containing disassembly text at given start address.

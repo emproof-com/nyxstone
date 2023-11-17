@@ -12,7 +12,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     // Assemble to bytes
     std::vector<uint8_t> bytes {
-        nyxstone->assemble_to_bytes(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}).value()
+        nyxstone->assemble(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}).value()
     };
     {
         const std::vector<uint8_t> expected { 0x48, 0x89, 0xd8 };
@@ -44,8 +44,7 @@ int main(int /*argc*/, char** /*argv*/)
     }
 
     // Assemble with external label
-    bytes
-        = nyxstone->assemble_to_bytes("jmp .label", 0x1000, { Nyxstone::LabelDefinition { ".label", 0x100 } }).value();
+    bytes = nyxstone->assemble("jmp .label", 0x1000, { Nyxstone::LabelDefinition { ".label", 0x100 } }).value();
     {
         const std::vector<uint8_t> expected { 0xe9, 0xfb, 0xf0, 0xff, 0xff };
         assert(bytes == expected);
@@ -55,7 +54,7 @@ int main(int /*argc*/, char** /*argv*/)
     const std::vector<uint8_t> two_instruction_bytes
         = { 0x48, 0x31, 0xc0, 0x66, 0x83, 0xc4, 0x08 }; // xor rax, rax; add sp, 8
     std::string disassembly = nyxstone
-                                  ->disassemble_to_text(
+                                  ->disassemble(
                                       /*bytes=*/two_instruction_bytes,
                                       /*address=*/0x1000,
                                       /*count=*/0 // Disassemble all instructions
@@ -67,7 +66,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     // Disassemble only one instruction of the bytes
     disassembly = nyxstone
-                      ->disassemble_to_text(
+                      ->disassemble(
                           /*bytes=*/two_instruction_bytes,
                           /*address=*/0x1000,
                           /*count=*/1 // Disassemble only one instruction
@@ -102,7 +101,7 @@ int main(int /*argc*/, char** /*argv*/)
             .value());
 
     // This fp instruction can be assembled via the new nyxstone instance
-    bytes = nyxstone->assemble_to_bytes("vadd.f16 s0, s1", 0x1000, {}).value();
+    bytes = nyxstone->assemble("vadd.f16 s0, s1", 0x1000, {}).value();
     {
         const std::vector<uint8_t> expected { 0x30, 0xee, 0x20, 0x09 };
         assert(bytes == expected);
