@@ -235,7 +235,7 @@ Then, you can use it from Python:
 
 ```
 $ python -q
->>> from nyxstone import NyxstoneBuilder
+>>> from nyxstone import Nyxstone
 >>> nyxstone = Nyxstone("x86_64")
 >>> nyxstone.assemble("jne .loop", 0x1100, {".loop": 0x1000})
 ```
