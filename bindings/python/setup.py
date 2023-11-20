@@ -127,6 +127,6 @@ setup(
     description=desc,
     author="emproof B.V.",
     author_email="oss@emproof.com",
-    packages=['nyxstone'],
+    packages=["nyxstone"],
     ext_modules=ext_modules,
 )

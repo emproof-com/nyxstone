@@ -179,15 +179,14 @@ The corresponding C++ usage example:
 int main(int, char**) {
     // Create the nyxstone instance:
     auto nyxstone {
-        NyxstoneBuilder()
-            .with_triple("x86_64")
+        NyxstoneBuilder("x86_64")
             .build()
             .value()
     };
 
      // Assemble to bytes
     std::vector<uint8_t> bytes = 
-        nyxstone->assemble_to_bytes(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}).value();
+        nyxstone->assemble(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}).value();
 
     std::vector<uint8_t> expected {0x48, 0x89, 0xd8};
     assert(bytes == expected);
@@ -205,15 +204,15 @@ To use Nyxstone as a Rust library, add it to your `Cargo.toml`and use it as show
 
 ```rust
 use anyhow::Result;
-use nyxstone::{LabelDefinition, NyxstoneBuilder};
+use nyxstone::{Nyxstone, NyxstoneConfig};
 
 fn main() -> Result<()> {
-    let nyxstone = NyxstoneBuilder::default().with_triple("x86_64").build()?;
+    let nyxstone = Nyxstone::new("x86_64", NyxstoneConfig::default())?;
 
-    let bytes = nyxstone.assemble_to_bytes(
+    let bytes = nyxstone.assemble(
         "mov rax, rbx; cmp rax, rdx; jne .label",
         0x1000,
-        &[LabelDefinition { name: ".label", address: 0x1200 }],
+        &HashMap::from([(".label", 0x1200)]),
     )?;
 
     println!("Bytes: {:x?}", bytes);
@@ -236,9 +235,9 @@ Then, you can use it from Python:
 
 ```
 $ python -q
->>> from nyxstone import NyxstoneBuilder
->>> nyxstone = NyxstoneBuilder().with_triple("x86_64").build()
->>> nyxstone.assemble_to_bytes("jne .loop", 0x1100, {".loop": 0x1000})
+>>> from nyxstone import Nyxstone
+>>> nyxstone = Nyxstone("x86_64")
+>>> nyxstone.assemble("jne .loop", 0x1100, {".loop": 0x1000})
 ```
 
 Detailed instructions are available in the corresponding [README](bindings/python/README.md).

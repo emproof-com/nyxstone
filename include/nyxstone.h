@@ -69,7 +69,7 @@ public:
     {
     }
 
-    /// @brief Translates assembly instructions at given start address to bytes.
+    /// @brief Translates assembly instructions at a given start address to bytes.
     ///
     /// Additional label definitions by absolute address may be supplied.
     /// Does not support assembly directives that impact the layout (f. i., .section, .org).
@@ -79,7 +79,7 @@ public:
     /// @param labels Label definitions, should hold all external labels used in the @p assembly.
     ///
     /// @return The assembled bytes on success, an error string otherwise.
-    tl::expected<std::vector<u8>, std::string> assemble_to_bytes(
+    tl::expected<std::vector<u8>, std::string> assemble(
         const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const;
 
     /// @brief Translates assembly instructions at given start address to instruction details containing bytes.
@@ -102,7 +102,7 @@ public:
     /// @param count The number of instructions which should be disassembled, 0 means all.
     ///
     /// @return The disassembly on success, an error string otherwise.
-    tl::expected<std::string, std::string> disassemble_to_text(
+    tl::expected<std::string, std::string> disassemble(
         const std::vector<uint8_t>& bytes, uint64_t address, size_t count) const;
 
     /// @brief Translates bytes to instruction details containing disassembly text at given start address.
@@ -157,29 +157,15 @@ public:
         HexSuffix = 2,
     };
 
-private:
-    ///@brief The llvm target triple.
-    std::string m_triple;
-    /// @brief Specific CPU for LLVM, default is empty.
-    std::string m_cpu;
-    /// @brief Specific CPU Features for LLVM, default is empty.
-    std::string m_features;
-    /// @brief In which style immediates should be represented in disassembly.
-    IntegerBase m_imm_style = IntegerBase::Dec;
-
-public:
-    NyxstoneBuilder() = default;
+    /// @brief Creates a NyxstoneBuilder instance.
+    /// @param triple Llvm target triple or architecture identifier of a triple.
+    explicit NyxstoneBuilder(std::string&& triple)
+        : m_triple(std::move(triple)) {};
     NyxstoneBuilder(const NyxstoneBuilder&) = default;
     NyxstoneBuilder(NyxstoneBuilder&&) = default;
     NyxstoneBuilder& operator=(const NyxstoneBuilder&) = default;
     NyxstoneBuilder& operator=(NyxstoneBuilder&&) = default;
     ~NyxstoneBuilder() = default;
-
-    /// @brief Specifies the llvm target triple for which to assemble/disassemble in nyxstone.
-    /// @note This function must be called before building the nyxstone object.
-    /// @param triple The llvm target triple
-    /// @return Reference to the updated NyxstoneBuilder object.
-    NyxstoneBuilder& with_triple(std::string&& triple) noexcept;
 
     /// @brief Specifies the cpu for which to assemble/disassemble in nyxstone.
     ///
@@ -197,10 +183,19 @@ public:
     NyxstoneBuilder& with_immediate_style(IntegerBase style) noexcept;
 
     /// @brief Builds a nyxstone instance from the builder.
-    /// @note Should only be called after the triple has been specified via `NyxstoneBuilder::with_triple`.
     ///
     /// @return A unique_ptr holding the created nyxstone instance on success, an error string otherwise.
     tl::expected<std::unique_ptr<Nyxstone>, std::string> build();
+
+private:
+    ///@brief The llvm target triple.
+    std::string m_triple;
+    /// @brief Specific CPU for LLVM, default is empty.
+    std::string m_cpu;
+    /// @brief Specific CPU Features for LLVM, default is empty.
+    std::string m_features;
+    /// @brief In which style immediates should be represented in disassembly.
+    IntegerBase m_imm_style = IntegerBase::Dec;
 };
 
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.

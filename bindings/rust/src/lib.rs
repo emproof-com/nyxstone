@@ -1,15 +1,20 @@
 use anyhow::anyhow;
 use ffi::create_nyxstone_ffi;
+use ffi::LabelDefinition;
+
+// Re-export Instruction
+pub use crate::ffi::Instruction;
 
 /// Public interface for calling nyxstone from rust.
 /// # Examples
 ///
 /// ```rust
+/// # use std::collections::HashMap;
 /// # use nyxstone::{Nyxstone, NyxstoneConfig, Instruction};
 /// # fn main() -> anyhow::Result<()> {
 /// let nyxstone = Nyxstone::new("x86_64", NyxstoneConfig::default())?;
 ///
-/// let instructions = nyxstone.assemble_to_instructions("mov rax, rbx", 0x1000, &[])?;
+/// let instructions = nyxstone.assemble_to_instructions("mov rax, rbx", 0x1000, &HashMap::new())?;
 ///
 /// assert_eq!(
 ///      instructions,
@@ -26,10 +31,6 @@ pub struct Nyxstone {
     /// The c++ `unique_ptr` holding the actual `NyxstoneFFI` instance.
     inner: cxx::UniquePtr<ffi::NyxstoneFFI>,
 }
-
-// Re-export
-pub use crate::ffi::Instruction;
-pub use crate::ffi::LabelDefinition;
 
 /// Configuration options for the integer style of immediates in disassembly output.
 #[derive(Debug, PartialEq, Eq, Default, Clone, Copy)]
@@ -53,8 +54,24 @@ impl From<IntegerBase> for ffi::IntegerBase {
     }
 }
 
+impl<'name> LabelDefinition<'name> {
+    fn new(name: &'name str, address: u64) -> Self {
+        LabelDefinition { name, address }
+    }
+}
+
+impl<'name> From<(&&'name str, &u64)> for LabelDefinition<'name> {
+    fn from(value: (&&'name str, &u64)) -> Self {
+        LabelDefinition::new(value.0, *value.1)
+    }
+}
+
 impl Nyxstone {
     /// Builds a Nyxstone instance with specific configuration.
+    ///
+    /// # Parameters:
+    /// - `target_triple`: Llvm target triple or architecture identifier of triple.
+    /// - `config`: Optional configuration for the `Nyxstone` instance.
     ///
     /// # Returns
     /// Ok() and the Nyxstone instance on success, Err() otherwise.
@@ -84,17 +101,22 @@ impl Nyxstone {
     /// # Parameters:
     /// - `assembly`: The instructions to assemble.
     /// - `address`: The start location of the instructions.
-    /// - `labels`: Additional label definitions by absolute address.
+    /// - `labels`: Additional label definitions by absolute address, expects a reference to some `Map<&str, u64>` which can be iterated over.
     ///
     /// # Returns:
     /// Ok() and bytecode on success, Err() otherwise.
-    pub fn assemble_to_bytes(
+    pub fn assemble<'iter, 'label: 'iter, T>(
         &self,
         assembly: &str,
         address: u64,
-        labels: &[LabelDefinition],
-    ) -> anyhow::Result<Vec<u8>> {
-        let byte_result = self.inner.assemble_to_bytes(assembly, address, labels);
+        labels: &'iter T,
+    ) -> anyhow::Result<Vec<u8>>
+    where
+        &'iter T: IntoIterator<Item = (&'iter &'label str, &'iter u64)>,
+    {
+        let labels: Vec<LabelDefinition> = labels.into_iter().map(LabelDefinition::from).collect();
+
+        let byte_result = self.inner.assemble(assembly, address, &labels);
 
         if !byte_result.error.is_empty() {
             return Err(anyhow!(
@@ -114,17 +136,22 @@ impl Nyxstone {
     /// # Parameters:
     /// - `assembly`: The instructions to assemble.
     /// - `address`: The start location of the instructions.
-    /// - `labels`: Additional label definitions by absolute address.
+    /// - `labels`: Additional label definitions by absolute address, expects a reference to some `Map<&str, u64>` which can be iterated over.
     ///
     /// # Returns:
     /// Ok() and instruction details on success, Err() otherwise.
-    pub fn assemble_to_instructions(
+    pub fn assemble_to_instructions<'iter, 'label: 'iter, T>(
         &self,
         assembly: &str,
         address: u64,
-        labels: &[LabelDefinition],
-    ) -> anyhow::Result<Vec<Instruction>> {
-        let instr_result = self.inner.assemble_to_instructions(assembly, address, labels);
+        labels: &'iter T,
+    ) -> anyhow::Result<Vec<Instruction>>
+    where
+        &'iter T: IntoIterator<Item = (&'iter &'label str, &'iter u64)>,
+    {
+        let labels: Vec<LabelDefinition> = labels.into_iter().map(LabelDefinition::from).collect();
+
+        let instr_result = self.inner.assemble_to_instructions(assembly, address, &labels);
 
         if !instr_result.error.is_empty() {
             return Err(anyhow!("Error during disassembly: {}.", instr_result.error));
@@ -142,8 +169,8 @@ impl Nyxstone {
     ///
     /// # Returns:
     /// Ok() and disassembly text on success, Err() otherwise.
-    pub fn disassemble_to_text(&self, bytes: &[u8], address: u64, count: usize) -> anyhow::Result<String> {
-        let text_result = self.inner.disassemble_to_text(bytes, address, count);
+    pub fn disassemble(&self, bytes: &[u8], address: u64, count: usize) -> anyhow::Result<String> {
+        let text_result = self.inner.disassemble(bytes, address, count);
 
         if !text_result.error.is_empty() {
             return Err(anyhow!("Error during disassembly: {}.", text_result.error));
@@ -262,12 +289,7 @@ mod ffi {
         // Translates assembly instructions at a given start address to bytes.
         // Additional label definitions by absolute address may be supplied.
         // Does not support assembly directives that impact the layout (f. i., .section, .org).
-        fn assemble_to_bytes(
-            self: &NyxstoneFFI,
-            assembly: &str,
-            address: u64,
-            labels: &[LabelDefinition],
-        ) -> ByteResult;
+        fn assemble(self: &NyxstoneFFI, assembly: &str, address: u64, labels: &[LabelDefinition]) -> ByteResult;
 
         // Translates assembly instructions at a given start address to instruction details containing bytes.
         // Additional label definitions by absolute address may be supplied.
@@ -280,7 +302,7 @@ mod ffi {
         ) -> InstructionResult;
 
         // Translates bytes to disassembly text at given start address.
-        fn disassemble_to_text(self: &NyxstoneFFI, bytes: &[u8], address: u64, count: usize) -> StringResult;
+        fn disassemble(self: &NyxstoneFFI, bytes: &[u8], address: u64, count: usize) -> StringResult;
 
         // Translates bytes to instruction details containing disassembly text at a given start address.
         fn disassemble_to_instructions(

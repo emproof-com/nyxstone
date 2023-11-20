@@ -37,12 +37,12 @@ public:
     NyxstoneFFI(const NyxstoneFFI& other) = delete;
     NyxstoneFFI(NyxstoneFFI&& other) = delete;
 
-    ByteResult assemble_to_bytes(rust::str assembly, uint64_t address, rust::Slice<const LabelDefinition> labels) const;
+    ByteResult assemble(rust::str assembly, uint64_t address, rust::Slice<const LabelDefinition> labels) const;
 
     InstructionResult assemble_to_instructions(
         rust::str assembly, uint64_t address, rust::Slice<const LabelDefinition> labels) const;
 
-    StringResult disassemble_to_text(rust::Slice<const uint8_t> bytes, uint64_t address, size_t count) const;
+    StringResult disassemble(rust::Slice<const uint8_t> bytes, uint64_t address, size_t count) const;
 
     InstructionResult disassemble_to_instructions(
         rust::Slice<const uint8_t> bytes, uint64_t address, size_t count) const;
