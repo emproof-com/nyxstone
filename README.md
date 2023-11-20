@@ -206,6 +206,8 @@ To use Nyxstone as a Rust library, add it to your `Cargo.toml`and use it as show
 use anyhow::Result;
 use nyxstone::{Nyxstone, NyxstoneConfig};
 
+use std::collections::HashMap;
+
 fn main() -> Result<()> {
     let nyxstone = Nyxstone::new("x86_64", NyxstoneConfig::default())?;
 
