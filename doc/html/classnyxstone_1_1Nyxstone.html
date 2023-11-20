@@ -93,15 +93,15 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:a2afad39971fd205ca240294c23ab0992"><td class="memItemLeft" align="right" valign="top">&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classnyxstone_1_1Nyxstone.html#a2afad39971fd205ca240294c23ab0992">Nyxstone</a> (llvm::Triple &amp;&amp;triple, const llvm::Target &amp;target, llvm::MCTargetOptions &amp;&amp;target_options, std::unique_ptr&lt; llvm::MCRegisterInfo &gt; &amp;&amp;register_info, std::unique_ptr&lt; llvm::MCAsmInfo &gt; &amp;&amp;assembler_info, std::unique_ptr&lt; llvm::MCInstrInfo &gt; &amp;&amp;instruction_info, std::unique_ptr&lt; llvm::MCSubtargetInfo &gt; &amp;&amp;subtarget_info, std::unique_ptr&lt; llvm::MCInstPrinter &gt; &amp;&amp;instruction_printer) noexcept</td></tr>
 <tr class="memdesc:a2afad39971fd205ca240294c23ab0992"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="classnyxstone_1_1Nyxstone.html" title="Nyxstone class for assembling and disassembling for a given architecture.">Nyxstone</a> constructor called by <a class="el" href="classnyxstone_1_1NyxstoneBuilder.html#a1c9ab3b9119363541859838e21b5328e" title="Builds a nyxstone instance from the builder.">NyxstoneBuilder::build</a>.  <a href="classnyxstone_1_1Nyxstone.html#a2afad39971fd205ca240294c23ab0992">More...</a><br /></td></tr>
 <tr class="separator:a2afad39971fd205ca240294c23ab0992"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a0d66a7ce982657b90d469421c1502e88"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::vector&lt; u8 &gt;, std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classnyxstone_1_1Nyxstone.html#a0d66a7ce982657b90d469421c1502e88">assemble_to_bytes</a> (const std::string &amp;assembly, uint64_t address, const std::vector&lt; <a class="el" href="structnyxstone_1_1Nyxstone_1_1LabelDefinition.html">LabelDefinition</a> &gt; &amp;labels) const</td></tr>
-<tr class="memdesc:a0d66a7ce982657b90d469421c1502e88"><td class="mdescLeft">&#160;</td><td class="mdescRight">Translates assembly instructions at given start address to bytes.  <a href="classnyxstone_1_1Nyxstone.html#a0d66a7ce982657b90d469421c1502e88">More...</a><br /></td></tr>
-<tr class="separator:a0d66a7ce982657b90d469421c1502e88"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0fff14508ded2e72005a8388e3a8d32a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::vector&lt; u8 &gt;, std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classnyxstone_1_1Nyxstone.html#a0fff14508ded2e72005a8388e3a8d32a">assemble</a> (const std::string &amp;assembly, uint64_t address, const std::vector&lt; <a class="el" href="structnyxstone_1_1Nyxstone_1_1LabelDefinition.html">LabelDefinition</a> &gt; &amp;labels) const</td></tr>
+<tr class="memdesc:a0fff14508ded2e72005a8388e3a8d32a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Translates assembly instructions at a given start address to bytes.  <a href="classnyxstone_1_1Nyxstone.html#a0fff14508ded2e72005a8388e3a8d32a">More...</a><br /></td></tr>
+<tr class="separator:a0fff14508ded2e72005a8388e3a8d32a"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a62091e365383ed8fb2b5ebab136b2577"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::vector&lt; <a class="el" href="structnyxstone_1_1Nyxstone_1_1Instruction.html">Instruction</a> &gt;, std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classnyxstone_1_1Nyxstone.html#a62091e365383ed8fb2b5ebab136b2577">assemble_to_instructions</a> (const std::string &amp;assembly, uint64_t address, const std::vector&lt; <a class="el" href="structnyxstone_1_1Nyxstone_1_1LabelDefinition.html">LabelDefinition</a> &gt; &amp;labels) const</td></tr>
 <tr class="memdesc:a62091e365383ed8fb2b5ebab136b2577"><td class="mdescLeft">&#160;</td><td class="mdescRight">Translates assembly instructions at given start address to instruction details containing bytes.  <a href="classnyxstone_1_1Nyxstone.html#a62091e365383ed8fb2b5ebab136b2577">More...</a><br /></td></tr>
 <tr class="separator:a62091e365383ed8fb2b5ebab136b2577"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:aa39ac7b31a5b17e65feb41f4c945136a"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::string, std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classnyxstone_1_1Nyxstone.html#aa39ac7b31a5b17e65feb41f4c945136a">disassemble_to_text</a> (const std::vector&lt; uint8_t &gt; &amp;bytes, uint64_t address, size_t count) const</td></tr>
-<tr class="memdesc:aa39ac7b31a5b17e65feb41f4c945136a"><td class="mdescLeft">&#160;</td><td class="mdescRight">Translates bytes to disassembly text at given start address.  <a href="classnyxstone_1_1Nyxstone.html#aa39ac7b31a5b17e65feb41f4c945136a">More...</a><br /></td></tr>
-<tr class="separator:aa39ac7b31a5b17e65feb41f4c945136a"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a422b1bbc3a352a079b268ad464bc4a7f"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::string, std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classnyxstone_1_1Nyxstone.html#a422b1bbc3a352a079b268ad464bc4a7f">disassemble</a> (const std::vector&lt; uint8_t &gt; &amp;bytes, uint64_t address, size_t count) const</td></tr>
+<tr class="memdesc:a422b1bbc3a352a079b268ad464bc4a7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Translates bytes to disassembly text at given start address.  <a href="classnyxstone_1_1Nyxstone.html#a422b1bbc3a352a079b268ad464bc4a7f">More...</a><br /></td></tr>
+<tr class="separator:a422b1bbc3a352a079b268ad464bc4a7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a740a2a6330a00796a6d58d8fbc442504"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::vector&lt; <a class="el" href="structnyxstone_1_1Nyxstone_1_1Instruction.html">Instruction</a> &gt;, std::string &gt;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classnyxstone_1_1Nyxstone.html#a740a2a6330a00796a6d58d8fbc442504">disassemble_to_instructions</a> (const std::vector&lt; uint8_t &gt; &amp;bytes, uint64_t address, size_t count) const</td></tr>
 <tr class="memdesc:a740a2a6330a00796a6d58d8fbc442504"><td class="mdescLeft">&#160;</td><td class="mdescRight">Translates bytes to instruction details containing disassembly text at given start address.  <a href="classnyxstone_1_1Nyxstone.html#a740a2a6330a00796a6d58d8fbc442504">More...</a><br /></td></tr>
 <tr class="separator:a740a2a6330a00796a6d58d8fbc442504"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -200,14 +200,14 @@ Public Member Functions</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Function Documentation</h2>
-<a id="a0d66a7ce982657b90d469421c1502e88"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a0d66a7ce982657b90d469421c1502e88">&#9670;&nbsp;</a></span>assemble_to_bytes()</h2>
+<a id="a0fff14508ded2e72005a8388e3a8d32a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0fff14508ded2e72005a8388e3a8d32a">&#9670;&nbsp;</a></span>assemble()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::vector&lt; u8 &gt;, std::string &gt; nyxstone::Nyxstone::assemble_to_bytes </td>
+          <td class="memname"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::vector&lt; u8 &gt;, std::string &gt; nyxstone::Nyxstone::assemble </td>
           <td>(</td>
           <td class="paramtype">const std::string &amp;&#160;</td>
           <td class="paramname"><em>assembly</em>, </td>
@@ -232,7 +232,7 @@ Public Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Translates assembly instructions at given start address to bytes. </p>
+<p>Translates assembly instructions at a given start address to bytes. </p>
 <p>Additional label definitions by absolute address may be supplied. Does not support assembly directives that impact the layout (f. i., .section, .org).</p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
@@ -292,6 +292,51 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="a422b1bbc3a352a079b268ad464bc4a7f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a422b1bbc3a352a079b268ad464bc4a7f">&#9670;&nbsp;</a></span>disassemble()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::string, std::string &gt; nyxstone::Nyxstone::disassemble </td>
+          <td>(</td>
+          <td class="paramtype">const std::vector&lt; uint8_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>bytes</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t&#160;</td>
+          <td class="paramname"><em>address</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">size_t&#160;</td>
+          <td class="paramname"><em>count</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Translates bytes to disassembly text at given start address. </p>
+<dl class="params"><dt>Parameters</dt><dd>
+  <table class="params">
+    <tr><td class="paramname">bytes</td><td>The byte code to be disassembled. </td></tr>
+    <tr><td class="paramname">address</td><td>The absolute address of the byte code. </td></tr>
+    <tr><td class="paramname">count</td><td>The number of instructions which should be disassembled, 0 means all.</td></tr>
+  </table>
+  </dd>
+</dl>
+<dl class="section return"><dt>Returns</dt><dd>The disassembly on success, an error string otherwise. </dd></dl>
+
+</div>
+</div>
 <a id="a740a2a6330a00796a6d58d8fbc442504"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a740a2a6330a00796a6d58d8fbc442504">&#9670;&nbsp;</a></span>disassemble_to_instructions()</h2>
 
@@ -334,51 +379,6 @@ Public Member Functions</h2></td></tr>
   </dd>
 </dl>
 <dl class="section return"><dt>Returns</dt><dd>The instruction details on success, an error string otherwise. </dd></dl>
-
-</div>
-</div>
-<a id="aa39ac7b31a5b17e65feb41f4c945136a"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#aa39ac7b31a5b17e65feb41f4c945136a">&#9670;&nbsp;</a></span>disassemble_to_text()</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname"><a class="el" href="classtl_1_1expected.html">tl::expected</a>&lt; std::string, std::string &gt; nyxstone::Nyxstone::disassemble_to_text </td>
-          <td>(</td>
-          <td class="paramtype">const std::vector&lt; uint8_t &gt; &amp;&#160;</td>
-          <td class="paramname"><em>bytes</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">uint64_t&#160;</td>
-          <td class="paramname"><em>address</em>, </td>
-        </tr>
-        <tr>
-          <td class="paramkey"></td>
-          <td></td>
-          <td class="paramtype">size_t&#160;</td>
-          <td class="paramname"><em>count</em>&#160;</td>
-        </tr>
-        <tr>
-          <td></td>
-          <td>)</td>
-          <td></td><td> const</td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Translates bytes to disassembly text at given start address. </p>
-<dl class="params"><dt>Parameters</dt><dd>
-  <table class="params">
-    <tr><td class="paramname">bytes</td><td>The byte code to be disassembled. </td></tr>
-    <tr><td class="paramname">address</td><td>The absolute address of the byte code. </td></tr>
-    <tr><td class="paramname">count</td><td>The number of instructions which should be disassembled, 0 means all.</td></tr>
-  </table>
-  </dd>
-</dl>
-<dl class="section return"><dt>Returns</dt><dd>The disassembly on success, an error string otherwise. </dd></dl>
 
 </div>
 </div>
