@@ -169,15 +169,10 @@ std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string l
     while (!labelstr.empty()) {
         auto delim_pos = labelstr.find(delim);
         auto token = labelstr.substr(0, delim_pos);
-        if (token.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-=")
-            == std::string::npos) {
-            std::cerr << "Invalid label: " << token << "\n";
-            return {};
-        }
 
         auto assignment_delim = token.find('=');
         if (assignment_delim == std::string::npos) {
-            std::cerr << "Invalid label: " << token << "\n";
+            std::cerr << "Invalid label ( = No assignment operator found ): `" << token << "`\n";
             return {};
         }
 
