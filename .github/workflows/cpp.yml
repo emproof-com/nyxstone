@@ -41,7 +41,7 @@ jobs:
       run: make test
       working-directory: build/
     - name: cli
-      run: ./nyxstone -A "mov rax, rbx" && \
+      run: ./nyxstone -A "mov rax, rbx" &&
            ./nyxstone -A "jmp label" --labels "label=0x1000"
 
       working-directory: build/
