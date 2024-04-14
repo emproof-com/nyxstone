@@ -232,11 +232,11 @@ mod ffi {
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct Instruction {
         /// Absolute address of the instruction.
-        address: u64,
+        pub address: u64,
         /// Assembly string representing the instruction.
-        assembly: String,
+        pub assembly: String,
         /// Byte code of the instruction.
-        bytes: Vec<u8>,
+        pub bytes: Vec<u8>,
     }
 
     pub struct ByteResult {
