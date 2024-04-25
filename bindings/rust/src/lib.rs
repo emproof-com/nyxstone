@@ -315,3 +315,8 @@ mod ffi {
 }
 
 unsafe impl Send for ffi::NyxstoneFFI {}
+
+// Unused call to llvm-sys to force linking with llvm.
+unsafe fn _force_llvm_sys_linkage() {
+    llvm_sys::target::LLVM_InitializeAllTargets();
+}

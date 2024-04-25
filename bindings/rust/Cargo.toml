@@ -17,6 +17,7 @@ categories = ["api-bindings", "compilers"]
 [dependencies]
 anyhow = { version = "1.0.68", default-features = true }
 cxx = "1.0.94"
+llvm-sys = { version = "150", features = ["prefer-static", "strict-versioning", "disable-alltargets-init"] }
 
 [build-dependencies]
 cxx-build = "1.0.94"

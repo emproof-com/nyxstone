@@ -18,7 +18,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"
+  LLVM_SYS_150_PREFIX: "/usr/lib/llvm-15/"
 
 jobs:
   linux:
@@ -46,9 +46,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX=$(brew --prefix llvm@15) cargo build
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" LLVM_SYS_150_PREFIX=$(brew --prefix llvm@15) cargo build
       working-directory: ${{ env.working-dir }}
     - name: Run tests
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX=$(brew --prefix llvm@15) cargo test
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" LLVM_SYS_150_PREFIX=$(brew --prefix llvm@15) cargo test
       working-directory: ${{ env.working-dir }}
 
