@@ -72,7 +72,7 @@ tl::expected<std::unique_ptr<Nyxstone>, std::string> NyxstoneBuilder::build()
     // Init reusable llvm info objects
     auto register_info = std::unique_ptr<llvm::MCRegisterInfo>(target->createMCRegInfo(triple.getTriple()));
     if (!register_info) {
-        throw tl::unexpected("Could not create LLVM object (= MCRegisterInfo )");
+        return tl::unexpected("Could not create LLVM object (= MCRegisterInfo )");
     }
 
     llvm::MCTargetOptions target_options;
