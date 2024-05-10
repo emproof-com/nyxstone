@@ -27,6 +27,19 @@ mod tests {
     }
 
     #[test]
+    fn empty_input() -> Result<()> {
+        let nyxstone = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
+
+        let result = nyxstone.assemble("", 0x0, &HashMap::new())?;
+        assert!(result.is_empty());
+
+        let result = nyxstone.disassemble(&[], 0x0, 0)?;
+        assert!(result.is_empty());
+
+        Ok(())
+    }
+
+    #[test]
     fn ldr_aligned_misaligned_armv6m_test() -> Result<()> {
         let nyxstone = Nyxstone::new("armv6m-none-eabi", NyxstoneConfig::default())?;
 

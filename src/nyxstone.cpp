@@ -224,6 +224,10 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         instructions->clear();
     }
 
+    if (assembly.empty()) {
+        return {};
+    }
+
     // ARM Thumb has mixed 2-byte and 4-byte instructions. The base address used
     // for branch/load/store offset calculations is aligned down to the last
     // 4-byte boundary `base = Align(PC, 4)`. LLVM always assembles at address
@@ -386,6 +390,10 @@ tl::expected<void, std::string> Nyxstone::disassemble_impl(const std::vector<uin
     }
     if (instructions != nullptr) {
         instructions->clear();
+    }
+
+    if (bytes.empty()) {
+        return {};
     }
 
     // Equip context with info objects and custom error handling
