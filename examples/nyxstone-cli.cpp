@@ -33,10 +33,10 @@ int main(int argc, char** argv)
             "LLVM triple or architecture identifier of triple, for example "
             R"("x86_64", "x86_64-linux-gnu", "armv8", "armv8eb", "thumbv8", "aarch64")")
         ("cpu", po::value<std::string>()->default_value(""),
-            "LLVM cpu specifier, refer to `llc -march=ARCH -mcpu=help` for a comprehensive list")
+            "LLVM cpu specifier, refer to `llc -mtriple=ARCH -mcpu=help` for a comprehensive list")
         ("features", po::value<std::string>()->default_value(""),
             "LLVM features to enable/disable, comma seperated feature strings prepended by '+' or '-' to"
-            "enable or disable respectively. Refer to `llc -march=ARCH -mattr=help` for a comprehensive list")
+            "enable or disable respectively. Refer to `llc -mtriple=ARCH -mattr=help` for a comprehensive list")
         ("address", po::value<std::string>()->default_value("0"), "Address")
     ;
 
