@@ -30,7 +30,7 @@ int main(int argc, char** argv)
     desc.add_options()
         ("help", "Show this message")
         ("arch", po::value<std::string>()->default_value("x86_64"),
-            "LLVM triple or architecture identifier of triple, for example"
+            "LLVM triple or architecture identifier of triple, for example "
             R"("x86_64", "x86_64-linux-gnu", "armv8", "armv8eb", "thumbv8", "aarch64")")
         ("cpu", po::value<std::string>()->default_value(""),
             "LLVM cpu specifier, refer to `llc -march=ARCH -mcpu=help` for a comprehensive list")

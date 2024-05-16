@@ -108,6 +108,12 @@ Allowed options:
   --arch arg (=x86_64)      LLVM triple or architecture identifier of triple,
                             for example "x86_64", "x86_64-linux-gnu", "armv8",
                             "armv8eb", "thumbv8", "aarch64"
+  --cpu arg                 LLVM cpu specifier, refer to `llc -march=ARCH
+                            -mcpu=help` for a comprehensive list
+  --features arg            LLVM features to enable/disable, comma seperated
+                            feature strings prepended by '+' or '-' toenable or
+                            disable respectively. Refer to `llc -march=ARCH
+                            -mattr=help` for a comprehensive list
   --address arg (=0)        Address
 
 Assembling:
