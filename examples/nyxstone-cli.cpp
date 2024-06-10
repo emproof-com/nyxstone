@@ -6,7 +6,6 @@
 #include <iomanip>
 #include <iostream>
 #include <optional>
-#include <unordered_map>
 
 #include "nyxstone.h"
 #include "tl/expected.hpp"
@@ -20,7 +19,7 @@ enum class Architecture;
 std::optional<Architecture> arch_parse_from_string(const std::string& arch);
 void print_bytes(const std::vector<uint8_t>& bytes);
 std::string arch_to_llvm_string(Architecture arch);
-std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string labelstr);
+std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string_view labelstr);
 void print_instructions(const std::vector<Nyxstone::Instruction>& instructions);
 
 int main(int argc, char** argv)
@@ -160,7 +159,7 @@ void print_bytes(const std::vector<uint8_t>& bytes)
     std::cout << std::dec << "]";
 }
 
-std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string labelstr)
+std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string_view labelstr)
 {
     constexpr std::string_view allowed_label_chars {
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
@@ -171,9 +170,16 @@ std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string l
 
     std::vector<Nyxstone::LabelDefinition> labels;
 
-    while (!labelstr.empty()) {
-        auto delim_pos = labelstr.find(delim);
-        auto token = labelstr.substr(0, delim_pos);
+    if (labelstr.empty()) {
+        return labels;
+    }
+
+    auto remaing_unparsed = labelstr.substr();
+
+    while (!remaing_unparsed.empty()) {
+        auto delim_pos = remaing_unparsed.find(delim);
+
+        auto token = remaing_unparsed.substr(0, delim_pos);
 
         auto assignment_delim = token.find('=');
         if (assignment_delim == std::string::npos) {
@@ -192,15 +198,28 @@ std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string l
 
         uint64_t value = 0;
         try {
-            value = std::stoul(val, nullptr, 0);
+            char* end { nullptr };
+            value = std::strtoul(val.data(), &end, 0);
+
+            // Failing to parse the value to the end or an exception mean we failed
+            // to parse the value.
+            if (end != val.end()) {
+                std::cerr << "Could not parse label value: `" << val << "`\n";
+                return {};
+            }
         } catch (const std::exception& e) {
             std::cerr << "Could not parse label value: `" << val << "`\n";
             return {};
         }
 
-        labels.push_back(Nyxstone::LabelDefinition { name, value });
+        labels.push_back(Nyxstone::LabelDefinition { std::string(name), value });
 
-        labelstr.erase(0, delim_pos == std::string::npos ? delim_pos : delim_pos + 1);
+        auto const next_token_or_end = (delim_pos != std::string::npos) ? delim_pos + 1 : remaing_unparsed.size();
+        remaing_unparsed = remaing_unparsed.substr(next_token_or_end);
+    }
+
+    for (auto const& label : labels) {
+        std::cout << label.name << " " << std::hex << label.address << "\n";
     }
 
     return labels;
