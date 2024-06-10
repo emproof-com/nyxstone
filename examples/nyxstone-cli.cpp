@@ -162,6 +162,11 @@ void print_bytes(const std::vector<uint8_t>& bytes)
 
 std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string labelstr)
 {
+    constexpr std::string_view allowed_label_chars {
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+    };
+    constexpr std::string_view not_allowed_first_char { "01234567890-" };
+
     auto delim = ',';
 
     std::vector<Nyxstone::LabelDefinition> labels;
@@ -169,20 +174,21 @@ std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string l
     while (!labelstr.empty()) {
         auto delim_pos = labelstr.find(delim);
         auto token = labelstr.substr(0, delim_pos);
-        if (token.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-=")
-            == std::string::npos) {
-            std::cerr << "Invalid label: " << token << "\n";
-            return {};
-        }
 
         auto assignment_delim = token.find('=');
         if (assignment_delim == std::string::npos) {
-            std::cerr << "Invalid label: " << token << "\n";
+            std::cerr << "No `=` in label assignment found: " << token << "\n";
             return {};
         }
 
-        auto name = token.substr(0, labelstr.find('='));
-        auto val = token.substr(labelstr.find('=') + 1);
+        auto const name = token.substr(0, assignment_delim);
+        auto const val = token.substr(assignment_delim + 1);
+
+        if (name.find_first_not_of(allowed_label_chars) != std::string::npos
+            || not_allowed_first_char.find_first_of(name.front()) != std::string::npos) {
+            std::cerr << "Invalid label name: `" << token << "`\n";
+            return {};
+        }
 
         uint64_t value = 0;
         try {
