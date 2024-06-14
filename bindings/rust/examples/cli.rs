@@ -25,7 +25,7 @@ enum Command {
     },
 }
 
-/// A
+/// Rust CLI for Nyxstone
 #[derive(Parser)]
 struct Args {
     /// Architecture LLVM triple or architecture identifier of triple, for example "x86_64", "x86_64-linux-gnu",
