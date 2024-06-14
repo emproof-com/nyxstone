@@ -29,7 +29,13 @@ int main(int argc, char** argv)
     desc.add_options()
         ("help", "Show this message")
         ("arch", po::value<std::string>()->default_value("x86_64"),
-            R"(LLVM triple or architecture identifier of triple, for example "x86_64", "x86_64-linux-gnu", "armv8", "armv8eb", "thumbv8", "aarch64")")
+            "LLVM triple or architecture identifier of triple, for example "
+            R"("x86_64", "x86_64-linux-gnu", "armv8", "armv8eb", "thumbv8", "aarch64")")
+        ("cpu", po::value<std::string>()->default_value(""),
+            "LLVM cpu specifier, refer to `llc -mtriple=ARCH -mcpu=help` for a comprehensive list")
+        ("features", po::value<std::string>()->default_value(""),
+            "LLVM features to enable/disable, comma seperated feature strings prepended by '+' or '-' to"
+            "enable or disable respectively. Refer to `llc -mtriple=ARCH -mattr=help` for a comprehensive list")
         ("address", po::value<std::string>()->default_value("0"), "Address")
     ;
 
@@ -104,7 +110,11 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    auto nyxstone_result { std::move(NyxstoneBuilder(std::move(arch)).build()) };
+    auto cpu { varmap["cpu"].as<std::string>() };
+    auto features { varmap["features"].as<std::string>() };
+
+    auto nyxstone_result { std::move(
+        NyxstoneBuilder(std::move(arch)).with_cpu(std::move(cpu)).with_features(std::move(features)).build()) };
     if (!nyxstone_result) {
         std::cerr << "Failure creating nyxstone instance (= " << nyxstone_result.error() << " )\n";
         return 1;
