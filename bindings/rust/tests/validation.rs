@@ -220,7 +220,7 @@ mod tests {
         assert_eq!(result, vec![0x1e, 0x00, 0x00, 0xb0], "assemble");
 
         let result = nyxstone_armv8a.assemble("adrp x15, .label", 0x1000, &HashMap::from([(".label", 0x1010)]))?;
-        assert_eq!(result, vec![0x0F, 0x00, 0x00, 0xb0], "assemble");
+        assert_eq!(result, vec![0x0F, 0x00, 0x00, 0x90], "assemble");
 
         Ok(())
     }
