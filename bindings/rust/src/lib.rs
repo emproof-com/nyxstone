@@ -14,7 +14,7 @@ pub use crate::ffi::Instruction;
 /// # fn main() -> anyhow::Result<()> {
 /// let nyxstone = Nyxstone::new("x86_64", NyxstoneConfig::default())?;
 ///
-/// let instructions = nyxstone.assemble_to_instructions("mov rax, rbx", 0x1000, &HashMap::new())?;
+/// let instructions = nyxstone.assemble_to_instructions("mov rax, rbx", 0x1000)?;
 ///
 /// assert_eq!(
 ///      instructions,
@@ -60,9 +60,12 @@ impl<'name> LabelDefinition<'name> {
     }
 }
 
-impl<'name> From<(&&'name str, &u64)> for LabelDefinition<'name> {
-    fn from(value: (&&'name str, &u64)) -> Self {
-        LabelDefinition::new(value.0, *value.1)
+impl<'a, S: 'a> From<(&'a S, &u64)> for LabelDefinition<'a>
+where
+    S: AsRef<str>,
+{
+    fn from(value: (&'a S, &u64)) -> Self {
+        LabelDefinition::new(value.0.as_ref(), *value.1)
     }
 }
 
@@ -101,18 +104,39 @@ impl Nyxstone {
     /// # Parameters:
     /// - `assembly`: The instructions to assemble.
     /// - `address`: The start location of the instructions.
-    /// - `labels`: Additional label definitions by absolute address, expects a reference to some `Map<&str, u64>` which can be iterated over.
     ///
     /// # Returns:
     /// Ok() and bytecode on success, Err() otherwise.
-    pub fn assemble<'iter, 'label: 'iter, T>(
-        &self,
-        assembly: &str,
-        address: u64,
-        labels: &'iter T,
-    ) -> anyhow::Result<Vec<u8>>
+    pub fn assemble(&self, assembly: &str, address: u64) -> anyhow::Result<Vec<u8>> {
+        let byte_result = self.inner.assemble(assembly, address, &Vec::new());
+
+        if !byte_result.error.is_empty() {
+            return Err(anyhow!(
+                "Error during assemble (= '{assembly}' at {address}): {}.",
+                byte_result.error
+            ));
+        }
+
+        Ok(byte_result.ok)
+    }
+
+    /// Translates assembly instructions at a given start address to bytes, with additional label definitions.
+    ///
+    /// # Note:
+    /// Does not support assembly directives that impact the layout (f. i., .section, .org).
+    ///
+    /// # Parameters:
+    /// - `assembly`: The instructions to assemble.
+    /// - `address`: The start location of the instructions.
+    /// - `labels`: Additional label definitions by absolute address, expects a reference to some `Map<AsRef<str>, u64>`
+    ///             which can be iterated over.
+    ///
+    /// # Returns:
+    /// Ok() and bytecode on success, Err() otherwise.
+    pub fn assemble_with<'iter, It, Lbl>(&self, assembly: &str, address: u64, labels: It) -> anyhow::Result<Vec<u8>>
     where
-        &'iter T: IntoIterator<Item = (&'iter &'label str, &'iter u64)>,
+        Lbl: 'iter + AsRef<str>,
+        It: IntoIterator<Item = (&'iter Lbl, &'iter u64)>,
     {
         let labels: Vec<LabelDefinition> = labels.into_iter().map(LabelDefinition::from).collect();
 
@@ -136,18 +160,41 @@ impl Nyxstone {
     /// # Parameters:
     /// - `assembly`: The instructions to assemble.
     /// - `address`: The start location of the instructions.
-    /// - `labels`: Additional label definitions by absolute address, expects a reference to some `Map<&str, u64>` which can be iterated over.
     ///
     /// # Returns:
     /// Ok() and instruction details on success, Err() otherwise.
-    pub fn assemble_to_instructions<'iter, 'label: 'iter, T>(
+    pub fn assemble_to_instructions(&self, assembly: &str, address: u64) -> anyhow::Result<Vec<Instruction>> {
+        let instr_result = self.inner.assemble_to_instructions(assembly, address, &Vec::new());
+
+        if !instr_result.error.is_empty() {
+            return Err(anyhow!("Error during disassembly: {}.", instr_result.error));
+        }
+
+        Ok(instr_result.ok)
+    }
+
+    /// Translates assembly instructions at a given start address to instruction details containing bytes, with
+    /// additional label definitions.
+    ///
+    /// # Note:
+    /// Does not support assembly directives that impact the layout (f. i., .section, .org).
+    ///
+    /// # Parameters:
+    /// - `assembly`: The instructions to assemble.
+    /// - `address`: The start location of the instructions.
+    /// - `labels`: Additional label definitions by absolute address, expects a reference to some `Map<AsRef<str>, u64>` which can be iterated over.
+    ///
+    /// # Returns:
+    /// Ok() and instruction details on success, Err() otherwise.
+    pub fn assemble_to_instructions_with<'iter, It, Lbl>(
         &self,
         assembly: &str,
         address: u64,
-        labels: &'iter T,
+        labels: It,
     ) -> anyhow::Result<Vec<Instruction>>
     where
-        &'iter T: IntoIterator<Item = (&'iter &'label str, &'iter u64)>,
+        Lbl: 'iter + AsRef<str>,
+        It: IntoIterator<Item = (&'iter Lbl, &'iter u64)>,
     {
         let labels: Vec<LabelDefinition> = labels.into_iter().map(LabelDefinition::from).collect();
 
