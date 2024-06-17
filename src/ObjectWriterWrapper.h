@@ -103,7 +103,27 @@ public:
     /// @brief Simple function wrapper calling the wrapped object wrapper function directly.
     void executePostLayoutBinding(llvm::MCAssembler& Asm, const llvm::MCAsmLayout& Layout) override;
 
-    /// @brief Performs relocations via the wrapped object wrapper as well as custom relocations.
+    /// @brief Internal resolve for relocations.
+    ///
+    /// Implements relocation for:
+    /// - `adrp`
+    bool resolve_relocation(llvm::MCAssembler& assembler, const llvm::MCAsmLayout& layout, const llvm::MCFragment* fragment,
+    const llvm::MCFixup& fixup, llvm::MCValue target, uint64_t& fixed_value);
+
+    /// @brief Tries to resolve relocations (that are normally resolved at link time) instead of recording them
+    ///
+    /// This function serves multiple purposes:
+    /// - Resolve (some) relocations
+    /// - Ensure relocations which can not be resolved are an error instead of invalid machine bytes.
+    /// - Ensure that any missing label is correctly reported.
+    ///
+    /// Normally, this function records relocations, which are resolved by the linker. Since we do not have a linking step,
+    /// we must assume that any relocation which would be recorded is not yet correctly assembled. Thus, we try to
+    /// resolve relocations ourself, although this must be implemented on a relocation basis, and we currently implement:
+    /// - `adrp`
+    ///
+    /// Any missing label in the assembly must be resolved by the linker and leads to this function being called,
+    /// we use this fact to emit errors for missing labels.
     void recordRelocation(llvm::MCAssembler& Asm, const llvm::MCAsmLayout& Layout, const llvm::MCFragment* Fragment,
         const llvm::MCFixup& Fixup, llvm::MCValue Target, uint64_t& FixedValue) override;
 

@@ -162,23 +162,29 @@ void ObjectWriterWrapper::executePostLayoutBinding(llvm::MCAssembler& Asm, const
     inner_object_writer->executePostLayoutBinding(Asm, Layout);
 }
 
-void ObjectWriterWrapper::recordRelocation(MCAssembler& Asm, const MCAsmLayout& Layout, const MCFragment* Fragment,
-    const MCFixup& Fixup, MCValue Target, uint64_t& FixedValue)
+bool ObjectWriterWrapper::resolve_relocation(MCAssembler& assembler, const MCAsmLayout& layout,
+    const MCFragment* fragment, const MCFixup& fixup, MCValue target, uint64_t& fixed_value)
 {
-    inner_object_writer->recordRelocation(Asm, Layout, Fragment, Fixup, Target, FixedValue);
+    (void)layout;
+    (void)fragment;
+    (void)target;
 
     // LLVM performs relocation for the AArch64 instruction `adrp` during the linking step.
     // Therefore, we need to perform the relocation ourselves.
     // Semantics: REG := page of PC + page of .LABEL on 4k aligned page
     if (context.getTargetTriple().isAArch64()) {
         auto const IsPCRel
-            = Asm.getBackend().getFixupKindInfo(Fixup.getKind()).Flags & MCFixupKindInfo::FKF_IsPCRel;
-        auto const kind = Fixup.getTargetKind();
+            = assembler.getBackend().getFixupKindInfo(fixup.getKind()).Flags & MCFixupKindInfo::FKF_IsPCRel;
+        auto const kind = fixup.getTargetKind();
 
         if ((IsPCRel != 0U) && kind == AArch64::fixup_aarch64_pcrel_adrp_imm21) {
-            const auto* const aarch64_expr = cast<AArch64MCExpr>(Fixup.getValue());
+            const auto* const aarch64_expr = cast<AArch64MCExpr>(fixup.getValue());
             const auto* const symbol_ref = cast<MCSymbolRefExpr>(aarch64_expr->getSubExpr());
             MCSymbol const& symbol = symbol_ref->getSymbol();
+
+            if (!symbol.isDefined()) {
+                return false;
+            }
 
             // Perform the fixup
             constexpr u64 PAGE_SIZE { 0x1000 };
@@ -186,19 +192,54 @@ void ObjectWriterWrapper::recordRelocation(MCAssembler& Asm, const MCAsmLayout& 
             // We need to compute the absolute address of both this instruction and the target label,
             // so that we can compute the offsets of their two pages, since adrp zeros both
             // the lower 12 bits of the pc and of the offset...
-            u64 local_addr = start_address + Fixup.getOffset();
+            u64 local_addr = start_address + fixup.getOffset();
             u64 target_addr = start_address + symbol.getOffset();
 
             u64 local_page = local_addr & ~(PAGE_SIZE - 1);
             u64 target_page = target_addr & ~(PAGE_SIZE - 1);
 
-            FixedValue = target_page - local_page;
+            fixed_value = target_page - local_page;
+
+            return true;
         }
+    }
+
+    return false;
+}
+
+void ObjectWriterWrapper::recordRelocation(MCAssembler& Asm, const MCAsmLayout& Layout, const MCFragment* Fragment,
+    const MCFixup& Fixup, MCValue Target, uint64_t& FixedValue)
+{
+    bool labels_defined { true };
+
+    if (auto const* sym_ref = Target.getSymA(); sym_ref != nullptr) {
+        labels_defined &= sym_ref->getSymbol().isDefined();
+    }
+
+    if (auto const* sym_ref = Target.getSymB(); sym_ref != nullptr) {
+        labels_defined &= sym_ref->getSymbol().isDefined();
+    }
+
+    if (!labels_defined) {
+        context.reportError(Fixup.getLoc(), "Label undefined (reported by Nyxstone)");
+        return;
+    }
+
+    bool const resolved = resolve_relocation(Asm, Layout, Fragment, Fixup, Target, FixedValue);
+
+    if (!resolved) {
+        context.reportError(Fixup.getLoc(), "Could not resolve relocation/label (reported by Nyxstone)");
+        return;
     }
 }
 
 uint64_t ObjectWriterWrapper::writeObject(MCAssembler& Asm, const MCAsmLayout& Layout)
 {
+    // If any label is undefined, continuing can lead to a segfault in the execution later.
+    if (!extended_error.empty()) {
+        return 0;
+    }
+
     // Get .text section
     const auto& sections = Layout.getSectionOrder();
     const MCSection* const* text_section_it = std::find_if(
