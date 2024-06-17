@@ -107,8 +107,8 @@ public:
     ///
     /// Implements relocation for:
     /// - `adrp`
-    bool resolve_relocation(llvm::MCAssembler& assembler, const llvm::MCAsmLayout& layout, const llvm::MCFragment* fragment,
-    const llvm::MCFixup& fixup, llvm::MCValue target, uint64_t& fixed_value);
+    bool resolve_relocation(llvm::MCAssembler& assembler, const llvm::MCAsmLayout& layout,
+        const llvm::MCFragment* fragment, const llvm::MCFixup& fixup, llvm::MCValue target, uint64_t& fixed_value);
 
     /// @brief Tries to resolve relocations (that are normally resolved at link time) instead of recording them
     ///
@@ -117,9 +117,10 @@ public:
     /// - Ensure relocations which can not be resolved are an error instead of invalid machine bytes.
     /// - Ensure that any missing label is correctly reported.
     ///
-    /// Normally, this function records relocations, which are resolved by the linker. Since we do not have a linking step,
-    /// we must assume that any relocation which would be recorded is not yet correctly assembled. Thus, we try to
-    /// resolve relocations ourself, although this must be implemented on a relocation basis, and we currently implement:
+    /// Normally, this function records relocations, which are resolved by the linker. Since we do not have a linking
+    /// step, we must assume that any relocation which would be recorded is not yet correctly assembled. Thus, we try to
+    /// resolve relocations ourself, although this must be implemented on a relocation basis, and we currently
+    /// implement:
     /// - `adrp`
     ///
     /// Any missing label in the assembly must be resolved by the linker and leads to this function being called,
