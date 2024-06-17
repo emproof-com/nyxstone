@@ -42,6 +42,9 @@ class ObjectWriterWrapper : public llvm::MCObjectWriter {
     /// Write section bytes only or complete object file
     bool write_text_section_only;
 
+    /// The start address of the assembly
+    u64 start_address;
+
     /// Reference to the nyxstone error string
     std::string& extended_error;
 
@@ -67,24 +70,34 @@ public:
     /// @param stream Stream (used for the @p object_writer) to write the .text section to if requested via @p
     /// write_text_section_only.
     /// @param write_text_section_only If only the .text section should be written to @p stream.
+    /// @param start_address Absolute start address of the instructions
     /// @param extended_error Accumulation for llvm errors, since Exceptions might not be supported by the linked LLVM.
     /// @param instructions Instruction information for which the bytes should be corrected.
     ObjectWriterWrapper(std::unique_ptr<llvm::MCObjectWriter>&& object_writer, llvm::raw_pwrite_stream& stream,
-        llvm::MCContext& context, bool write_text_section_only, std::string& extended_error,
+        llvm::MCContext& context, bool write_text_section_only, u64 start_address, std::string& extended_error,
         std::vector<Nyxstone::Instruction>* instructions)
         : inner_object_writer(std::move(object_writer))
         , stream(stream)
         , context(context)
         , write_text_section_only(write_text_section_only)
+        , start_address(start_address)
         , extended_error(extended_error)
         , instructions(instructions)
     {
     }
 
     /// @brief Creates a UniquePtr holding the the ObjectWriterWrapper
+    ///
+    /// @param object_writer The object writer object to wrap, must implement the function used by this class.
+    /// @param stream Stream (used for the @p object_writer) to write the .text section to if requested via @p
+    /// write_text_section_only.
+    /// @param write_text_section_only If only the .text section should be written to @p stream.
+    /// @param start_address Absolute start address of the instructions
+    /// @param extended_error Accumulation for llvm errors, since Exceptions might not be supported by the linked LLVM.
+    /// @param instructions Instruction information for which the bytes should be corrected.
     static std::unique_ptr<llvm::MCObjectWriter> createObjectWriterWrapper(
         std::unique_ptr<llvm::MCObjectWriter>&& object_writer, llvm::raw_pwrite_stream& stream,
-        llvm::MCContext& context, bool write_text_section_only, std::string& extended_error,
+        llvm::MCContext& context, bool write_text_section_only, u64 start_address, std::string& extended_error,
         std::vector<Nyxstone::Instruction>* instructions);
 
     /// @brief Simple function wrapper calling the wrapped object wrapper function directly.

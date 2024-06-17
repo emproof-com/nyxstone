@@ -228,9 +228,5 @@ std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string_v
         remaing_unparsed = remaing_unparsed.substr(next_token_or_end);
     }
 
-    for (auto const& label : labels) {
-        std::cout << label.name << " " << std::hex << label.address << "\n";
-    }
-
     return labels;
 }

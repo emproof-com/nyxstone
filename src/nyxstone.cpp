@@ -297,7 +297,7 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     auto object_writer = assembler_backend->createObjectWriter(stream);
     auto object_writer_wrapper
         = ObjectWriterWrapper::createObjectWriterWrapper(std::move(object_writer), stream, context,
-            /* write_text_section_only */ true, extended_error, instructions);
+            /* write_text_section_only */ true, address, extended_error, instructions);
     if (!object_writer_wrapper) {
         return tl::unexpected("Could not create LLVM object (= ObjectWriterWrapper )");
     }

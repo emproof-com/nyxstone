@@ -32,17 +32,6 @@
 using namespace llvm;
 
 namespace nyxstone {
-/// Performs a value alignment to a specific value.
-///
-/// @param[in] value - Value to align.
-/// @param[in] alignment - Alignment to align the value.
-/// @returns Aligned value.
-uint64_t alignUp(uint64_t value, uint64_t alignment)
-{
-    auto remainder = value % alignment;
-    return (remainder > 0) ? value + (alignment - remainder) : value;
-}
-
 /// @brief Validates the given arm fixup with our custom validatinon routines.
 ///
 /// @param fixup The fixup to be validated.
@@ -180,19 +169,30 @@ void ObjectWriterWrapper::recordRelocation(MCAssembler& Asm, const MCAsmLayout& 
 
     // LLVM performs relocation for the AArch64 instruction `adrp` during the linking step.
     // Therefore, we need to perform the relocation ourselves.
-    // Semantics: REG := PC + .LABEL on 4k aligned page
+    // Semantics: REG := page of PC + page of .LABEL on 4k aligned page
     if (context.getTargetTriple().isAArch64()) {
-        auto const IsPCRel = Asm.getBackend().getFixupKindInfo(Fixup.getKind()).Flags & MCFixupKindInfo::FKF_IsPCRel;
+        auto const IsPCRel
+            = Asm.getBackend().getFixupKindInfo(Fixup.getKind()).Flags & MCFixupKindInfo::FKF_IsPCRel;
         auto const kind = Fixup.getTargetKind();
 
         if ((IsPCRel != 0U) && kind == AArch64::fixup_aarch64_pcrel_adrp_imm21) {
             const auto* const aarch64_expr = cast<AArch64MCExpr>(Fixup.getValue());
             const auto* const symbol_ref = cast<MCSymbolRefExpr>(aarch64_expr->getSubExpr());
-            auto const& symbol = symbol_ref->getSymbol();
+            MCSymbol const& symbol = symbol_ref->getSymbol();
 
             // Perform the fixup
-            const int64_t PAGE_SIZE = 0x1000;
-            FixedValue = alignUp(symbol.getOffset(), PAGE_SIZE);
+            constexpr u64 PAGE_SIZE { 0x1000 };
+
+            // We need to compute the absolute address of both this instruction and the target label,
+            // so that we can compute the offsets of their two pages, since adrp zeros both
+            // the lower 12 bits of the pc and of the offset...
+            u64 local_addr = start_address + Fixup.getOffset();
+            u64 target_addr = start_address + symbol.getOffset();
+
+            u64 local_page = local_addr & ~(PAGE_SIZE - 1);
+            u64 target_page = target_addr & ~(PAGE_SIZE - 1);
+
+            FixedValue = target_page - local_page;
         }
     }
 }
@@ -288,9 +288,10 @@ uint64_t ObjectWriterWrapper::writeObject(MCAssembler& Asm, const MCAsmLayout& L
 
 std::unique_ptr<MCObjectWriter> ObjectWriterWrapper::createObjectWriterWrapper(
     std::unique_ptr<MCObjectWriter>&& object_writer, raw_pwrite_stream& stream, MCContext& context,
-    bool write_text_section_only, std::string& extended_error, std::vector<Nyxstone::Instruction>* instructions)
+    bool write_text_section_only, u64 start_address, std::string& extended_error,
+    std::vector<Nyxstone::Instruction>* instructions)
 {
-    return std::make_unique<ObjectWriterWrapper>(
-        std::move(object_writer), stream, context, write_text_section_only, extended_error, instructions);
+    return std::make_unique<ObjectWriterWrapper>(std::move(object_writer), stream, context, write_text_section_only,
+        start_address, extended_error, instructions);
 }
 } // namespace nyxstone
