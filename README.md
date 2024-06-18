@@ -50,7 +50,7 @@ This section provides instructions on how to get started with Nyxstone, covering
 
 ### Prerequisites
 
-Before building Nyxstone, ensure clang and LLVM 15 are present as statically linked libraries. Nyxstone looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
+Before building Nyxstone, ensure clang and LLVM 15 are present on your system. Nyxstone looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
 
 Installation Options for LLVM 15:
 
@@ -320,3 +320,6 @@ The current contributors are:
 * Marc Fyrbiak (emproof)
 * Tim Blazytko (emproof)
 
+## Acknowledgements
+
+To ensure that we link LLVM correctly with proper versioning in Rust, we adapted the build.rs from [llvm-sys](https://gitlab.com/taricorp/llvm-sys.rs/).

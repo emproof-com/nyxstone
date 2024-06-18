@@ -35,6 +35,8 @@ class ValidLLVMConfig:
             )
             exit(1)
 
+        # check if we need to link dynamically
+        self.link_dynamic = False
         lib_output = subprocess.run(
             [
                 llvm_config,
@@ -42,13 +44,12 @@ class ValidLLVMConfig:
                 "--libs",
             ],
             capture_output=True,
+            check=False,
         )
 
         if lib_output.returncode != 0:
-            print(
-                "Cannot link statically, please install LLVM with static linking support"
-            )
-            exit(1)
+            print("No static libs found, linking dynamically")
+            self.link_dynamic = True
 
         self.config = llvm_config
 
@@ -56,7 +57,7 @@ class ValidLLVMConfig:
         lib_output = subprocess.run(
             [
                 self.config,
-                "--link-static",
+                "--link-static" if not self.link_dynamic else "--link-shared",
                 "--system-libs",
                 "--libs",
                 "core",
