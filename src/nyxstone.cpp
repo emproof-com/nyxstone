@@ -257,7 +257,7 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     llvm::MCContext context(
         triple, assembler_info.get(), register_info.get(), subtarget_info.get(), &source_manager, &target_options);
     context.setDiagnosticHandler([&extended_error](const llvm::SMDiagnostic& SMD, bool IsInlineAsm,
-                                     const llvm::SourceMgr& SrcMgr, std::vector<const llvm::MDNode*>& LocInfos) {
+                                     const llvm::SourceMgr& SrcMgr, std::vector<const llvm::MDNode*> const& LocInfos) {
         // Suppress unused parameter warning
         (void)IsInlineAsm;
         (void)SrcMgr;
@@ -297,7 +297,7 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     auto object_writer = assembler_backend->createObjectWriter(stream);
     auto object_writer_wrapper
         = ObjectWriterWrapper::createObjectWriterWrapper(std::move(object_writer), stream, context,
-            /* write_text_section_only */ true, extended_error, instructions);
+            /* write_text_section_only */ true, address, extended_error, instructions);
     if (!object_writer_wrapper) {
         return tl::unexpected("Could not create LLVM object (= ObjectWriterWrapper )");
     }
@@ -401,7 +401,7 @@ tl::expected<void, std::string> Nyxstone::disassemble_impl(const std::vector<uin
     llvm::MCContext context(
         triple, assembler_info.get(), register_info.get(), subtarget_info.get(), nullptr, &target_options);
     context.setDiagnosticHandler([&error_msg](const llvm::SMDiagnostic& SMD, bool IsInlineAsm,
-                                     const llvm::SourceMgr& SrcMgr, std::vector<const llvm::MDNode*>& LocInfos) {
+                                     const llvm::SourceMgr& SrcMgr, std::vector<const llvm::MDNode*> const& LocInfos) {
         // Suppress unused parameter warning
         (void)IsInlineAsm;
         (void)SrcMgr;
