@@ -217,7 +217,7 @@ use std::collections::HashMap;
 fn main() -> Result<()> {
     let nyxstone = Nyxstone::new("x86_64", NyxstoneConfig::default())?;
 
-    let bytes = nyxstone.assemble(
+    let bytes = nyxstone.assemble_with(
         "mov rax, rbx; cmp rax, rdx; jne .label",
         0x1000,
         &HashMap::from([(".label", 0x1200)]),
