@@ -148,6 +148,12 @@ CLI Tool</h2>
 <div class="line">  --arch arg (=x86_64)      LLVM triple or architecture identifier of triple,</div>
 <div class="line">                            for example &quot;x86_64&quot;, &quot;x86_64-linux-gnu&quot;, &quot;armv8&quot;,</div>
 <div class="line">                            &quot;armv8eb&quot;, &quot;thumbv8&quot;, &quot;aarch64&quot;</div>
+<div class="line">  --cpu arg                 LLVM cpu specifier, refer to `llc -march=ARCH</div>
+<div class="line">                            -mcpu=help` for a comprehensive list</div>
+<div class="line">  --features arg            LLVM features to enable/disable, comma seperated</div>
+<div class="line">                            feature strings prepended by &#39;+&#39; or &#39;-&#39; toenable or</div>
+<div class="line">                            disable respectively. Refer to `llc -march=ARCH</div>
+<div class="line">                            -mattr=help` for a comprehensive list</div>
 <div class="line">  --address arg (=0)        Address</div>
 <div class="line"> </div>
 <div class="line">Assembling:</div>
@@ -223,7 +229,7 @@ Rust Bindings</h2>
 <div class="line">fn main() -&gt; Result&lt;()&gt; {</div>
 <div class="line">    let nyxstone = Nyxstone::new(&quot;x86_64&quot;, NyxstoneConfig::default())?;</div>
 <div class="line"> </div>
-<div class="line">    let bytes = nyxstone.assemble(</div>
+<div class="line">    let bytes = nyxstone.assemble_with(</div>
 <div class="line">        &quot;mov rax, rbx; cmp rax, rdx; jne .label&quot;,</div>
 <div class="line">        0x1000,</div>
 <div class="line">        &amp;HashMap::from([(&quot;.label&quot;, 0x1200)]),</div>
