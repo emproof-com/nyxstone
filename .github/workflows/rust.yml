@@ -6,6 +6,7 @@ on:
     paths:
       - src/**
       - include/**
+      - bindings/rust/build.rs
       - bindings/rust/src/**
       - bindings/rust/tests/**
   pull_request:
@@ -13,12 +14,14 @@ on:
     paths:
       - src/**
       - include/**
+      - bindings/rust/build.rs
       - bindings/rust/src/**
       - bindings/rust/tests/**
 
 env:
   CARGO_TERM_COLOR: always
   NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"
+  NYXSTONE_LINK_FFI: "1"
 
 jobs:
   linux:
