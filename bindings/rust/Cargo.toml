@@ -10,7 +10,7 @@ include = [
   "Cargo.toml"
 ]
 repository = "https://github.com/emproof-com/nyxstone"
-keywords = ["security", "infosec", "assembly", "disassembly", "arm", "x86", "x86_64", "aarch64", "risc-v", "thumb", "reverse-engineering"]
+keywords = ["assembly", "disassembly", "arm", "x86_64", "reverse-engineering"]
 description = "Bindings for the nyxstone assembler/disassembler"
 categories = ["api-bindings", "compilers"]
 license = "MIT"
