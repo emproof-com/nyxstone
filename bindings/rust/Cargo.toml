@@ -7,7 +7,8 @@ include = [
   "src/*",
   "nyxstone/src/*",
   "nyxstone/include/**/*",
-  "Cargo.toml"
+  "Cargo.toml",
+  "build.rs",
 ]
 repository = "https://github.com/emproof-com/nyxstone"
 keywords = ["assembly", "disassembly", "arm", "x86_64", "reverse-engineering"]
