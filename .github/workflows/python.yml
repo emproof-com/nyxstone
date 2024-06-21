@@ -3,20 +3,8 @@ name: Python
 on:
   push:
     branches: [ "main" ]
-    paths:
-      - src/**
-      - include/**
-      - bindings/python/setup.py
-      - bindings/python/pynyxstone.cpp
-      - bindings/python/pyproject.toml
   pull_request:
     branches: [ "main" ]
-    paths:
-      - src/**
-      - include/**
-      - bindings/python/setup.py
-      - bindings/python/pynyxstone.cpp
-      - bindings/python/pyproject.toml
 
 env:
   NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"

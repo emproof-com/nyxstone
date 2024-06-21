@@ -3,18 +3,8 @@ name: Rust
 on:
   push:
     branches: [ "main" ]
-    paths:
-      - src/**
-      - include/**
-      - bindings/rust/src/**
-      - bindings/rust/tests/**
   pull_request:
     branches: [ "main" ]
-    paths:
-      - src/**
-      - include/**
-      - bindings/rust/src/**
-      - bindings/rust/tests/**
 
 env:
   CARGO_TERM_COLOR: always
