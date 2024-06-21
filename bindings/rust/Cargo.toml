@@ -1,6 +1,6 @@
 [package]
 name = "nyxstone"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["emproof B.V. <oss@emproof.com>", "Philipp Koppe <pkoppe@emproof.com>", "Rachid Mzannar <rmzannar@emproof.com>", "Darius Hartlief <dhartlief@emproof.com>"]
 edition = "2021"
 include = [
