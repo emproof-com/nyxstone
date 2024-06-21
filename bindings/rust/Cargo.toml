@@ -1,18 +1,20 @@
 [package]
 name = "nyxstone"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["emproof B.V. <oss@emproof.com>", "Philipp Koppe <pkoppe@emproof.com>", "Rachid Mzannar <rmzannar@emproof.com>", "Darius Hartlief <dhartlief@emproof.com>"]
 edition = "2021"
 include = [
   "src/*",
   "nyxstone/src/*",
   "nyxstone/include/**/*",
-  "Cargo.toml"
+  "Cargo.toml",
+  "build.rs",
 ]
 repository = "https://github.com/emproof-com/nyxstone"
-keywords = ["assemble", "disassemble"]
+keywords = ["assembly", "disassembly", "arm", "x86_64", "reverse-engineering"]
 description = "Bindings for the nyxstone assembler/disassembler"
 categories = ["api-bindings", "compilers"]
+license = "MIT"
 
 [dependencies]
 anyhow = { version = "1.0.68", default-features = true }

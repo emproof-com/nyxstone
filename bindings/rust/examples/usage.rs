@@ -10,7 +10,7 @@ fn main() -> Result<()> {
     // Creating a nyxstone instance can fail, for example if the triple is invalid.
     let nyxstone = Nyxstone::new("x86_64", NyxstoneConfig::default())?;
 
-    let instructions = nyxstone.assemble_to_instructions(
+    let instructions = nyxstone.assemble_to_instructions_with(
         "mov rax, rbx; cmp rax, rdx; jne .label",
         0x100,
         &HashMap::from([(".label", 0x1200)]),

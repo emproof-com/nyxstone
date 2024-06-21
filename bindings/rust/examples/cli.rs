@@ -75,14 +75,9 @@ fn main() -> Result<()> {
 
     match cli.command {
         Command::Assemble { labels, assembly } => {
-            let labels = labels.unwrap_or(vec![]);
+            let labels: HashMap<String, u64> = labels.map(|labels| labels.into_iter().collect()).unwrap_or_default();
 
-            let labels = labels
-                .iter()
-                .map(|(s, a)| (s.as_str(), *a))
-                .collect::<HashMap<&str, u64>>();
-
-            let instructions = nyxstone.assemble_to_instructions(&assembly, address, &labels)?;
+            let instructions = nyxstone.assemble_to_instructions_with(&assembly, address, &labels)?;
 
             print_instructions(&instructions);
         }

@@ -15,10 +15,7 @@ namespace po = boost::program_options;
 using nyxstone::Nyxstone;
 using nyxstone::NyxstoneBuilder;
 
-enum class Architecture;
-std::optional<Architecture> arch_parse_from_string(const std::string& arch);
 void print_bytes(const std::vector<uint8_t>& bytes);
-std::string arch_to_llvm_string(Architecture arch);
 std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string_view labelstr);
 void print_instructions(const std::vector<Nyxstone::Instruction>& instructions);
 
@@ -226,10 +223,6 @@ std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string_v
 
         auto const next_token_or_end = (delim_pos != std::string::npos) ? delim_pos + 1 : remaing_unparsed.size();
         remaing_unparsed = remaing_unparsed.substr(next_token_or_end);
-    }
-
-    for (auto const& label : labels) {
-        std::cout << label.name << " " << std::hex << label.address << "\n";
     }
 
     return labels;
