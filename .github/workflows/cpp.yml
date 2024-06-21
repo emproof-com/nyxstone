@@ -2,21 +2,9 @@ name: C++
 
 on:
   push:
-    paths:
-      - src/**
-      - include/**
-      - examples/**
-      - tool/**
-      - CMakeLists.txt
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-    paths:
-      - src/**
-      - include/**
-      - examples/**
-      - tool/**
-      - CMakeLists.txt
 
 env:
   CARGO_TERM_COLOR: always
