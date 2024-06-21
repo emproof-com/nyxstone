@@ -30,6 +30,11 @@ fn main() {
         println!("cargo:rerun-if-changed={}", path);
     }
 
+    // Exit early if we are in the docs.rs builder, since we do not need to build the c++ files or link against llvm.
+    if std::env::var("DOCS_RS").is_ok() {
+        return;
+    }
+
     // Commented, because it is not currently needed, but might in the future:
     // The cxxbridge include dir is required to include auto generated c++ header files,
     // that contains shared data types defined in the rust part of the CXX bridge.
