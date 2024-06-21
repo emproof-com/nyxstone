@@ -4,8 +4,9 @@
 #include <iomanip>
 #include <sstream>
 #include <unordered_map>
+#include <variant>
 
-#include <nyxstone.h>
+#include "nyxstone.h"
 
 namespace py = pybind11;
 
