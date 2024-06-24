@@ -1,6 +1,8 @@
 # Nyxstone
 
 [![Github Cpp CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml)
+[![crates.io](https://img.shields.io/crates/v/nyxstone.svg)](https://crates.io/crates/nyxstone)
+[![PyPI](https://img.shields.io/pypi/v/nyxstone.svg)](https://pypi.org/project/nyxstone)
 
 Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesn’t require patches to the LLVM source tree and links against standard LLVM libraries available in most Linux distributions. Implemented as a C++ library, Nyxstone also offers Rust and Python bindings. It supports all official LLVM architectures and allows to configure architecture-specific target settings.
 
