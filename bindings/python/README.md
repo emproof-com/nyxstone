@@ -7,6 +7,14 @@
 
 You need to have LLVM 15 (with static library support) installed to build the nyxstone bindings. The `setup.py` searches for LLVM in the `PATH` or in the directory set in the environment variable `NYXSTONE_LLVM_PREFIX`. Specifically, it searches for the binary `$NYXSTONE_LLVM_PREFIX/bin/llvm-config` and uses it to set the required libraries and cpp flags.
 
+Running
+
+```sh
+pip install nyxstone
+```
+
+will download nyxstone from PyPI. Alternatively, you can install nyxstone directly from source by running the following command in the python bindings subdirectory.
+
 ```
 pip install .
 ```
@@ -17,7 +25,7 @@ If you are using Arch Linux, you will need to use a virtual environment to insta
 mkdir env
 python -mvenv env/
 source env/bin/activate[.fish|.zsh]
-pip install .
+pip install [.|nyxstone]
 ```
 
 ## Example
