@@ -1,5 +1,6 @@
 # Nyxstone Python bindings
 
+[![PyPI](https://img.shields.io/pypi/v/nyxstone.svg)](https://pypi.org/project/nyxstone)
 [![Github Python CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/python.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/python.yml)
 
 ## Installation
