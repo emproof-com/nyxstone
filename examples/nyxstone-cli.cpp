@@ -210,12 +210,12 @@ std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string_v
 
             // Failing to parse the value to the end or an exception mean we failed
             // to parse the value.
-            if (end != val.end()) {
+            if (end != val.data() + val.size()) {
                 std::cerr << "Could not parse label value: `" << val << "`\n";
                 return {};
             }
         } catch (const std::exception& e) {
-            std::cerr << "Could not parse label value: `" << val << "`\n";
+            std::cerr << "Could not parse label value: `" << val << "` (" << e.what() << ")\n";
             return {};
         }
 
