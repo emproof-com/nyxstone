@@ -4,8 +4,6 @@
 
 #include <llvm/Config/llvm-config.h>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <llvm/MC/MCAsmBackend.h>
 #include <llvm/MC/MCAsmLayout.h>
 #include <llvm/MC/MCAssembler.h>
@@ -18,7 +16,6 @@
 #include <llvm/MC/MCSection.h>
 #include <llvm/MC/MCSymbol.h>
 #include <llvm/MC/MCValue.h>
-#pragma GCC diagnostic pop
 
 namespace nyxstone {
 /// This class enables us to limit the final output byte stream to the

@@ -14,11 +14,8 @@
 #ifndef LLVM_LIB_TARGET_AARCH64_MCTARGETDESC_AARCH64MCEXPR_H
 #define LLVM_LIB_TARGET_AARCH64_MCTARGETDESC_AARCH64MCEXPR_H
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <llvm/MC/MCExpr.h>
 #include <llvm/Support/ErrorHandling.h>
-#pragma GCC diagnostic pop
 
 namespace llvm {
 

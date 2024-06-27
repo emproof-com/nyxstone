@@ -9,10 +9,7 @@
 #ifndef LLVM_LIB_TARGET_AARCH64_MCTARGETDESC_AARCH64FIXUPKINDS_H
 #define LLVM_LIB_TARGET_AARCH64_MCTARGETDESC_AARCH64FIXUPKINDS_H
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <llvm/MC/MCFixup.h>
-#pragma GCC diagnostic pop
 
 namespace llvm {
 namespace AArch64 {
