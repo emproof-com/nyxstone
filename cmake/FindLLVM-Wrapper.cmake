@@ -42,7 +42,7 @@ elseif(LLVM-Wrapper_FIND_COMPONENTS)
     if(NOT LLVM-Wrapper_FIND_QUIETLY)
         message(STATUS "LLVM components: ${LLVM-Wrapper_FIND_COMPONENTS}")
     endif()
-    llvm_map_components_to_libnames(LLVM-Wrapper_LIBS ${LLVM-Wrapper_FIND_COMPONENTS}) 
+    llvm_map_components_to_libnames(LLVM-Wrapper_LIBS ${LLVM-Wrapper_FIND_COMPONENTS})
 else()
     set(LLVM-Wrapper_LIBS ${LLVM_AVAILABLE_LIBS})
 endif()
@@ -59,6 +59,18 @@ add_library(LLVM-Wrapper INTERFACE IMPORTED)
 target_include_directories(LLVM-Wrapper SYSTEM INTERFACE ${LLVM_INCLUDE_DIRS})
 target_link_libraries(LLVM-Wrapper INTERFACE ${LLVM-Wrapper_LIBS})
 target_compile_definitions(LLVM-Wrapper INTERFACE ${LLVM_DEFINITIONS})
+
+# Set the appropriate minimum C++ standard
+if(LLVM_VERSION VERSION_GREATER_EQUAL "16.0.0")
+    # https://releases.llvm.org/16.0.0/docs/CodingStandards.html#c-standard-versions
+    target_compile_features(LLVM-Wrapper INTERFACE cxx_std_17)
+elseif(LLVM_VERSION VERSION_GREATER_EQUAL "10.0.0")
+    # https://releases.llvm.org/10.0.0/docs/CodingStandards.html#c-standard-versions
+    target_compile_features(LLVM-Wrapper INTERFACE cxx_std_14)
+else()
+    # https://releases.llvm.org/9.0.0/docs/CodingStandards.html#c-standard-versions
+    target_compile_features(LLVM-Wrapper INTERFACE cxx_std_11)
+endif()
 
 if(WIN32)
     target_compile_definitions(LLVM-Wrapper INTERFACE NOMINMAX)
