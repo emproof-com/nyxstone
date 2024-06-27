@@ -68,22 +68,23 @@ export NYXSTONE_LLVM_PREFIX=/opt/homebrew/opt/llvm@15
 
 * From LLVM Source:
 
+_Note_: On Windows you need to run these commands from a Visual Studio 2022 x64 command prompt. Additionally replace `~lib/my-llvm-15` with a different path.
+
 ```bash
 # checkout llvm
-git clone https://github.com/llvm/llvm-project.git
+git clone -b release/15.x --single-branch https://github.com/llvm/llvm-project.git
 cd llvm-project
-git checkout origin/release/15.x
 
 # build LLVM with custom installation directory
-cmake -S llvm -B build -G Ninja -DCMAKE_INSTALL_PREFIX=~/lib/my-llvm-15 -DCMAKE_BUILD_TYPE=Debug
-ninja -C build install
+cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_PARALLEL_LINK_JOBS=1
+cmake --build build
+cmake --install build --prefix ~/lib/my-llvm-15
 
 # export path
 export NYXSTONE_LLVM_PREFIX=~/lib/my-llvm-15
 ```
 
 Also make sure to install any system dependent libraries needed by your LLVM version for static linking. They can be viewed with the command `llvm-config --system-libs`; the list can be empty. On Ubuntu/Debian, you will need the packages `zlib1g-dev` and `zlibstd-dev`.
-
 
 ### CLI Tool
 
@@ -160,19 +161,10 @@ To use Nyxstone as a C++ library, your C++ code has to be linked against Nyxston
 The following cmake example assumes Nyxstone in a subdirectory `nyxstone` in your project:
 
 ```cmake
-find_package(LLVM 15 CONFIG PATHS $ENV{NYXSTONE_LLVM_PREFIX} NO_DEFAULT_PATH)
-find_package(LLVM 15 CONFIG)
-
-include_directories(${LLVM_INCLUDE_DIRS})
-add_definitions(${LLVM_DEFINITIONS})
-llvm_map_components_to_libnames(llvm_libs core mc AllTargetsCodeGens AllTargetsAsmParsers AllTargetsDescs AllTargetsDisassemblers AllTargetsInfos AllTargetsMCAs)
-
-add_subdirectory(nyxstone EXCLUDE_FROM_ALL) # Add nyxstone cmake without executables
-include_directories(nyxstone/include)       # Nyxstone include directory
+add_subdirectory(nyxstone)
 
 add_executable(my_executable main.cpp)
-
-target_link_libraries(my_executable nyxstone ${llvm_libs})
+target_link_libraries(my_executable nyxstone::nyxstone)
 ```
 
 The corresponding C++ usage example:
@@ -276,13 +268,9 @@ We are committed to further reduce the project's complexity and open to suggesti
 
 Below are some ideas and improvements we believe would significantly advance Nyxstone. The items are not listed in any particular order:
 
-* [ ] Native Windows platform support
-
 * [ ] Check thread safety
 
 * [ ] Add support for more LLVM versions (auto select depending on found LLVM library version)
-
-* [ ] Add dynamic linking support, e.g., Arch Linux has LLVM libraries without static linking support
 
 * [ ] Explore option to make LLVM apply all relocations (including `adrp`) by configuring `MCObjectWriter` differently or using a different writer
 
