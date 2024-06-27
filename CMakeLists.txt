@@ -17,18 +17,24 @@ endif()
 option(NYXSTONE_BUILD_EXAMPLES "Build nyxstone examples" ${PROJECT_IS_TOP_LEVEL})
 option(NYXSTONE_SANITIZERS "Enable sanitizers" OFF)
 
-find_package(LLVM 15 CONFIG PATHS $ENV{NYXSTONE_LLVM_PREFIX} NO_DEFAULT_PATH QUIET)
-find_package(LLVM 15 CONFIG REQUIRED)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# Split the definitions properly (https://weliveindetail.github.io/blog/post/2017/07/17/notes-setup.html)
-separate_arguments(LLVM_DEFINITIONS)
+if(DEFINED $ENV{NYXSTONE_LLVM_PREFIX})
+    # Ignore LLVM_ROOT variables
+    set(CMAKE_FIND_USE_PACKAGE_ROOT_PATH OFF)
+    set(CMAKE_PREFIX_PATH $ENV{NYXSTONE_LLVM_PREFIX})
+endif()
 
-llvm_map_components_to_libnames(llvm_component_libs core mc AllTargetsCodeGens AllTargetsAsmParsers AllTargetsDescs AllTargetsDisassemblers AllTargetsInfos AllTargetsMCAs)
-
-add_library(LLVM-Wrapper INTERFACE)
-target_include_directories(LLVM-Wrapper SYSTEM INTERFACE ${LLVM_INCLUDE_DIRS})
-target_compile_definitions(LLVM-Wrapper INTERFACE ${LLVM_DEFINITIONS})
-target_link_libraries(LLVM-Wrapper INTERFACE ${llvm_component_libs})
+find_package(LLVM-Wrapper 15 REQUIRED COMPONENTS
+    core
+    mc
+    AllTargetsCodeGens
+    AllTargetsAsmParsers
+    AllTargetsDescs
+    AllTargetsDisassemblers
+    AllTargetsInfos
+    AllTargetsMCAs
+)
 
 file(GLOB_RECURSE nyxstone_SOURCES
     "src/*.cpp"
