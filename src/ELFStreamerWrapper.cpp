@@ -2,8 +2,6 @@
 
 #include "nyxstone.h"
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <llvm/MC/MCELFStreamer.h>
 
 #include <llvm/MC/MCAsmBackend.h>
@@ -20,7 +18,6 @@
 #include <llvm/MC/MCSymbol.h>
 #include <llvm/MC/MCValue.h>
 #include <llvm/Support/Casting.h>
-#pragma GCC diagnostic pop
 
 #include <numeric>
 #include <sstream>

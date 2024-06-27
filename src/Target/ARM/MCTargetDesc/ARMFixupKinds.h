@@ -9,10 +9,7 @@
 #ifndef LLVM_LIB_TARGET_ARM_MCTARGETDESC_ARMFIXUPKINDS_H
 #define LLVM_LIB_TARGET_ARM_MCTARGETDESC_ARMFIXUPKINDS_H
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <llvm/MC/MCFixup.h>
-#pragma GCC diagnostic pop
 
 namespace llvm {
 namespace ARM {

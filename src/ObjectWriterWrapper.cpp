@@ -3,15 +3,10 @@
 #include "nyxstone.h"
 #include <algorithm>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "Target/AArch64/MCTargetDesc/AArch64FixupKinds.h"
 #include "Target/AArch64/MCTargetDesc/AArch64MCExpr.h"
 #include "Target/ARM/MCTargetDesc/ARMFixupKinds.h"
-#pragma GCC diagnostic pop
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <llvm/MC/MCAsmBackend.h>
 #include <llvm/MC/MCAsmLayout.h>
 #include <llvm/MC/MCAssembler.h>
@@ -25,7 +20,6 @@
 #include <llvm/MC/MCSymbol.h>
 #include <llvm/MC/MCValue.h>
 #include <llvm/Support/Casting.h>
-#pragma GCC diagnostic pop
 
 #include <sstream>
 

@@ -3,8 +3,6 @@
 #include "ELFStreamerWrapper.h"
 #include "ObjectWriterWrapper.h"
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <llvm/MC/MCAsmBackend.h>
 #include <llvm/MC/MCCodeEmitter.h>
 #include <llvm/MC/MCDisassembler/MCDisassembler.h>
@@ -16,7 +14,6 @@
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/TargetSelect.h>
-#pragma GCC diagnostic pop
 
 #include <mutex>
 #include <numeric>
