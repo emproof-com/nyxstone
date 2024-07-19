@@ -26,12 +26,19 @@ int main(int argc, char** argv)
     desc.add_options()
         ("help", "Show this message")
         ("arch", po::value<std::string>()->default_value("x86_64"),
-            "LLVM triple or architecture identifier of triple, for example "
-            R"("x86_64", "x86_64-linux-gnu", "armv8", "armv8eb", "thumbv8", "aarch64")")
+            "LLVM triple or architecture identifier of triple. For the most common architectures, we recommend:\n"
+            "x86_32: `i686-linux-gnu`\n"
+            "x86_64: `x86_64-linux-gnu`\n"
+            "armv6m: `armv6m-none-eabi`\n"
+            "armv7m: `armv7m-none-eabi`\n"
+            "armv8m: `armv8m.main-none-eabi`\n"
+            "aarch64: `aarch64-linux-gnueabihf`\n"
+            "Using shorthand identifiers like `arm` can lead to Nyxstone not being able to assemble certain instructions."
+        )
         ("cpu", po::value<std::string>()->default_value(""),
             "LLVM cpu specifier, refer to `llc -mtriple=ARCH -mcpu=help` for a comprehensive list")
         ("features", po::value<std::string>()->default_value(""),
-            "LLVM features to enable/disable, comma seperated feature strings prepended by '+' or '-' to"
+            "LLVM features to enable/disable, comma seperated feature strings prepended by '+' or '-' to "
             "enable or disable respectively. Refer to `llc -mtriple=ARCH -mattr=help` for a comprehensive list")
         ("address", po::value<std::string>()->default_value("0"), "Address")
     ;

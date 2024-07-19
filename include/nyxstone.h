@@ -156,6 +156,16 @@ public:
 
     /// @brief Creates a NyxstoneBuilder instance.
     /// @param triple Llvm target triple or architecture identifier of a triple.
+    ///
+    /// @note For the most common architectures, we recommend:
+    ///       x86_32: `i686-linux-gnu`
+    ///       x86_64: `x86_64-linux-gnu`
+    ///       armv6m: `armv6m-none-eabi`
+    ///       armv7m: `armv7m-none-eabi`
+    ///       armv8m: `armv8m.main-none-eabi`
+    ///       aarch64: `aarch64-linux-gnueabihf`
+    ///       Using shorthand identifiers like `arm` can lead to Nyxstone not being able to assemble certain
+    ///       instructions.
     explicit NyxstoneBuilder(std::string&& triple)
         : m_triple(std::move(triple)) {};
     NyxstoneBuilder(const NyxstoneBuilder&) = default;

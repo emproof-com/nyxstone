@@ -28,8 +28,21 @@ enum Command {
 /// Rust CLI for Nyxstone
 #[derive(Parser)]
 struct Args {
-    /// Architecture LLVM triple or architecture identifier of triple, for example "x86_64", "x86_64-linux-gnu",
-    /// "armv8", "armv8eb", "thumbv8", "aarch64"
+    /// LLVM triple or architecture identifier of triple. For the most common architectures, we recommend:
+    ///
+    /// - x86_32: `i686-linux-gnu`
+    ///
+    /// - x86_64: `x86_64-linux-gnu`
+    ///
+    /// - armv6m: `armv6m-none-eabi`
+    ///
+    /// - armv7m: `armv7m-none-eabi`
+    ///
+    /// - armv8m: `armv8m.main-none-eabi`
+    ///
+    /// - aarch64: `aarch64-linux-gnueabihf`
+    ///
+    /// Using shorthand identifiers like `arm` can lead to Nyxstone not being able to assemble certain instructions.
     #[arg(short = 'a', long)]
     architecture: String,
 

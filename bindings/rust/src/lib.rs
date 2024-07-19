@@ -76,6 +76,16 @@ impl Nyxstone {
     /// - `target_triple`: Llvm target triple or architecture identifier of triple.
     /// - `config`: Optional configuration for the `Nyxstone` instance.
     ///
+    /// # Note
+    ///  For the most common architectures, we recommend the following triples:
+    ///  - x86_32: `i686-linux-gnu`
+    ///  - x86_64: `x86_64-linux-gnu`
+    ///  - armv6m: `armv6m-none-eabi`
+    ///  - armv7m: `armv7m-none-eabi`
+    ///  - armv8m: `armv8m.main-none-eabi`
+    ///  - aarch64: `aarch64-linux-gnueabihf`
+    ///  Using shorthand identifiers like `arm` can lead to Nyxstone not being able to assemble certain instructions.
+    ///
     /// # Returns
     /// Ok() and the Nyxstone instance on success, Err() otherwise.
     ///
