@@ -108,14 +108,22 @@ Then, `nyxstone` can be used from the command line. Here's an output of its help
 $ ./nyxstone --help
 Allowed options:
   --help                    Show this message
-  --arch arg (=x86_64)      LLVM triple or architecture identifier of triple,
-                            for example "x86_64", "x86_64-linux-gnu", "armv8",
-                            "armv8eb", "thumbv8", "aarch64"
-  --cpu arg                 LLVM cpu specifier, refer to `llc -march=ARCH
+  --arch arg (=x86_64)      LLVM triple or architecture identifier of triple.
+                            For the most common architectures, we recommend:
+                            x86_32: `i686-linux-gnu`
+                            x86_64: `x86_64-linux-gnu`
+                            armv6m: `armv6m-none-eabi`
+                            armv7m: `armv7m-none-eabi`
+                            armv8m: `armv8m.main-none-eabi`
+                            aarch64: `aarch64-linux-gnueabihf`
+                            Using shorthand identifiers like `arm` can lead to
+                            Nyxstone not being able to assemble certain
+                            instructions.
+  --cpu arg                 LLVM cpu specifier, refer to `llc -mtriple=ARCH
                             -mcpu=help` for a comprehensive list
   --features arg            LLVM features to enable/disable, comma seperated
-                            feature strings prepended by '+' or '-' toenable or
-                            disable respectively. Refer to `llc -march=ARCH
+                            feature strings prepended by '+' or '-' to enable or
+                            disable respectively. Refer to `llc -mtriple=ARCH
                             -mattr=help` for a comprehensive list
   --address arg (=0)        Address
 
