@@ -88,12 +88,9 @@ Also make sure to install any system dependent libraries needed by your LLVM ver
 
 ### CLI Tool
 
-Nyxstone comes with a handy [CLI tool](examples/nyxstone-cli.cpp) for quick assembly and disassembly tasks. Install boost with your distribution's package manager, checkout the Nyxstone repository, and build the tool with cmake:
+Nyxstone comes with a handy [CLI tool](examples/nyxstone-cli.cpp) for quick assembly and disassembly tasks. Checkout the Nyxstone repository, and build the tool with CMake:
 
 ```bash
-# install boost on Ubuntu/Debian
-apt install boost
-
 # clone directory
 git clone https://github.com/emproof-com/nyxstone
 cd nyxstone

@@ -65,21 +65,15 @@ set_target_properties(nyxstone PROPERTIES
 )
 
 if(NYXSTONE_BUILD_EXAMPLES)
-    # Use -DBOOST_ROOT=C:/boost_1_80_0 to specify the boost root directory
-    if(WIN32)
-        set(Boost_USE_STATIC_LIBS ON) # only find static libs
-        set(Boost_USE_MULTITHREADED ON)
-        set(Boost_USE_STATIC_RUNTIME OFF)
-    endif()
-    find_package(Boost 1.40 COMPONENTS program_options REQUIRED)
-
     add_executable(nyxstone-bin examples/nyxstone-cli.cpp)
     set_target_properties(nyxstone-bin PROPERTIES
         OUTPUT_NAME nyxstone
     )
     target_link_libraries(nyxstone-bin PRIVATE
         nyxstone::nyxstone
-        Boost::program_options
+    )
+    target_include_directories(nyxstone-bin PRIVATE
+        vendor
     )
 
     add_executable(example examples/example.cpp)
