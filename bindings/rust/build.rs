@@ -72,7 +72,7 @@ fn main() {
 
     // Import Nyxstone C++ lib
     cxx_build::bridge("src/lib.rs")
-        .flag_if_supported("-std=c++17")
+        .std("c++17")
         .include("nyxstone/include")
         .include(llvm_include_dir.trim())
         // .include(cxxbridge_dir)
