@@ -46,7 +46,7 @@ fn main() {
     // === The following code is adapted from llvm-sys, see below for licensing ===
     let llvm_config_path = match search_llvm_config() {
         Ok(config) => config,
-        Err(e) => panic!("{e} Please either install LLVM 15 with static libs into your PATH or supply the location via $NYXSTONE_LLVM_PREFIX"),
+        Err(e) => panic!("{e} Please either install LLVM 18 with static libs into your PATH or supply the location via $NYXSTONE_LLVM_PREFIX"),
     };
 
     // Tell cargo about the library directory of llvm.
@@ -129,8 +129,8 @@ fn search_llvm_config() -> Result<PathBuf> {
             continue;
         };
 
-        if version != "15" {
-            return Err(anyhow!("LLVM major version is {}, must be 15.", version));
+        if version != "18" {
+            return Err(anyhow!("LLVM major version is {}, must be 18.", version));
         }
 
         return Ok(llvm_config);
@@ -194,9 +194,9 @@ fn target_os_is(name: &str) -> bool {
 fn llvm_config_binary_names() -> impl Iterator<Item = String> {
     let base_names = [
         "llvm-config".into(),
-        format!("llvm-config-{}", 15),
-        format!("llvm-config{}", 15),
-        format!("llvm{}-config", 15),
+        format!("llvm-config-{}", 18),
+        format!("llvm-config{}", 18),
+        format!("llvm{}-config", 18),
     ];
 
     // On Windows, also search for llvm-config.exe

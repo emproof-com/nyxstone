@@ -50,38 +50,46 @@ This section provides instructions on how to get started with Nyxstone, covering
 
 ### Prerequisites
 
-Before building Nyxstone, ensure clang and LLVM 15 are present on your system. Nyxstone looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
+Before building Nyxstone, ensure clang and LLVM 18 are present on your system. Nyxstone looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
 
-Installation Options for LLVM 15:
+Installation Options for LLVM 18:
 
-* Debian/Ubuntu
+* Ubuntu
 ```bash
-sudo apt install llvm-15 llvm-15-dev
-export NYXSTONE_LLVM_PREFIX=/usr/lib/llvm-15/
+sudo apt install llvm-18 llvm-18-dev
+```
+
+* Debian
+LLVM 18 is currently only available via the testing repositories.
+Refer to [https://apt.llvm.org/](https://apt.llvm.org/) for install instructions.
+
+* Arch
+```bash
+sudo pacman -S llvm llvm-libs
 ```
 
 * Homebrew (macOS, Linux and others):
 ```bash
-brew install llvm@15
-export NYXSTONE_LLVM_PREFIX=/opt/homebrew/opt/llvm@15
+brew install llvm@18
+export NYXSTONE_LLVM_PREFIX=/opt/homebrew/opt/llvm@18
 ```
 
 * From LLVM Source:
 
-_Note_: On Windows you need to run these commands from a Visual Studio 2022 x64 command prompt. Additionally replace `~lib/my-llvm-15` with a different path.
+_Note_: On Windows you need to run these commands from a Visual Studio 2022 x64 command prompt. Additionally replace `~lib/my-llvm-18` with a different path.
 
 ```bash
 # checkout llvm
-git clone -b release/15.x --single-branch https://github.com/llvm/llvm-project.git
+git clone -b release/18.x --single-branch https://github.com/llvm/llvm-project.git
 cd llvm-project
 
 # build LLVM with custom installation directory
 cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_PARALLEL_LINK_JOBS=1
 cmake --build build
-cmake --install build --prefix ~/lib/my-llvm-15
+cmake --install build --prefix ~/lib/my-llvm-18
 
 # export path
-export NYXSTONE_LLVM_PREFIX=~/lib/my-llvm-15
+export NYXSTONE_LLVM_PREFIX=~/lib/my-llvm-18
 ```
 
 Also make sure to install any system dependent libraries needed by your LLVM version for static linking. They can be viewed with the command `llvm-config --system-libs`; the list can be empty. On Ubuntu/Debian, you will need the packages `zlib1g-dev` and `zlibstd-dev`.

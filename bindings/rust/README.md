@@ -7,7 +7,7 @@ Official bindings for the Nyxstone assembler/disassembler engine.
 
 ## Building
 
-The project can be build via `cargo build`, as long as LLVM 15 supporting static linking is installed in the `$PATH` or the environment variable `$NYXSTONE_LLVM_PREFIX` points to the installation location of such a LLVM 15 library. For further information conduct the Nyxstone README.md. The bindings further expect that the Nyxstone library is installed in the nyxstone sub-directory. This can be accomplished by using the Makefile target `nyxstone`.
+The project can be build via `cargo build`, as long as LLVM 18 is installed in the `$PATH` or the environment variable `$NYXSTONE_LLVM_PREFIX` points to the installation location of a LLVM 18 library.
 
 LLVM might be linked against FFI, but not correctly report this fact via `llvm-config`. If your LLVM does link FFI and
 Nyxstone fails to run, set the `NYXSTONE_LINK_FFI` environment variable to some value, which will ensure that Nyxstone
@@ -18,7 +18,7 @@ links `libffi`.
 Add nyxstone as a dependency in your `Cargo.toml`:
 ```
 [dependencies]
-nyxstone = "0.0.1"
+nyxstone = "0.1"
 ```
 
 Building nyxstone requires a C/C++ compiler to be installed on your system. Furthermore, Nyxstone requires LLVM 15 to be installed. Refer to the Building section for more information about setting the install location of LLVM.
