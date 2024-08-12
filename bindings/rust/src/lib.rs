@@ -84,7 +84,7 @@ impl Nyxstone {
     ///  - armv7m: `armv7m-none-eabi`
     ///  - armv8m: `armv8m.main-none-eabi`
     ///  - aarch64: `aarch64-linux-gnueabihf`
-    ///  Using shorthand identifiers like `arm` can lead to Nyxstone not being able to assemble certain instructions.
+    ///    Using shorthand identifiers like `arm` can lead to Nyxstone not being able to assemble certain instructions.
     ///
     /// # Returns
     /// Ok() and the Nyxstone instance on success, Err() otherwise.
