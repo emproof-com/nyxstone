@@ -5,11 +5,13 @@ on:
     paths:
       - src/**
       - include/**
+      - .github/workflows/doxygen.yml
     branches: [ "main" ]
   pull_request:
     paths:
       - src/**
       - include/**
+      - .github/workflows/doxygen.yml
     branches: [ "main" ]
 
 jobs:
@@ -30,12 +32,12 @@ jobs:
         CI_COMMIT_AUTHOR: update-docs-ci
       # only commit and push changes on the main branch after the mr has been pushed.
       if: github.event_name == 'push'
-      # Force-adds the doc directory, because the doc directory is still in .gitignore
-      # to discourage changing the doc directory in a commit.
+      # Force-adds the docs directory, because the docs directory is still in .gitignore
+      # to discourage changing the docs directory in a commit.
       run: |
         git config --global user.name "${{ env.CI_COMMIT_AUTHOR }}"
         git config --global user.email "emproof-com@users.noreply.github.com"
-        git add -f  doc
+        git add -f  docs
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
         git push
 

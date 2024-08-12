@@ -1,4 +1,0 @@
-<map id="nyxstone::Nyxstone::Exception" name="nyxstone::Nyxstone::Exception">
-<area shape="rect" id="node1" title="Custom exception class used throughout nyxstone to pass any kind of String describing an error upward..." alt="" coords="5,80,157,121"/>
-<area shape="rect" id="node2" title=" " alt="" coords="24,5,139,32"/>
-</map>

@@ -1,5 +1,5 @@
 PROJECT_NAME = Nyxstone
-OUTPUT_DIRECTORY = ./doc/
+HTML_OUTPUT = ./docs/
 GENERATE_HTML = YES
 GENERATE_LATEX = NO
 INPUT = src include README.md include/tl
