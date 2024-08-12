@@ -3,9 +3,9 @@
 #include <optional>
 
 #include <argh.h>
+#include <expected.hpp>
 
 #include "nyxstone.h"
-#include "tl/expected.hpp"
 
 using nyxstone::Nyxstone;
 using nyxstone::NyxstoneBuilder;

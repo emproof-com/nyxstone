@@ -1,6 +1,6 @@
 #include "nyxstone_ffi.hpp"
 
-#include "tl/expected.hpp"
+#include <expected.hpp>
 
 using namespace nyxstone;
 

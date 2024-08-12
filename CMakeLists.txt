@@ -56,6 +56,7 @@ target_compile_features(nyxstone PUBLIC
 )
 target_include_directories(nyxstone PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/vendor>
 )
 target_link_libraries(nyxstone PUBLIC
     LLVM-Wrapper
@@ -71,9 +72,6 @@ if(NYXSTONE_BUILD_EXAMPLES)
     )
     target_link_libraries(nyxstone-bin PRIVATE
         nyxstone::nyxstone
-    )
-    target_include_directories(nyxstone-bin PRIVATE
-        vendor
     )
 
     add_executable(example examples/example.cpp)
