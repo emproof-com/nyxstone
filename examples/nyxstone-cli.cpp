@@ -10,30 +10,10 @@
 using nyxstone::Nyxstone;
 using nyxstone::NyxstoneBuilder;
 
+std::vector<uint8_t> decode_instruction_bytes(std::string hex_string);
 void print_bytes(const std::vector<uint8_t>& bytes);
 std::optional<std::vector<Nyxstone::LabelDefinition>> parse_labels(std::string_view labelstr);
 void print_instructions(const std::vector<Nyxstone::Instruction>& instructions);
-
-std::vector<uint8_t> hex_decode(std::string const& hex_string)
-{
-    auto input_size = hex_string.size();
-    if (input_size % 2 != 0) {
-        return {};
-    }
-
-    std::vector<uint8_t> result;
-    result.reserve(input_size / 2);
-
-    try {
-        for (size_t i = 0; i < input_size; i += 2) {
-            result.emplace_back(std::stoul(hex_string.substr(i, 2), nullptr, 16));
-        }
-    } catch (...) {
-        return {};
-    }
-
-    return result;
-}
 
 constexpr auto USAGE = R"(Usage: nyxstone [-t=<triple>] [-p=<pc>] [-d] <input>
 
@@ -54,7 +34,7 @@ Options:
   -h, --help                 Show this help and usage message
 
 Notes:
-  The '--target' parameter also supports aliases for common target triples:
+  The '--triple' parameter also supports aliases for common target triples:
 
      'x86_32' -> 'i686-linux-gnu'
      'x86_64' -> 'x86_64-linux-gnu'
@@ -69,9 +49,6 @@ Notes:
 
 /// Parsed program options.
 struct Options {
-    bool is_valid = false;
-    std::string error;
-
     std::string triple = "x86_64-linux-gnu";
     std::string cpu;
     std::string features;
@@ -82,11 +59,13 @@ struct Options {
 
     std::string input;
 
-    Options(int argc, char const** argv);
+    static tl::expected<Options, std::string> parse(int argc, char const** argv);
 };
 
-Options::Options(int argc, char const** argv)
+tl::expected<Options, std::string> Options::parse(int argc, char const** argv)
 {
+    Options options;
+
     argh::parser args({
         "-t",
         "--target",
@@ -102,73 +81,68 @@ Options::Options(int argc, char const** argv)
     args.parse(argc, argv);
 
     if (args[{ "-h", "--help" }]) {
-        show_help = true;
-        is_valid = true;
-        return;
+        options.show_help = true;
+        return options;
     }
 
-    triple = args({ "-t", "--triple" }, /*default=*/"x86_64-linux-gnu").str();
-    if (triple.empty()) {
-        error = "Target triple not specified";
-        return;
+    options.triple = args({ "-t", "--triple" }, /*default=*/"x86_64-linux-gnu").str();
+    if (options.triple.empty()) {
+        return tl::unexpected("Target triple not specified");
     }
 
     // These can both be empty as default options, so no need for a default value like above.
-    cpu = args({ "-c", "--cpu" }).str();
-    features = args({ "-f", "--features" }).str();
+    options.cpu = args({ "-c", "--cpu" }).str();
+    options.features = args({ "-f", "--features" }).str();
 
     std::string address_str = args({ "-p", "--address" }, /*default=*/"0").str();
     if (!address_str.empty()) {
         try {
-            address = std::stoul(address_str, nullptr, 0);
+            options.address = std::stoul(address_str, nullptr, 0);
         } catch (const std::exception&) {
-            error = "Failed to parse address";
-            return;
+            return tl::unexpected("Failed to parse address");
         }
     } else {
-        error = "Address not specified";
-        return;
+        return tl::unexpected("Address not specified");
     }
 
     auto labels_str = args({ "-l", "--labels" }).str();
     if (!labels_str.empty()) {
         auto parse_result = parse_labels(labels_str);
         if (!parse_result.has_value()) {
-            error = "Failed to parse labels";
-            return;
+            return tl::unexpected("Failed to parse labels");
         }
 
-        labels = parse_result.value();
+        options.labels = parse_result.value();
     }
 
-    disassemble = args[{ "-d", "--disassemble" }];
+    options.disassemble = args[{ "-d", "--disassemble" }];
 
     if (args.pos_args().size() < 2) {
-        error = "Missing input";
-        return;
+        return tl::unexpected("Missing input");
     }
 
     // TODO: Support multiple positional arguments.
-    input = args[1];
-    if (input.empty()) {
-        error = "Input is empty";
-        return;
+    options.input = args[1];
+    if (options.input.empty()) {
+        return tl::unexpected("Input is empty");
     }
 
-    is_valid = true;
+    return options;
 }
 
 int main(int argc, char const** argv)
 {
-    Options options(argc, argv);
-    if (!options.is_valid) {
-        std::cerr << "Error: " << options.error << ".\n";
+    auto options_result = Options::parse(argc, argv);
+    if (!options_result.has_value()) {
+        std::cerr << "Error: " << options_result.error() << ".\n";
         std::cerr << "Hint: Try 'nyxstone -h' for help.\n";
         return 1;
     }
+
+    auto options = options_result.value();
     if (options.show_help) {
-        std::cerr << USAGE;
-        return options.is_valid ? 0 : 1;
+        std::cout << USAGE;
+        return 0;
     }
 
     auto builder = NyxstoneBuilder(std::move(options.triple))
@@ -182,9 +156,9 @@ int main(int argc, char const** argv)
     auto nyxstone = std::move(build_result.value());
 
     if (options.disassemble) {
-        auto bytes = hex_decode(options.input);
+        auto bytes = decode_instruction_bytes(options.input);
         if (bytes.empty()) {
-            std::cerr << "Error: Failed decode bytes as hex.\n";
+            std::cerr << "Error: Failed to decode bytes as hex.\n";
             return 1;
         }
 
@@ -204,6 +178,29 @@ int main(int argc, char const** argv)
                 exit(1);
             })
             .map(print_instructions);
+    }
+}
+
+std::vector<uint8_t> decode_instruction_bytes(std::string hex_string)
+{
+    // Drop all spaces first to support round-tripping of Nyxstone output as input.
+    hex_string.erase(std::remove_if(hex_string.begin(), hex_string.end(), isspace), hex_string.end());
+
+    auto input_size = hex_string.size();
+    if (input_size % 2 != 0) {
+        return {};
+    }
+
+    try {
+        std::vector<uint8_t> result;
+        result.reserve(input_size / 2);
+        for (size_t i = 0; i < input_size; i += 2) {
+            result.emplace_back(std::stoul(hex_string.substr(i, 2), nullptr, 16));
+        }
+
+        return result;
+    } catch (...) {
+        return {};
     }
 }
 
