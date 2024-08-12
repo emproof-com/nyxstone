@@ -17,6 +17,6 @@ cd "$(git rev-parse --show-toplevel)"
 # the llvm files in `Target` are ingnored, since they are
 # copied directly from llvm.
 cxx_files=$(find . -maxdepth 2 -iname "*.cpp" | xargs echo)
-includes="-Iinclude -Isrc"
+includes="-Iinclude -Ivendor -Isrc"
 
 cppcheck --enable=all --suppress=*:include/tl/expected.hpp --suppress=*:src/Target/* --inline-suppr --error-exitcode=1 --language=c++ --suppress=missingIncludeSystem $cxx_files $cxx_ffi_files $includes

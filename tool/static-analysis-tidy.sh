@@ -18,6 +18,7 @@ cd "$(git rev-parse --show-toplevel)"
 cxx_files=$(find . -maxdepth 2 -iname "*.cpp" | xargs echo)
 # Include directories so that headers can be found.
 includes="-Iinclude"
+includes="-Ivendor"
 
 # Set standard to c++17.
 cxx_flags="-std=c++17"
