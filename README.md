@@ -102,61 +102,61 @@ mkdir build && cd build && cmake .. && make
 Then, `nyxstone` can be used from the command line. Here's an output of its help menu:
 
 ```
-$ ./nyxstone --help
-Allowed options:
-  --help                    Show this message
-  --arch arg (=x86_64)      LLVM triple or architecture identifier of triple.
-                            For the most common architectures, we recommend:
-                            x86_32: `i686-linux-gnu`
-                            x86_64: `x86_64-linux-gnu`
-                            armv6m: `armv6m-none-eabi`
-                            armv7m: `armv7m-none-eabi`
-                            armv8m: `armv8m.main-none-eabi`
-                            aarch64: `aarch64-linux-gnueabihf`
-                            Using shorthand identifiers like `arm` can lead to
-                            Nyxstone not being able to assemble certain
-                            instructions.
-  --cpu arg                 LLVM cpu specifier, refer to `llc -mtriple=ARCH
-                            -mcpu=help` for a comprehensive list
-  --features arg            LLVM features to enable/disable, comma seperated
-                            feature strings prepended by '+' or '-' to enable or
-                            disable respectively. Refer to `llc -mtriple=ARCH
-                            -mattr=help` for a comprehensive list
-  --address arg (=0)        Address
+$ ./nyxstone -h
+Usage: nyxstone [-t=<triple>] [-p=<pc>] [-d] <input>
 
-Assembling:
-  --labels arg              Labels, for example "label0=0x10,label1=0x20"
-  -A [ --assemble ] arg     Assembly
+Examples:
+  # Assemble an instruction with the default architecture ('x86_64').
+  nyxstone 'push eax'
 
-Disassembling:
-  -D [ --disassemble ] arg  Byte code in hex, for example: "0203"
+  # Disassemble the bytes 'ffc300d1' as AArch64 code.
+  nyxstone -t aarch64 -d ffc300d1
 
+Options:
+  -t, --triple=<triple>      LLVM target triple or alias, e.g. 'aarch64'
+  -c, --cpu=<cpu>            LLVM CPU specifier, e.g. 'cortex-a53'
+  -f, --features=<list>      LLVM architecture/CPU feature list, e.g. '+mte,-neon'
+  -p, --address=<pc>         Initial address to assemble/disassemble relative to
+  -l, --labels=<list>        Label-to-address mappings (used when assembling only)
+  -d, --disassemble          Treat <input> as bytes to disassemble instead of assembly
+  -h, --help                 Show this help and usage message
+
+Notes:
+  The '--triple' parameter also supports aliases for common target triples:
+
+     'x86_32' -> 'i686-linux-gnu'
+     'x86_64' -> 'x86_64-linux-gnu'
+     'armv6m' -> 'armv6m-none-eabi'
+     'armv7m' -> 'armv7m-none-eabi'
+     'armv8m' -> 'armv8m.main-none-eabi'
+    'aarch64' -> 'aarch64-linux-gnueabihf'
+
+  The CPUs for a target can be found with 'llc -mtriple=<triple> -mcpu=help'.
+  The features for a target can be found with 'llc -mtriple=<triple> -mattr=help'.
 ```
 
 Now, we can assemble an instruction for the x86_64 architecture:
 
 ```
-$ ./nyxstone --arch "x86_64" -A "mov rax, rbx"
-Assembled:
-    0x00000000: mov rax, rbx - [ 48 89 d8 ]
+$ ./nyxstone -t x86_64 "mov rax, rbx"
+        0x00000000: mov rax, rbx                     ; 48 89 d8
 ```
 
 We can also assemble a sequence of instructions. In the following, we make use of label-based addressing and assume the first instruction is mapped to address `0xdeadbeef`:
 
 ```
-$ ./nyxstone --arch "x86_64" --address 0xdeadbeef -A "cmp rax, rbx; jz .exit ; inc rax ; .exit: ret"
-    0xdeadbeef: cmp rax, rbx - [ 48 39 d8 ]
-    0xdeadbef2: je .exit - [ 74 03 ]
-    0xdeadbef4: inc rax - [ 48 ff c0 ]
-    0xdeadbef7: ret - [ c3 ]
+$ ./nyxstone -t x86_64 -p 0xdeadbeef "cmp rax, rbx; jz .exit; inc rax; .exit: ret"
+        0xdeadbeef: cmp rax, rbx                     ; 48 39 d8 
+        0xdeadbef2: je .exit                         ; 74 30 
+        0xdeadbef4: inc rax                          ; 48 ff c0 
+        0xdeadbef7: ret                              ; c3 
 ```
 
 We can also disassemble an instruction for the ARM32 thumb instruction set:
 
 ```
-$ ./nyxstone --arch "thumbv8" -D "13 37"
-Disassembled:
-    0x00000000: adds r7, #19 - [ 13 37 ]
+$ ./nyxstone -t thumbv8 -d "13 37"
+        0x00000000: adds r7, #19                     ; 13 37 
 ```
 
 ### C++ Library
