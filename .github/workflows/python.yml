@@ -11,11 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     env:
       working-dir: ./bindings/python
+      NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"
 
     steps:
     - uses: actions/checkout@v3
     - name: Packages
-      run: sudo apt-get install zlib1g-dev libzstd-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install zlib1g-dev libzstd-dev llvm-15 llvm-15-dev
     - name: Build
       run: pip install .
       working-directory: ${{ env.working-dir }}

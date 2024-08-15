@@ -27,11 +27,11 @@ class ValidLLVMConfig:
             print(f"Could not find llvm-config in ${LLVM_PREFIX_NAME} or $PATH")
             exit(1)
 
-        major_version = version.split(".")[0]
+        major_version = int(version.split(".")[0])
 
-        if major_version != "18":
+        if major_version < 15:
             print(
-                f"LLVM Major version must be 18, found {major_version}! Try setting the env variable ${LLVM_PREFIX_NAME} to tell nyxstone about the install location of LLVM 18."
+                f"LLVM Major version must be at least 15, found {major_version}! Set the environment variable ${LLVM_PREFIX_NAME} to tell nyxstone about the install location of LLVM."
             )
             exit(1)
 

@@ -46,7 +46,7 @@ fn main() {
     // === The following code is adapted from llvm-sys, see below for licensing ===
     let llvm_config_path = match search_llvm_config() {
         Ok(config) => config,
-        Err(e) => panic!("{e} Please either install LLVM 18 with static libs into your PATH or supply the location via $NYXSTONE_LLVM_PREFIX"),
+        Err(e) => panic!("{e} Please either install LLVM version >= 15 into your PATH or supply the location via $NYXSTONE_LLVM_PREFIX"),
     };
 
     // Tell cargo about the library directory of llvm.
@@ -129,7 +129,9 @@ fn search_llvm_config() -> Result<PathBuf> {
             continue;
         };
 
-        if version != "18" {
+        let version = version.parse::<u32>().context("Parsing LLVM version")?;
+
+        if version < 15 {
             return Err(anyhow!("LLVM major version is {}, must be 18.", version));
         }
 

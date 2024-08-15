@@ -25,7 +25,7 @@ Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesnâ
 
 ## Core Features
 
-* Assembles and disassembles code for all architectures supported by LLVM 15, including x86, ARM, MIPS, RISC-V and others.
+* Assembles and disassembles code for all architectures supported by the linked LLVM, including x86, ARM, MIPS, RISC-V and others.
 
 * C++ library based on LLVM with Rust and Python bindings.
 
@@ -50,18 +50,18 @@ This section provides instructions on how to get started with Nyxstone, covering
 
 ### Prerequisites
 
-Before building Nyxstone, ensure clang and LLVM 18 are present on your system. Nyxstone looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
+Before building Nyxstone, ensure clang and LLVM (version >= 15) are present on your system. Nyxstone looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
 
-Installation Options for LLVM 18:
+Installation Options for LLVM versions 15-18:
 
 * Ubuntu
 ```bash
-sudo apt install llvm-18 llvm-18-dev
+sudo apt install llvm-${version} llvm-${version}-dev
 ```
 
 * Debian
-LLVM 18 is currently only available via the testing repositories.
-Refer to [https://apt.llvm.org/](https://apt.llvm.org/) for install instructions.
+LLVM version 15 and 16 are available through debian repositories. Installation is the same as for Ubuntu.
+For versions 17 or 18 refer to [https://apt.llvm.org/](https://apt.llvm.org/) for installation instructions.
 
 * Arch
 ```bash
