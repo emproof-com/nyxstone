@@ -25,7 +25,7 @@ if(DEFINED $ENV{NYXSTONE_LLVM_PREFIX})
     set(CMAKE_PREFIX_PATH $ENV{NYXSTONE_LLVM_PREFIX})
 endif()
 
-find_package(LLVM-Wrapper 15 REQUIRED COMPONENTS
+find_package(LLVM-Wrapper REQUIRED COMPONENTS
     core
     mc
     AllTargetsCodeGens

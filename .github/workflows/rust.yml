@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"
 
 jobs:
   linux:
@@ -18,15 +17,22 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Packages
-      run: sudo apt-get install llvm-15 llvm-15-dev zlib1g-dev libzstd-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install llvm llvm-dev zlib1g-dev libzstd-dev
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" 
+        brew update
+        brew install llvm@18
     - name: Code quality
-      run: cargo fmt --all -- --check && cargo clippy -- -D warnings
+      run: |
+        NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@18)" cargo fmt --all -- --check
+        NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@18)" cargo clippy -- -D warnings
       working-directory: ${{ env.working-dir }}
     - name: Build
-      run: cargo build
+      run: NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@18)" cargo build
       working-directory: ${{ env.working-dir }}
     - name: Run tests
-      run: cargo test
+      run: NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@18)" cargo test
       working-directory: ${{ env.working-dir }}
 
   mac:
@@ -35,10 +41,13 @@ jobs:
       working-dir: ./bindings/rust
     steps:
     - uses: actions/checkout@v3
+    - name: Packages
+      run: |
+        brew update
+        brew install llvm@18
     - name: Build
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX=$(brew --prefix llvm@15) cargo build
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@18)" NYXSTONE_LINK_FFI=1 cargo build
       working-directory: ${{ env.working-dir }}
     - name: Run tests
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX=$(brew --prefix llvm@15) cargo test
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@18)" NYXSTONE_LINK_FFI=1 cargo test
       working-directory: ${{ env.working-dir }}
-

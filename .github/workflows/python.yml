@@ -6,9 +6,6 @@ on:
   pull_request:
     branches: [ "main" ]
 
-env:
-  NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Packages
-      run: sudo apt-get install llvm-15 llvm-15-dev zlib1g-dev libzstd-dev
+      run: sudo apt-get install zlib1g-dev libzstd-dev
     - name: Build
       run: pip install .
       working-directory: ${{ env.working-dir }}

@@ -8,7 +8,6 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"
 
 jobs:
   linux:
@@ -16,7 +15,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Packages
-      run: sudo apt-get install llvm-15 llvm-15-dev zlib1g-dev libzstd-dev libboost-program-options-dev cppcheck clang-tidy clang-format
+      run: |
+        sudo apt-get update
+        sudo apt-get install libllvm18 zlib1g-dev libzstd-dev libboost-program-options-dev cppcheck clang-tidy clang-format
     - name: Code quality - fmt
       run: ./tool/format.sh check 
     - name: Code quality - cppcheck
@@ -24,12 +25,16 @@ jobs:
     - name: Code quality - clang-tidy
       run: ./tool/static-analysis-tidy.sh
     - name: Build
-      run: mkdir build/ && cd build && cmake .. && make
+      run: |
+        mkdir build/
+        cd build
+        cmake ..
+        make
     - name: Test
       run: make test
       working-directory: build/
     - name: cli
-      run: ./nyxstone -A "mov rax, rbx" &&
-           ./nyxstone -A "jmp label" --labels "label=0x1000"
-
+      run: |
+        ./nyxstone -A "mov rax, rbx"
+        ./nyxstone -A "jmp label" --labels "label=0x1000"
       working-directory: build/
