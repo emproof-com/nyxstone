@@ -418,7 +418,7 @@ tl::expected<void, std::string> Nyxstone::disassemble_impl(const std::vector<uin
     const llvm::ArrayRef<u8> data(bytes.data(), bytes.size());
     uint64_t pos = 0;
     uint64_t insn_count = 0;
-    while (true) {
+    for (; pos < data.size() && (count == 0 || insn_count < count); pos += insn_size) {
         // Decompose one instruction
         llvm::MCInst insn;
         uint64_t insn_size = 0;
@@ -431,43 +431,31 @@ tl::expected<void, std::string> Nyxstone::disassemble_impl(const std::vector<uin
             }
             return tl::unexpected(error_stream.str());
         }
-
+    
         // Generate instruction disassembly text
-        std::string insn_str;
         llvm::raw_string_ostream str_stream(insn_str);
-        instruction_printer->printInst(&insn,
-            /* Address */ address + pos,
-            /* Annot */ "", *subtarget_info, str_stream);
-
-        // left trim
+        instruction_printer->printInst(&insn, address + pos, "", *subtarget_info, str_stream);
+    
+        // Left trim
         insn_str.erase(0, insn_str.find_first_not_of(" \t\n\r"));
-        // convert tabulators to spaces
+        // Convert tabulators to spaces
         std::replace(insn_str.begin(), insn_str.end(), '\t', ' ');
-
+    
         // Add instruction to results
         if (disassembly != nullptr) {
             *disassembly += insn_str + "\n";
         }
+        
         if (instructions != nullptr) {
             Nyxstone::Instruction new_insn;
             new_insn.address = address + pos;
             new_insn.assembly = insn_str;
             new_insn.bytes.reserve(insn_size);
             std::copy(data.begin() + pos, data.begin() + pos + insn_size, std::back_inserter(new_insn.bytes));
-            instructions->push_back(new_insn);
+            instructions->emplace_back(std::move(new_insn));
         }
-
-        // Abort after n instructions if requested
-        insn_count += 1;
-        if (count != 0 && insn_count >= count) {
-            break;
-        }
-
-        // Prepare next iteration
-        pos += insn_size;
-        if (pos >= data.size()) {
-            break;
-        }
+    
+        insn_count++;
     }
 
     return {};
