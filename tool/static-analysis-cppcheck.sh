@@ -19,4 +19,4 @@ cd "$(git rev-parse --show-toplevel)"
 cxx_files=$(find . -maxdepth 2 -iname "*.cpp" | xargs echo)
 includes="-Iinclude -Ivendor -Isrc"
 
-cppcheck --enable=all --suppress=*:include/tl/expected.hpp --suppress=*:src/Target/* --inline-suppr --error-exitcode=1 --language=c++ --suppress=missingIncludeSystem $cxx_files $cxx_ffi_files $includes
+cppcheck --enable=all --suppress=*:vendor/* --suppress=*:src/Target/* --inline-suppr --error-exitcode=1 --language=c++ --suppress=missingIncludeSystem $cxx_files $cxx_ffi_files $includes
