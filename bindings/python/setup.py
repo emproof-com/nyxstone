@@ -111,7 +111,7 @@ ext_modules = [
     Pybind11Extension(
         name="nyxstone_cpp",
         sources=srcs,
-        include_dirs=["nyxstone-cpp/include/", "nyxstone-cpp/src/", llvm_inc_dir],
+        include_dirs=["nyxstone-cpp/include/", "nyxstone-cpp/vendor", "nyxstone-cpp/src/", llvm_inc_dir],
         libraries=llvm_libs,
         library_dirs=[llvm_lib_dir],
         extra_link_args=[

@@ -74,6 +74,7 @@ fn main() {
     cxx_build::bridge("src/lib.rs")
         .flag_if_supported("-std=c++17")
         .include("nyxstone/include")
+        .include("nyxstone/vendor")
         .include(llvm_include_dir.trim())
         // .include(cxxbridge_dir)
         .files(sources)
