@@ -152,12 +152,18 @@ $ ./nyxstone -t x86_64 -p 0xdeadbeef "cmp rax, rbx; jz .exit; inc rax; .exit: re
         0xdeadbef7: ret                              ; c3 
 ```
 
-We can also disassemble an instruction for the ARM32 thumb instruction set:
+Furthermore, we can disassemble instructions for different instruction sets, here the ARM32 thumb instruction set:
 
 ```
 $ ./nyxstone -t thumbv8 -d "13 37"
         0x00000000: adds r7, #19                     ; 13 37 
 ```
+
+Using the support for user-defined labels, we can assemble this snippet which does not contain the label `.label` by specifying its memory location ourself.
+
+```
+$ ./nyxstone -p "0x1000" -l ".label=0x1238" "jmp .label"
+        0x00001000: jmp .label                       ; e9 33 20 00 00```
 
 ### C++ Library
 
