@@ -31,6 +31,7 @@ Options:
   -p, --address=<pc>         Initial address to assemble/disassemble relative to
   -l, --labels=<list>        Label-to-address mappings (used when assembling only)
   -d, --disassemble          Treat <input> as bytes to disassemble instead of assembly
+  -b, --bytes-only           Only output assembled bytes
   -h, --help                 Show this help and usage message
 
 Notes:
@@ -56,6 +57,7 @@ struct Options {
     std::vector<Nyxstone::LabelDefinition> labels;
     bool disassemble = false;
     bool show_help = false;
+    bool bytes_only = false;
 
     std::string input;
 
@@ -66,18 +68,9 @@ tl::expected<Options, std::string> Options::parse(int argc, char const** argv)
 {
     Options options;
 
-    argh::parser args({
-        "-t",
-        "--target",
-        "-c",
-        "--cpu",
-        "-f",
-        "--features",
-        "-p",
-        "--address",
-        "-l",
-        "--labels",
-    });
+    argh::parser args({ "-t", "--target", "-c", "--cpu", "-f", "--features", "-p", "--address", "-l", "--labels",
+        "-b"
+        "--bytes-only" });
     args.parse(argc, argv);
 
     if (args[{ "-h", "--help" }]) {
@@ -116,6 +109,8 @@ tl::expected<Options, std::string> Options::parse(int argc, char const** argv)
     }
 
     options.disassemble = args[{ "-d", "--disassemble" }];
+
+    options.bytes_only = args[{ "-b", "--bytes-only" }];
 
     if (args.pos_args().size() < 2) {
         return tl::unexpected("Missing input");
@@ -172,12 +167,21 @@ int main(int argc, char const** argv)
             .map(print_instructions);
     } else {
         const auto& assembly = options.input;
-        nyxstone->assemble_to_instructions(assembly, options.address, options.labels)
-            .map_error([&assembly](const auto& error) {
-                std::cerr << "Could not assemble " << assembly << " (" << error << ")\n";
-                exit(1);
-            })
-            .map(print_instructions);
+        if (!options.bytes_only) {
+            nyxstone->assemble_to_instructions(assembly, options.address, options.labels)
+                .map_error([&assembly](const auto& error) {
+                    std::cerr << "Could not assemble " << assembly << " (" << error << ")\n";
+                    exit(1);
+                })
+                .map(print_instructions);
+        } else {
+            nyxstone->assemble(assembly, options.address, options.labels)
+                .map_error([&assembly](const auto& error) {
+                    std::cerr << "Could not assemble " << assembly << " (" << error << ")\n";
+                    exit(1);
+                })
+                .map(print_bytes);
+        }
     }
 }
 

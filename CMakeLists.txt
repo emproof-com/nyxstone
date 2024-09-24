@@ -81,4 +81,5 @@ if(NYXSTONE_BUILD_EXAMPLES)
 
     include(CTest)
     add_test(NAME TestExample COMMAND $<TARGET_FILE:example>)
+    add_test(NAME TestCLI COMMAND "${CMAKE_CURRENT_LIST_DIR}/tool/test-cli.sh")
 endif()
