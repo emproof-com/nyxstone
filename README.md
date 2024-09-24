@@ -147,7 +147,7 @@ We can also assemble a sequence of instructions. In the following, we make use o
 ```
 $ ./nyxstone -t x86_64 -p 0xdeadbeef "cmp rax, rbx; jz .exit; inc rax; .exit: ret"
         0xdeadbeef: cmp rax, rbx                     ; 48 39 d8 
-        0xdeadbef2: je .exit                         ; 74 30 
+        0xdeadbef2: je .exit                         ; 74 03 
         0xdeadbef4: inc rax                          ; 48 ff c0 
         0xdeadbef7: ret                              ; c3 
 ```
@@ -163,7 +163,8 @@ Using the support for user-defined labels, we can assemble this snippet which do
 
 ```
 $ ./nyxstone -p "0x1000" -l ".label=0x1238" "jmp .label"
-        0x00001000: jmp .label                       ; e9 33 20 00 00```
+        0x00001000: jmp .label                       ; e9 33 02 00 00
+```
 
 ### C++ Library
 

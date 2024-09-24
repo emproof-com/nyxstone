@@ -206,14 +206,15 @@ std::vector<uint8_t> decode_instruction_bytes(std::string hex_string)
 
 void print_address(uint64_t address)
 {
-    std::cout << "\t0x" << std::hex << std::setfill('0') << std::right << std::setw(8) << address;
+    std::cout << "\t0x" << std::hex << std::setfill('0') << std::setw(8) << address;
 }
 
 void print_instructions(const std::vector<Nyxstone::Instruction>& instructions)
 {
     for (const auto& instr : instructions) {
         print_address(instr.address);
-        std::cout << ": " << std::setfill(' ') << std::left << std::setw(32) << instr.assembly;
+        std::cout << ": " << std::setfill(' ') << std::left << std::setw(32) << instr.assembly << std::right;
+        std::cout << "; ";
         print_bytes(instr.bytes);
         std::cout << "\n";
     }
@@ -221,7 +222,7 @@ void print_instructions(const std::vector<Nyxstone::Instruction>& instructions)
 
 void print_bytes(const std::vector<uint8_t>& bytes)
 {
-    std::cout << std::hex << " ; ";
+    std::cout << std::hex;
     for (const auto& byte : bytes) {
         std::cout << std::setfill('0') << std::setw(2) << static_cast<uint32_t>(byte) << " ";
     }
