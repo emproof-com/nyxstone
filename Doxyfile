@@ -1,6 +1,0 @@
-PROJECT_NAME = Nyxstone
-HTML_OUTPUT = ./docs/
-GENERATE_HTML = YES
-GENERATE_LATEX = NO
-INPUT = src include README.md include/tl
-USE_MDFILE_AS_MAINPAGE = README.md
