@@ -15,7 +15,7 @@ jobs:
     env:
       NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Packages
       run: |
         sudo apt-get update
@@ -44,7 +44,7 @@ jobs:
   mac-llvm-15:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Packages
       run: brew install llvm@15
     - name: Build
@@ -65,7 +65,7 @@ jobs:
   mac-llvm-16:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Packages
       run: brew install llvm@16
     - name: Build
@@ -86,7 +86,7 @@ jobs:
   mac-llvm-17:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Packages
       run: brew install llvm@17
     - name: Build
@@ -107,7 +107,7 @@ jobs:
   mac-llvm-18:
     runs-on: macos-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Packages
       run: brew install llvm@18
     - name: Build

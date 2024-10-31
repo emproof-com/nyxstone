@@ -14,7 +14,7 @@ jobs:
       NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Packages
       run: |
         sudo apt-get update
