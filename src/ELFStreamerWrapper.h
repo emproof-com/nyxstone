@@ -2,10 +2,13 @@
 
 #include "nyxstone.h"
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <llvm/MC/MCAsmBackend.h>
 #include <llvm/MC/MCCodeEmitter.h>
 #include <llvm/MC/MCELFStreamer.h>
 #include <llvm/MC/MCObjectWriter.h>
+#pragma GCC diagnostic pop
 
 namespace nyxstone {
 /// This class derives from LLVM's MCELFStreamer, which enables us to receive
