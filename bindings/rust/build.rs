@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 use std::env;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -131,9 +131,11 @@ fn search_llvm_config() -> Result<PathBuf> {
 
         let version = version.parse::<u32>().context("Parsing LLVM version")?;
 
-        if version < 15 {
-            return Err(anyhow!("LLVM major version is {}, must be 18.", version));
-        }
+        ensure!(
+            (15..=18).contains(&version),
+            "LLVM major version is {}, must be 15-18.",
+            version
+        );
 
         return Ok(llvm_config);
     }
@@ -194,12 +196,16 @@ fn target_os_is(name: &str) -> bool {
 
 /// Return an iterator over possible names for the llvm-config binary.
 fn llvm_config_binary_names() -> impl Iterator<Item = String> {
-    let base_names = [
-        "llvm-config".into(),
-        format!("llvm-config-{}", 18),
-        format!("llvm-config{}", 18),
-        format!("llvm{}-config", 18),
-    ];
+    let base_names = (15..=18)
+        .flat_map(|version| {
+            [
+                format!("llvm-config-{}", version),
+                format!("llvm-config{}", version),
+                format!("llvm{}-config", version),
+            ]
+        })
+        .chain(["llvm-config".into()])
+        .collect::<Vec<_>>();
 
     // On Windows, also search for llvm-config.exe
     if target_os_is("windows") {

@@ -29,9 +29,9 @@ class ValidLLVMConfig:
 
         major_version = int(version.split(".")[0])
 
-        if major_version < 15:
+        if major_version < 15 or major_version > 18:
             print(
-                f"LLVM Major version must be at least 15, found {major_version}! Set the environment variable ${LLVM_PREFIX_NAME} to tell nyxstone about the install location of LLVM."
+                f"LLVM Major version must be in the range 15-18, found {major_version}! Set the environment variable ${LLVM_PREFIX_NAME} to tell nyxstone about the install location of LLVM."
             )
             exit(1)
 

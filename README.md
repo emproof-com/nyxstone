@@ -50,7 +50,8 @@ This section provides instructions on how to get started with Nyxstone, covering
 
 ### Prerequisites
 
-Before building Nyxstone, ensure clang and LLVM (version >= 15) are present on your system. Nyxstone looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
+Before building Nyxstone, ensure clang and LLVM are present on your system. Nyxstone supports LLVM major versions 15-18.
+When building it looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
 
 Installation Options for LLVM versions 15-18:
 
@@ -176,7 +177,7 @@ $ ./nyxstone -p "0x1000" -l ".label=0x1238" "jmp .label"
 
 ### C++ Library
 
-To use Nyxstone as a C++ library, your C++ code has to be linked against Nyxstone and LLVM 15. 
+To use Nyxstone as a C++ library, your C++ code has to be linked against Nyxstone and LLVM.
 
 The following cmake example assumes Nyxstone in a subdirectory `nyxstone` in your project:
 
