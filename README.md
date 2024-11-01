@@ -26,7 +26,7 @@ Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesnâ
 
 ## Core Features
 
-* Assembles and disassembles code for all architectures supported by LLVM 15, including x86, ARM, MIPS, RISC-V and others.
+* Assembles and disassembles code for all architectures supported by the linked LLVM, including x86, ARM, MIPS, RISC-V and others.
 
 * C++ library based on LLVM with Rust and Python bindings.
 
@@ -51,38 +51,47 @@ This section provides instructions on how to get started with Nyxstone, covering
 
 ### Prerequisites
 
-Before building Nyxstone, ensure clang and LLVM 15 are present as statically linked libraries. Nyxstone looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
+Before building Nyxstone, ensure clang and LLVM are present on your system. Nyxstone supports LLVM major versions 15-18.
+When building it looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
 
-Installation Options for LLVM 15:
+Installation Options for LLVM versions 15-18:
 
-* Debian/Ubuntu
+* Ubuntu
 ```bash
-sudo apt install llvm-15 llvm-15-dev
-export NYXSTONE_LLVM_PREFIX=/usr/lib/llvm-15/
+sudo apt install llvm-${version} llvm-${version}-dev
+```
+
+* Debian
+LLVM version 15 and 16 are available through debian repositories. Installation is the same as for Ubuntu.
+For versions 17 or 18 refer to [https://apt.llvm.org/](https://apt.llvm.org/) for installation instructions.
+
+* Arch
+```bash
+sudo pacman -S llvm llvm-libs
 ```
 
 * Homebrew (macOS, Linux and others):
 ```bash
-brew install llvm@15
-export NYXSTONE_LLVM_PREFIX=/opt/homebrew/opt/llvm@15
+brew install llvm@18
+export NYXSTONE_LLVM_PREFIX=/opt/homebrew/opt/llvm@18
 ```
 
 * From LLVM Source:
 
-_Note_: On Windows you need to run these commands from a Visual Studio 2022 x64 command prompt. Additionally replace `~lib/my-llvm-15` with a different path.
+_Note_: On Windows you need to run these commands from a Visual Studio 2022 x64 command prompt. Additionally replace `~lib/my-llvm-18` with a different path.
 
 ```bash
 # checkout llvm
-git clone -b release/15.x --single-branch https://github.com/llvm/llvm-project.git
+git clone -b release/18.x --single-branch https://github.com/llvm/llvm-project.git
 cd llvm-project
 
 # build LLVM with custom installation directory
 cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_PARALLEL_LINK_JOBS=1
 cmake --build build
-cmake --install build --prefix ~/lib/my-llvm-15
+cmake --install build --prefix ~/lib/my-llvm-18
 
 # export path
-export NYXSTONE_LLVM_PREFIX=~/lib/my-llvm-15
+export NYXSTONE_LLVM_PREFIX=~/lib/my-llvm-18
 ```
 
 Also make sure to install any system dependent libraries needed by your LLVM version for static linking. They can be viewed with the command `llvm-config --system-libs`; the list can be empty. On Ubuntu/Debian, you will need the packages `zlib1g-dev` and `zlibstd-dev`.
@@ -169,7 +178,7 @@ $ ./nyxstone -p "0x1000" -l ".label=0x1238" "jmp .label"
 
 ### C++ Library
 
-To use Nyxstone as a C++ library, your C++ code has to be linked against Nyxstone and LLVM 15. 
+To use Nyxstone as a C++ library, your C++ code has to be linked against Nyxstone and LLVM.
 
 The following cmake example assumes Nyxstone in a subdirectory `nyxstone` in your project:
 
@@ -321,3 +330,6 @@ The current contributors are:
 * Marc Fyrbiak (emproof)
 * Tim Blazytko (emproof)
 
+## Acknowledgements
+
+To ensure that we link LLVM correctly with proper versioning in Rust, we adapted the build.rs from [llvm-sys](https://gitlab.com/taricorp/llvm-sys.rs/).

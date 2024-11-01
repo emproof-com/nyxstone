@@ -23,9 +23,20 @@ if(LLVM-Wrapper_FIND_REQUIRED)
     list(APPEND FIND_ARGS "REQUIRED")
 endif()
 
+set(ALLOWED_LLVM_VERSIONS 15 16 17 18.0 18.1)
+
 # Find LLVM
-find_package(LLVM ${FIND_ARGS})
+foreach(VERSION ${ALLOWED_LLVM_VERSIONS})
+    find_package(LLVM ${VERSION} QUIET ${FIND_ARGS})
+    if(${LLVM_FOUND})
+        break()
+    endif()
+endforeach()
 unset(FIND_ARGS)
+
+if(NOT ${LLVM_FOUND})
+    message(FATAL_ERROR "Did not find LLVM that has a compatible version. Allowed versions are 15-18.")
+endif()
 
 if(NOT LLVM-Wrapper_FIND_QUIETLY)
     message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}")
