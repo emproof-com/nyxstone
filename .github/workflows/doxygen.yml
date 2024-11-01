@@ -18,7 +18,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Packages
       run: sudo apt-get install -y doxygen graphviz
@@ -35,8 +35,9 @@ jobs:
       run: |
         git config --global user.name "${{ env.CI_COMMIT_AUTHOR }}"
         git config --global user.email "emproof-com@users.noreply.github.com"
-        git checkout cpp-docs
-        git add doc
+        git fetch origin cpp-docs
+        git switch cpp-docs
+        git add docs
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
         git push
 
