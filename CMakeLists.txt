@@ -19,13 +19,13 @@ option(NYXSTONE_SANITIZERS "Enable sanitizers" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-if(DEFINED $ENV{NYXSTONE_LLVM_PREFIX})
+if(DEFINED ENV{NYXSTONE_LLVM_PREFIX})
     # Ignore LLVM_ROOT variables
     set(CMAKE_FIND_USE_PACKAGE_ROOT_PATH OFF)
     set(CMAKE_PREFIX_PATH $ENV{NYXSTONE_LLVM_PREFIX})
 endif()
 
-find_package(LLVM-Wrapper 15 REQUIRED COMPONENTS
+find_package(LLVM-Wrapper COMPONENTS
     core
     mc
     AllTargetsCodeGens

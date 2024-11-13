@@ -27,13 +27,16 @@ class ValidLLVMConfig:
             print(f"Could not find llvm-config in ${LLVM_PREFIX_NAME} or $PATH")
             exit(1)
 
-        major_version = version.split(".")[0]
+        major_version = int(version.split(".")[0])
 
-        if major_version != "15":
+        if major_version < 15 or major_version > 18:
             print(
-                f"LLVM Major version must be 15, found {major_version}! Try setting the env variable ${LLVM_PREFIX_NAME} to tell nyxstone about the install location of LLVM 15."
+                f"LLVM Major version must be in the range 15-18, found {major_version}! Set the environment variable ${LLVM_PREFIX_NAME} to tell nyxstone about the install location of LLVM."
             )
             exit(1)
+
+        # check if we need to link dynamically
+        self.link_dynamic = False
 
         lib_output = subprocess.run(
             [
@@ -42,13 +45,12 @@ class ValidLLVMConfig:
                 "--libs",
             ],
             capture_output=True,
+            check=False,
         )
 
         if lib_output.returncode != 0:
-            print(
-                "Cannot link statically, please install LLVM with static linking support"
-            )
-            exit(1)
+            print("No static libs found, linking dynamically")
+            self.link_dynamic = True
 
         self.config = llvm_config
 
@@ -56,7 +58,7 @@ class ValidLLVMConfig:
         lib_output = subprocess.run(
             [
                 self.config,
-                "--link-static",
+                "--link-static" if not self.link_dynamic else "--link-shared",
                 "--system-libs",
                 "--libs",
                 "core",
@@ -77,6 +79,7 @@ class ValidLLVMConfig:
         lib_location = (
             subprocess.run([self.config, "--ldflags"], capture_output=True)
             .stdout.decode("utf-8")
+            .split(" ")[0]
             .replace("\n", "")  # remove trailing '\n'
             .replace("-L", "")  # remove leading -L re-added by pybind
             .strip()  # strip trailing whitespace
@@ -114,10 +117,7 @@ ext_modules = [
         include_dirs=["nyxstone-cpp/include/", "nyxstone-cpp/vendor", "nyxstone-cpp/src/", llvm_inc_dir],
         libraries=llvm_libs,
         library_dirs=[llvm_lib_dir],
-        extra_link_args=[
-            "-static-libstdc++",
-            "-static-libgcc",
-        ],  # try to reduce dependencies
+        extra_link_args=[],
     )
 ]
 
