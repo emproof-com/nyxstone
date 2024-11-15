@@ -16,7 +16,6 @@ keywords = ["assembly", "disassembly", "arm", "x86_64", "reverse-engineering"]
 description = "Bindings for the nyxstone assembler/disassembler"
 categories = ["api-bindings", "compilers"]
 license = "MIT"
-license-file = "LICENSE"
 
 [dependencies]
 anyhow = { version = "1.0.68", default-features = true }
