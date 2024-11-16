@@ -1,4 +1,4 @@
-name: update-docs
+name: docs
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Packages
       run: sudo apt-get install -y doxygen graphviz
@@ -32,12 +32,12 @@ jobs:
         CI_COMMIT_AUTHOR: update-docs-ci
       # only commit and push changes on the main branch after the mr has been pushed.
       if: github.event_name == 'push'
-      # Force-adds the docs directory, because the docs directory is still in .gitignore
-      # to discourage changing the docs directory in a commit.
       run: |
         git config --global user.name "${{ env.CI_COMMIT_AUTHOR }}"
         git config --global user.email "emproof-com@users.noreply.github.com"
-        git add -f  docs
+        git fetch origin cpp-docs
+        git switch cpp-docs
+        git add docs
         git commit -m "${{ env.CI_COMMIT_MESSAGE }}"
         git push
 

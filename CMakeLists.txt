@@ -19,13 +19,13 @@ option(NYXSTONE_SANITIZERS "Enable sanitizers" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-if(DEFINED $ENV{NYXSTONE_LLVM_PREFIX})
+if(DEFINED ENV{NYXSTONE_LLVM_PREFIX})
     # Ignore LLVM_ROOT variables
     set(CMAKE_FIND_USE_PACKAGE_ROOT_PATH OFF)
     set(CMAKE_PREFIX_PATH $ENV{NYXSTONE_LLVM_PREFIX})
 endif()
 
-find_package(LLVM-Wrapper 15 REQUIRED COMPONENTS
+find_package(LLVM-Wrapper COMPONENTS
     core
     mc
     AllTargetsCodeGens
@@ -56,6 +56,7 @@ target_compile_features(nyxstone PUBLIC
 )
 target_include_directories(nyxstone PUBLIC
     $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/vendor>
 )
 target_link_libraries(nyxstone PUBLIC
     LLVM-Wrapper
@@ -65,21 +66,12 @@ set_target_properties(nyxstone PROPERTIES
 )
 
 if(NYXSTONE_BUILD_EXAMPLES)
-    # Use -DBOOST_ROOT=C:/boost_1_80_0 to specify the boost root directory
-    if(WIN32)
-        set(Boost_USE_STATIC_LIBS ON) # only find static libs
-        set(Boost_USE_MULTITHREADED ON)
-        set(Boost_USE_STATIC_RUNTIME OFF)
-    endif()
-    find_package(Boost 1.40 COMPONENTS program_options REQUIRED)
-
     add_executable(nyxstone-bin examples/nyxstone-cli.cpp)
     set_target_properties(nyxstone-bin PROPERTIES
         OUTPUT_NAME nyxstone
     )
     target_link_libraries(nyxstone-bin PRIVATE
         nyxstone::nyxstone
-        Boost::program_options
     )
 
     add_executable(example examples/example.cpp)
@@ -89,4 +81,5 @@ if(NYXSTONE_BUILD_EXAMPLES)
 
     include(CTest)
     add_test(NAME TestExample COMMAND $<TARGET_FILE:example>)
+    add_test(NAME TestCLI COMMAND "${CMAKE_CURRENT_LIST_DIR}/tool/test-cli.sh")
 endif()

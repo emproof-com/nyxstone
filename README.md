@@ -3,6 +3,7 @@
 [![Github Cpp CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml)
 [![crates.io](https://img.shields.io/crates/v/nyxstone.svg)](https://crates.io/crates/nyxstone)
 [![PyPI](https://img.shields.io/pypi/v/nyxstone.svg)](https://pypi.org/project/nyxstone)
+[![cpp-docs](https://github.com/emproof-com/nyxstone/actions/workflows/doxygen.yml/badge.svg)](https://emproof-com.github.io/nyxstone/)
 
 Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesnâ€™t require patches to the LLVM source tree and links against standard LLVM libraries available in most Linux distributions. Implemented as a C++ library, Nyxstone also offers Rust and Python bindings. It supports all official LLVM architectures and allows to configure architecture-specific target settings.
 
@@ -25,7 +26,7 @@ Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesnâ
 
 ## Core Features
 
-* Assembles and disassembles code for all architectures supported by LLVM 15, including x86, ARM, MIPS, RISC-V and others.
+* Assembles and disassembles code for all architectures supported by the linked LLVM, including x86, ARM, MIPS, RISC-V and others.
 
 * C++ library based on LLVM with Rust and Python bindings.
 
@@ -50,50 +51,56 @@ This section provides instructions on how to get started with Nyxstone, covering
 
 ### Prerequisites
 
-Before building Nyxstone, ensure clang and LLVM 15 are present as statically linked libraries. Nyxstone looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
+Before building Nyxstone, ensure clang and LLVM are present on your system. Nyxstone supports LLVM major versions 15-18.
+When building it looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
 
-Installation Options for LLVM 15:
+Installation Options for LLVM versions 15-18:
 
-* Debian/Ubuntu
+* Ubuntu
 ```bash
-sudo apt install llvm-15 llvm-15-dev
-export NYXSTONE_LLVM_PREFIX=/usr/lib/llvm-15/
+sudo apt install llvm-${version} llvm-${version}-dev
+```
+
+* Debian
+LLVM version 15 and 16 are available through debian repositories. Installation is the same as for Ubuntu.
+For versions 17 or 18 refer to [https://apt.llvm.org/](https://apt.llvm.org/) for installation instructions.
+
+* Arch
+```bash
+sudo pacman -S llvm llvm-libs
 ```
 
 * Homebrew (macOS, Linux and others):
 ```bash
-brew install llvm@15
-export NYXSTONE_LLVM_PREFIX=/opt/homebrew/opt/llvm@15
+brew install llvm@18
+export NYXSTONE_LLVM_PREFIX=/opt/homebrew/opt/llvm@18
 ```
 
 * From LLVM Source:
 
-_Note_: On Windows you need to run these commands from a Visual Studio 2022 x64 command prompt. Additionally replace `~lib/my-llvm-15` with a different path.
+_Note_: On Windows you need to run these commands from a Visual Studio 2022 x64 command prompt. Additionally replace `~lib/my-llvm-18` with a different path.
 
 ```bash
 # checkout llvm
-git clone -b release/15.x --single-branch https://github.com/llvm/llvm-project.git
+git clone -b release/18.x --single-branch https://github.com/llvm/llvm-project.git
 cd llvm-project
 
 # build LLVM with custom installation directory
 cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_PARALLEL_LINK_JOBS=1
 cmake --build build
-cmake --install build --prefix ~/lib/my-llvm-15
+cmake --install build --prefix ~/lib/my-llvm-18
 
 # export path
-export NYXSTONE_LLVM_PREFIX=~/lib/my-llvm-15
+export NYXSTONE_LLVM_PREFIX=~/lib/my-llvm-18
 ```
 
 Also make sure to install any system dependent libraries needed by your LLVM version for static linking. They can be viewed with the command `llvm-config --system-libs`; the list can be empty. On Ubuntu/Debian, you will need the packages `zlib1g-dev` and `zlibstd-dev`.
 
 ### CLI Tool
 
-Nyxstone comes with a handy [CLI tool](examples/nyxstone-cli.cpp) for quick assembly and disassembly tasks. Install boost with your distribution's package manager, checkout the Nyxstone repository, and build the tool with cmake:
+Nyxstone comes with a handy [CLI tool](examples/nyxstone-cli.cpp) for quick assembly and disassembly tasks. Checkout the Nyxstone repository, and build the tool with CMake:
 
 ```bash
-# install boost on Ubuntu/Debian
-apt install boost
-
 # clone directory
 git clone https://github.com/emproof-com/nyxstone
 cd nyxstone
@@ -105,66 +112,73 @@ mkdir build && cd build && cmake .. && make
 Then, `nyxstone` can be used from the command line. Here's an output of its help menu:
 
 ```
-$ ./nyxstone --help
-Allowed options:
-  --help                    Show this message
-  --arch arg (=x86_64)      LLVM triple or architecture identifier of triple.
-                            For the most common architectures, we recommend:
-                            x86_32: `i686-linux-gnu`
-                            x86_64: `x86_64-linux-gnu`
-                            armv6m: `armv6m-none-eabi`
-                            armv7m: `armv7m-none-eabi`
-                            armv8m: `armv8m.main-none-eabi`
-                            aarch64: `aarch64-linux-gnueabihf`
-                            Using shorthand identifiers like `arm` can lead to
-                            Nyxstone not being able to assemble certain
-                            instructions.
-  --cpu arg                 LLVM cpu specifier, refer to `llc -mtriple=ARCH
-                            -mcpu=help` for a comprehensive list
-  --features arg            LLVM features to enable/disable, comma seperated
-                            feature strings prepended by '+' or '-' to enable or
-                            disable respectively. Refer to `llc -mtriple=ARCH
-                            -mattr=help` for a comprehensive list
-  --address arg (=0)        Address
+$ ./nyxstone -h
+Usage: nyxstone [-t=<triple>] [-p=<pc>] [-d] <input>
 
-Assembling:
-  --labels arg              Labels, for example "label0=0x10,label1=0x20"
-  -A [ --assemble ] arg     Assembly
+Examples:
+  # Assemble an instruction with the default architecture ('x86_64').
+  nyxstone 'push eax'
 
-Disassembling:
-  -D [ --disassemble ] arg  Byte code in hex, for example: "0203"
+  # Disassemble the bytes 'ffc300d1' as AArch64 code.
+  nyxstone -t aarch64 -d ffc300d1
 
+Options:
+  -t, --triple=<triple>      LLVM target triple or alias, e.g. 'aarch64'
+  -c, --cpu=<cpu>            LLVM CPU specifier, e.g. 'cortex-a53'
+  -f, --features=<list>      LLVM architecture/CPU feature list, e.g. '+mte,-neon'
+  -p, --address=<pc>         Initial address to assemble/disassemble relative to
+  -l, --labels=<list>        Label-to-address mappings (used when assembling only)
+  -d, --disassemble          Treat <input> as bytes to disassemble instead of assembly
+  -h, --help                 Show this help and usage message
+
+Notes:
+  The '--triple' parameter also supports aliases for common target triples:
+
+     'x86_32' -> 'i686-linux-gnu'
+     'x86_64' -> 'x86_64-linux-gnu'
+     'armv6m' -> 'armv6m-none-eabi'
+     'armv7m' -> 'armv7m-none-eabi'
+     'armv8m' -> 'armv8m.main-none-eabi'
+    'aarch64' -> 'aarch64-linux-gnueabihf'
+
+  The CPUs for a target can be found with 'llc -mtriple=<triple> -mcpu=help'.
+  The features for a target can be found with 'llc -mtriple=<triple> -mattr=help'.
 ```
 
 Now, we can assemble an instruction for the x86_64 architecture:
 
 ```
-$ ./nyxstone --arch "x86_64" -A "mov rax, rbx"
-Assembled:
-    0x00000000: mov rax, rbx - [ 48 89 d8 ]
+$ ./nyxstone -t x86_64 "mov rax, rbx"
+        0x00000000: mov rax, rbx                     ; 48 89 d8
 ```
 
 We can also assemble a sequence of instructions. In the following, we make use of label-based addressing and assume the first instruction is mapped to address `0xdeadbeef`:
 
 ```
-$ ./nyxstone --arch "x86_64" --address 0xdeadbeef -A "cmp rax, rbx; jz .exit ; inc rax ; .exit: ret"
-    0xdeadbeef: cmp rax, rbx - [ 48 39 d8 ]
-    0xdeadbef2: je .exit - [ 74 03 ]
-    0xdeadbef4: inc rax - [ 48 ff c0 ]
-    0xdeadbef7: ret - [ c3 ]
+$ ./nyxstone -t x86_64 -p 0xdeadbeef "cmp rax, rbx; jz .exit; inc rax; .exit: ret"
+        0xdeadbeef: cmp rax, rbx                     ; 48 39 d8 
+        0xdeadbef2: je .exit                         ; 74 03 
+        0xdeadbef4: inc rax                          ; 48 ff c0 
+        0xdeadbef7: ret                              ; c3 
 ```
 
-We can also disassemble an instruction for the ARM32 thumb instruction set:
+Furthermore, we can disassemble instructions for different instruction sets, here the ARM32 thumb instruction set:
 
 ```
-$ ./nyxstone --arch "thumbv8" -D "13 37"
-Disassembled:
-    0x00000000: adds r7, #19 - [ 13 37 ]
+$ ./nyxstone -t thumbv8 -d "13 37"
+        0x00000000: adds r7, #19                     ; 13 37 
+```
+
+Using the support for user-defined labels, we can assemble this snippet which does not contain the label `.label` by specifying its memory location ourself.
+
+```
+$ ./nyxstone -p "0x1000" -l ".label=0x1238" "jmp .label"
+        0x00001000: jmp .label                       ; e9 33 02 00 00
 ```
 
 ### C++ Library
 
-To use Nyxstone as a C++ library, your C++ code has to be linked against Nyxstone and LLVM 15. 
+To use Nyxstone as a C++ library, your C++ code has to be linked against Nyxstone and LLVM.
 
 The following cmake example assumes Nyxstone in a subdirectory `nyxstone` in your project:
 
@@ -316,3 +330,6 @@ The current contributors are:
 * Marc Fyrbiak (emproof)
 * Tim Blazytko (emproof)
 
+## Acknowledgements
+
+To ensure that we link LLVM correctly with proper versioning in Rust, we adapted the build.rs from [llvm-sys](https://gitlab.com/taricorp/llvm-sys.rs/).
