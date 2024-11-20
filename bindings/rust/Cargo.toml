@@ -1,6 +1,6 @@
 [package]
 name = "nyxstone"
-version = "0.1.3"
+version = "0.1.4"
 authors = ["emproof B.V. <oss@emproof.com>", "Philipp Koppe <pkoppe@emproof.com>", "Rachid Mzannar <rmzannar@emproof.com>", "Darius Hartlief <dhartlief@emproof.com>"]
 edition = "2021"
 include = [
@@ -16,7 +16,6 @@ keywords = ["assembly", "disassembly", "arm", "x86_64", "reverse-engineering"]
 description = "Bindings for the nyxstone assembler/disassembler"
 categories = ["api-bindings", "compilers"]
 license = "MIT"
-license-file = "LICENSE"
 
 [dependencies]
 anyhow = { version = "1.0.68", default-features = true }
