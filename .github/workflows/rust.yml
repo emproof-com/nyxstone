@@ -15,7 +15,6 @@ jobs:
     env:
       working-dir: ./bindings/rust
       NYXSTONE_LLVM_PREFIX: "/usr/lib/llvm-15/"
-      NYXSTONE_LINK_FFI: "1"
     steps:
     - uses: actions/checkout@v4
     - name: Packages
@@ -43,10 +42,10 @@ jobs:
     - name: Packages
       run: brew install llvm@15
     - name: Build
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@15)" NYXSTONE_LINK_FFI=1 cargo build
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@15)" cargo build
       working-directory: ${{ env.working-dir }}
     - name: Run tests
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@15)" NYXSTONE_LINK_FFI=1 cargo test
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@15)" cargo test
       working-directory: ${{ env.working-dir }}
 
   mac-llvm-16:
@@ -58,10 +57,10 @@ jobs:
     - name: Packages
       run: brew install llvm@16
     - name: Build
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@16)" NYXSTONE_LINK_FFI=1 cargo build
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@16)" cargo build
       working-directory: ${{ env.working-dir }}
     - name: Run tests
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@16)" NYXSTONE_LINK_FFI=1 cargo test
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@16)" cargo test
       working-directory: ${{ env.working-dir }}
 
   mac-llvm-17:
@@ -73,10 +72,10 @@ jobs:
     - name: Packages
       run: brew install llvm@17
     - name: Build
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@17)" NYXSTONE_LINK_FFI=1 cargo build
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@17)" cargo build
       working-directory: ${{ env.working-dir }}
     - name: Run tests
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@17)" NYXSTONE_LINK_FFI=1 cargo test
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@17)" cargo test
       working-directory: ${{ env.working-dir }}
 
   mac-llvm-18:
@@ -88,9 +87,9 @@ jobs:
     - name: Packages
       run: brew install llvm@18
     - name: Build
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@18)" NYXSTONE_LINK_FFI=1 cargo build
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@18)" cargo build
       working-directory: ${{ env.working-dir }}
     - name: Run tests
-      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@18)" NYXSTONE_LINK_FFI=1 cargo test
+      run: RUSTFLAGS="-L$(brew --prefix zstd)/lib" RUSTDOCFLAGS="-L$(brew --prefix zstd)/lib" NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@18)" cargo test
       working-directory: ${{ env.working-dir }}
 

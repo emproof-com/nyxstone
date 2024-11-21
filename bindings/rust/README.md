@@ -7,11 +7,10 @@ Official bindings for the Nyxstone assembler/disassembler engine.
 
 ## Building
 
-The project can be build via `cargo build`, as long as LLVM with a major version in the range 15-18 is installed in the `$PATH` or the environment variable `$NYXSTONE_LLVM_PREFIX` points to the installation location of a LLVM library.
-
-LLVM might be linked against FFI, but not correctly report this fact via `llvm-config`. If your LLVM does link FFI and
-Nyxstone fails to run, set the `NYXSTONE_LINK_FFI` environment variable to `1`, which will ensure that Nyxstone
-links against `libffi`.
+The project can be build via `cargo build`, as long as LLVM with a major version in the range 15 to 18 is availabe to CMake
+and cmake is installed on the system. If your installation of LLVM is installed in a non-standard location, you can set
+`NYXSTONE_LLVM_PREFIX` to tell Nyxstone or use the `CMAKE_PREFIX_PATH` environment variable to add the directory to the
+CMake search path.  
 
 ## Installation
 
