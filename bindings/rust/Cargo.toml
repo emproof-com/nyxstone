@@ -3,13 +3,10 @@ name = "nyxstone"
 version = "0.1.4"
 authors = ["emproof B.V. <oss@emproof.com>", "Philipp Koppe <pkoppe@emproof.com>", "Rachid Mzannar <rmzannar@emproof.com>", "Darius Hartlief <dhartlief@emproof.com>"]
 edition = "2021"
-include = [
-  "src/*",
-  "nyxstone/src/*",
-  "nyxstone/include/**/*",
-  "Cargo.toml",
-  "build.rs",
-  "LICENSE",
+exclude = [
+    "examples",
+    "tests",
+    "rustfmt.toml",
 ]
 repository = "https://github.com/emproof-com/nyxstone"
 keywords = ["assembly", "disassembly", "arm", "x86_64", "reverse-engineering"]
