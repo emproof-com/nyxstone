@@ -381,19 +381,16 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
 tl::expected<void, std::string> Nyxstone::disassemble_impl(const std::vector<uint8_t>& bytes, uint64_t address,
     size_t count, std::string* disassembly, std::vector<Instruction>* instructions) const
 {
-    if (disassembly == nullptr && instructions == nullptr) {
+    if ((disassembly == nullptr && instructions == nullptr) || bytes.empty()) {
         return {};
     }
 
     if (disassembly != nullptr) {
         disassembly->clear();
     }
+
     if (instructions != nullptr) {
         instructions->clear();
-    }
-
-    if (bytes.empty()) {
-        return {};
     }
 
     // Equip context with info objects and custom error handling
@@ -417,20 +414,25 @@ tl::expected<void, std::string> Nyxstone::disassemble_impl(const std::vector<uin
         return tl::unexpected("Invalid architecture / LLVM target triple");
     }
 
-    // Disassemble
-    const llvm::ArrayRef<u8> data(bytes.data(), bytes.size());
-    uint64_t pos = 0;
-    uint64_t insn_count = 0;
-    while (true) {
+    // Disassemble instructions
+    llvm::ArrayRef<u8> data(bytes);
+    uint64_t pos = 0, insn_count = 0;
+    const bool disassemble_all = (count == 0);
+
+    // We exit either if we reached the end of the provided bytes, or if we have disassembled as many instructions
+    // as the user has requested
+    while (pos < data.size() && (disassemble_all || insn_count < count)) {
         // Decompose one instruction
         llvm::MCInst insn;
         uint64_t insn_size = 0;
-        auto res = disassembler->getInstruction(insn, insn_size, data.slice(pos), address + pos, llvm::nulls());
-        if (res == llvm::MCDisassembler::Fail || res == llvm::MCDisassembler::SoftFail || !error_msg.empty()) {
+
+        if (disassembler->getInstruction(insn, insn_size, data.slice(pos), address + pos, llvm::nulls()) != llvm::MCDisassembler::Success
+            || !error_msg.empty()) {
             std::stringstream error_stream;
-            error_stream << "Could not disassemble at position " << pos << " / address " << std::hex << address + pos;
+            error_stream << "Could not disassemble at position " << pos
+                         << " / address " << std::hex << address + pos;
             if (!error_msg.empty()) {
-                error_stream << "(= " << error_msg.c_str() << " )";
+                error_stream << " (= " << error_msg.c_str() << ")";
             }
             return tl::unexpected(error_stream.str());
         }
@@ -438,26 +440,21 @@ tl::expected<void, std::string> Nyxstone::disassemble_impl(const std::vector<uin
         // Generate instruction disassembly text
         std::string insn_str;
         llvm::raw_string_ostream str_stream(insn_str);
-        instruction_printer->printInst(&insn,
-            /* Address */ address + pos,
-            /* Annot */ "", *subtarget_info, str_stream);
-
-        // left trim
+        instruction_printer->printInst(&insn, /* Address */ address + pos, /* Annot */ "", *subtarget_info, str_stream);
+        // Left trim
         insn_str.erase(0, insn_str.find_first_not_of(" \t\n\r"));
-        // convert tabulators to spaces
+        // Convert tabulators to spaces
         std::replace(insn_str.begin(), insn_str.end(), '\t', ' ');
 
         // Add instruction to results
         if (disassembly != nullptr) {
             *disassembly += insn_str + "\n";
         }
+
         if (instructions != nullptr) {
-            Nyxstone::Instruction new_insn;
-            new_insn.address = address + pos;
-            new_insn.assembly = insn_str;
-            new_insn.bytes.reserve(insn_size);
-            std::copy(data.begin() + pos, data.begin() + pos + insn_size, std::back_inserter(new_insn.bytes));
-            instructions->push_back(new_insn);
+            Instruction new_insn{address + pos, insn_str, {}};
+            new_insn.bytes.assign(data.begin() + pos, data.begin() + pos + insn_size);
+            instructions->push_back(std::move(new_insn));
         }
 
         // Abort after n instructions if requested
