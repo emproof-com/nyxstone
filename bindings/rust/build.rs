@@ -56,6 +56,8 @@ fn main() {
     println!("cargo:config_path={}", llvm_config_path.display()); // will be DEP_LLVM_CONFIG_PATH
     println!("cargo:libdir={}", libdir); // DEP_LLVM_LIBDIR
 
+    let preferences = LinkingPreferences::init();
+
     // Link LLVM libraries
     println!("cargo:rustc-link-search=native={}", libdir);
     for link_search_dir in get_system_library_dirs() {
@@ -63,7 +65,7 @@ fn main() {
     }
     // We need to take note of what kind of libraries we linked to, so that
     // we can link to the same kind of system libraries
-    let (kind, libs) = get_link_libraries(&llvm_config_path);
+    let (kind, libs) = get_link_libraries(&llvm_config_path, &preferences);
     for name in libs {
         println!("cargo:rustc-link-lib={}={}", kind.string(), name);
     }
@@ -384,8 +386,46 @@ impl LibraryKind {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct LinkingPreferences {
+    /// Prefer static linking over dynamic linking.
+    prefer_static: bool,
+    /// Force the use of the preferred kind of linking.
+    force: bool,
+}
+
+impl LinkingPreferences {
+    fn init() -> LinkingPreferences {
+        let prefer_static = cfg!(feature = "prefer-static");
+        let prefer_dynamic = cfg!(feature = "prefer-dynamic");
+        let force_static = cfg!(feature = "force-static");
+        let force_dynamic = cfg!(feature = "force-dynamic");
+
+        // more than one preference is an error
+        if [prefer_static, prefer_dynamic, force_static, force_dynamic]
+            .iter()
+            .filter(|&&x| x)
+            .count()
+            > 1
+        {
+            panic!(
+                "Only one of the features `prefer-static`, `prefer-dynamic`, `force-static`, \
+                 `force-dynamic` can be enabled at once"
+            );
+        }
+
+        // if no preference is given, default to prefer static linking
+        let prefer_static = prefer_static || !(prefer_dynamic || force_static || force_dynamic);
+
+        LinkingPreferences {
+            prefer_static: force_static || prefer_static,
+            force: force_static || force_dynamic,
+        }
+    }
+}
+
 /// Get the names of libraries to link against, along with whether it is static or shared library.
-fn get_link_libraries(llvm_config_path: &Path) -> (LibraryKind, Vec<String>) {
+fn get_link_libraries(llvm_config_path: &Path, preferences: &LinkingPreferences) -> (LibraryKind, Vec<String>) {
     // Using --libnames in conjunction with --libdir is particularly important
     // for MSVC when LLVM is in a path with spaces, but it is generally less of
     // a hack than parsing linker flags output from --libs and --ldflags.
@@ -404,8 +444,17 @@ fn get_link_libraries(llvm_config_path: &Path) -> (LibraryKind, Vec<String>) {
         llvm_config_ex(llvm_config_path, ["--libnames", link_arg])
     }
 
-    // Prefer static linking
-    let preferences = [LibraryKind::Static, LibraryKind::Dynamic];
+    let LinkingPreferences { prefer_static, force } = preferences;
+    let one = [*prefer_static];
+    let both = [*prefer_static, !*prefer_static];
+
+    let preferences = if *force { &one[..] } else { &both[..] }.iter().map(|is_static| {
+        if *is_static {
+            LibraryKind::Static
+        } else {
+            LibraryKind::Dynamic
+        }
+    });
 
     for kind in preferences {
         match get_link_libraries_impl(llvm_config_path, kind) {
