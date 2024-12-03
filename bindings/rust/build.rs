@@ -414,8 +414,12 @@ impl LinkingPreferences {
             );
         }
 
-        // if no preference is given, default to prefer static linking
-        let prefer_static = prefer_static || !(prefer_dynamic || force_static || force_dynamic);
+        // if no preference is given, default to prefer static linking or dynamic linking for macOS
+        // targets
+        let prefer_static = match target_os_is("macos") {
+            true => false,
+            false => prefer_static || !(prefer_dynamic || force_static || force_dynamic),
+        };
 
         LinkingPreferences {
             prefer_static: force_static || prefer_static,
