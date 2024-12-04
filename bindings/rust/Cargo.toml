@@ -25,5 +25,18 @@ clap = { version = "4.5", features = ["derive"] }
 cxx-build = "1.0.94"
 anyhow = { version = "1.0.68", default-features = true }
 
+[features]
+# Linking preference.
+# If none of these is selected, it defaults to force static linking to match
+# the behaviour before this feature is introduced.
+# Prefer dynamic linking to LLVM library if possible.
+prefer-dynamic = []
+# Force dynamic linking.
+force-dynamic = []
+# Prefer static linking to LLVM library if possible.
+prefer-static = []
+# Force static linking
+force-static = []
+
 [lib]
 path = "src/lib.rs"
