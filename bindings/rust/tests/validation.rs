@@ -98,6 +98,33 @@ mod tests {
     }
 
     #[test]
+    fn nyxstone_disassemble_with_branch_as_address() -> Result<()> {
+        let config = NyxstoneConfig {
+            print_branch_imm_as_address: true,
+            ..Default::default()
+        };
+
+        let labels = HashMap::from([(".label", 0x1010)]);
+
+        let nyxstone_x86_64 = Nyxstone::new("x86_64-linux-gnu", config)?;
+
+        let result = nyxstone_x86_64.assemble_with("jmp .label", 0x1000, &labels)?;
+        assert_eq!(result, vec![235, 14]);
+
+        let result = nyxstone_x86_64.disassemble_to_instructions(&result, 0x1000, 0)?;
+        assert_eq!(
+            result,
+            vec![Instruction {
+                address: 0x1000,
+                assembly: "jmp 0x100e".into(),
+                bytes: vec![235, 14],
+            }],
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn nyxstone_test() -> Result<()> {
         let nyxstone_x86_64 = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", NyxstoneConfig::default())?;

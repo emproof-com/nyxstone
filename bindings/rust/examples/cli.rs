@@ -81,6 +81,7 @@ fn main() -> Result<()> {
             cpu: &cli.cpu.unwrap_or_default(),
             features: &cli.features.unwrap_or_default(),
             immediate_style: IntegerBase::HexPrefix,
+            print_branch_imm_as_address: false,
         },
     )?;
 

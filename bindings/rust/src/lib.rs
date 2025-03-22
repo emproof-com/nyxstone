@@ -97,6 +97,7 @@ impl Nyxstone {
             config.cpu,
             config.features,
             config.immediate_style.into(),
+            config.print_branch_imm_as_address,
         );
 
         if !result.error.is_empty() {
@@ -272,6 +273,8 @@ pub struct NyxstoneConfig<'a, 'b> {
     pub features: &'b str,
     /// The printing style of immediates.
     pub immediate_style: IntegerBase,
+    /// Option If true, a branch immediate (e.g. bl 4) will be printed as a hexadecimal address (e.g. bl 0x20004)
+    pub print_branch_imm_as_address: bool,
 }
 
 #[cxx::bridge]
@@ -341,7 +344,13 @@ mod ffi {
         /// - features: llvm features string (features delimited by `,` with `+` for enable and `-` for disable), can be empty
         /// # Returns
         /// Ok() and UniquePtr holding a NyxstoneFFI on success, Err() otherwise.
-        fn create_nyxstone_ffi(triple_name: &str, cpu: &str, features: &str, style: IntegerBase) -> NyxstoneResult;
+        fn create_nyxstone_ffi(
+            triple_name: &str,
+            cpu: &str,
+            features: &str,
+            style: IntegerBase,
+            print_branch_imm_as_address: bool,
+        ) -> NyxstoneResult;
 
         // Translates assembly instructions at a given start address to bytes.
         // Additional label definitions by absolute address may be supplied.

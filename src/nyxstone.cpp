@@ -41,6 +41,12 @@ NyxstoneBuilder& NyxstoneBuilder::with_immediate_style(NyxstoneBuilder::IntegerB
     return *this;
 }
 
+NyxstoneBuilder& NyxstoneBuilder::with_print_immediate_as_address(bool option) noexcept
+{
+    m_print_branch_immediate_as_address = option;
+    return *this;
+}
+
 tl::expected<std::unique_ptr<Nyxstone>, std::string> NyxstoneBuilder::build()
 {
     // # Note
@@ -117,6 +123,8 @@ tl::expected<std::unique_ptr<Nyxstone>, std::string> NyxstoneBuilder::build()
     default:
         break;
     }
+
+    instruction_printer->setPrintBranchImmAsAddress(m_print_branch_immediate_as_address);
 
     return std::make_unique<Nyxstone>(std::move(triple),
         // target is a static object, thus it is safe to take its reference here:

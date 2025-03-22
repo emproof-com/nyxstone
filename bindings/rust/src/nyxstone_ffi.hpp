@@ -54,4 +54,4 @@ public:
 /// @param cpu The cpu to be used.
 /// @param features Llvm features string.
 /// @param imm_style The integer representation for immediates.
-NyxstoneResult create_nyxstone_ffi(rust::str triple_name, rust::str cpu, rust::str features, IntegerBase imm_style);
+NyxstoneResult create_nyxstone_ffi(rust::str triple_name, rust::str cpu, rust::str features, IntegerBase imm_style, bool print_branch_immediate_as_address);

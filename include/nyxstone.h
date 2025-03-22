@@ -192,6 +192,11 @@ public:
     /// @return Reference to the updated NyxstoneBuilder object.
     NyxstoneBuilder& with_immediate_style(IntegerBase style) noexcept;
 
+    /// @brief Specify if some operands should be printed as an absolute address.
+    ///
+    /// @return Reference to the updated NyxstoneBuilder object.
+    NyxstoneBuilder& with_print_immediate_as_address(bool option) noexcept;
+
     /// @brief Builds a nyxstone instance from the builder.
     ///
     /// @return A unique_ptr holding the created nyxstone instance on success, an error string otherwise.
@@ -206,6 +211,8 @@ private:
     std::string m_features;
     /// @brief In which style immediates should be represented in disassembly.
     IntegerBase m_imm_style = IntegerBase::Dec;
+    /// @brief Option if true a branch immediate will be printed as an absolute address
+    bool m_print_branch_immediate_as_address = false;
 };
 
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.

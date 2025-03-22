@@ -119,7 +119,7 @@ InstructionResult NyxstoneFFI::disassemble_to_instructions(
 }
 
 NyxstoneResult create_nyxstone_ffi( // cppcheck-suppress unusedFunction
-    const rust::str triple_name, const rust::str cpu, const rust::str features, const IntegerBase imm_style)
+    const rust::str triple_name, const rust::str cpu, const rust::str features, const IntegerBase imm_style, const bool print_branch_immediate_as_address)
 {
     NyxstoneBuilder::IntegerBase style = static_cast<NyxstoneBuilder::IntegerBase>(static_cast<uint8_t>(imm_style));
 
@@ -127,6 +127,7 @@ NyxstoneResult create_nyxstone_ffi( // cppcheck-suppress unusedFunction
                       .with_cpu(std::string { cpu })
                       .with_features(std::string { features })
                       .with_immediate_style(style)
+                      .with_print_immediate_as_address(print_branch_immediate_as_address)
                       .build();
 
     // Note: This is disgusting, but this is necesarry for two reasons:
