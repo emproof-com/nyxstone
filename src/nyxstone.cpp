@@ -7,23 +7,23 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
-#include <llvm/MC/MCAsmBackend.h>
 #include <llvm/BinaryFormat/ELF.h>
+#include <llvm/MC/MCAsmBackend.h>
 #include <llvm/MC/MCAsmLayout.h>
 #include <llvm/MC/MCAssembler.h>
-#include <llvm/MC/MCSectionELF.h>
 #include <llvm/MC/MCCodeEmitter.h>
 #include <llvm/MC/MCDisassembler/MCDisassembler.h>
 #include <llvm/MC/MCExpr.h>
 #include <llvm/MC/MCFixupKindInfo.h>
 #include <llvm/MC/MCFragment.h>
-#include <llvm/MC/MCSymbol.h>
 #include <llvm/MC/MCInstPrinter.h>
 #include <llvm/MC/MCObjectFileInfo.h>
 #include <llvm/MC/MCObjectWriter.h>
 #include <llvm/MC/MCParser/MCAsmParser.h>
 #include <llvm/MC/MCParser/MCTargetAsmParser.h>
+#include <llvm/MC/MCSectionELF.h>
 #include <llvm/MC/MCStreamer.h>
+#include <llvm/MC/MCSymbol.h>
 #include <llvm/MC/MCTargetOptions.h>
 #include <llvm/MC/MCValue.h>
 #include <llvm/MC/TargetRegistry.h>
@@ -294,14 +294,14 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
 
     llvm::MCContext context(
         triple, assembler_info.get(), register_info.get(), subtarget_info.get(), &source_manager, &target_options);
-    context.setDiagnosticHandler([&extended_error](const llvm::SMDiagnostic& SMD, bool /*IsInlineAsm*/,
-                                     const llvm::SourceMgr& /*SrcMgr*/,
-                                     std::vector<const llvm::MDNode*> const& /*LocInfos*/) {
-        llvm::SmallString<128> error_msg;
-        llvm::raw_svector_ostream error_stream(error_msg);
-        SMD.print(nullptr, error_stream, /* ShowColors */ false);
-        extended_error += error_msg.c_str();
-    });
+    context.setDiagnosticHandler(
+        [&extended_error](const llvm::SMDiagnostic& SMD, bool /*IsInlineAsm*/, const llvm::SourceMgr& /*SrcMgr*/,
+            std::vector<const llvm::MDNode*> const& /*LocInfos*/) {
+            llvm::SmallString<128> error_msg;
+            llvm::raw_svector_ostream error_stream(error_msg);
+            SMD.print(nullptr, error_stream, /* ShowColors */ false);
+            extended_error += error_msg.c_str();
+        });
 
     if (!triple.isOSBinFormatELF()) {
         std::stringstream error_stream;
@@ -339,8 +339,8 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     // MCAssembler is only used to satisfy the `const MCAssembler&` parameter of
     // MCAsmBackend::applyFixup (some backends call Asm.getContext() for error
     // reporting). The backend/emitter/writer it owns are not invoked through it.
-    llvm::MCAssembler assembler(context, std::move(throwaway_backend), std::move(code_emitter_uptr),
-        std::move(object_writer_uptr));
+    llvm::MCAssembler assembler(
+        context, std::move(throwaway_backend), std::move(code_emitter_uptr), std::move(object_writer_uptr));
 
     auto streamer = std::make_unique<FastStreamer>(context);
     streamer->setUseAssemblerInfoForParsing(true);
@@ -551,8 +551,7 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
             const uint64_t fixup_byte_offset = e.output_offset + fx.getOffset();
             const uint64_t value = compute_fixup_value(fx, target_offset, fixup_byte_offset);
 
-            llvm::MutableArrayRef<char> data(
-                reinterpret_cast<char*>(output.data()) + e.output_offset, e.bytes.size());
+            llvm::MutableArrayRef<char> data(reinterpret_cast<char*>(output.data()) + e.output_offset, e.bytes.size());
             asm_backend_p->applyFixup(assembler, fx, mc_value, data, value, /*IsResolved=*/true, e.sti);
         }
         if (!extended_error.empty()) {
@@ -579,8 +578,7 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
             }
             const uint64_t fixup_byte_offset = e.output_offset + fx.getOffset();
             if (is_ArmT16_or_ArmT32(triple)) {
-                validate_arm_thumb_fixup(
-                    fx, address, static_cast<uint64_t>(target_offset), fixup_byte_offset, context);
+                validate_arm_thumb_fixup(fx, address, static_cast<uint64_t>(target_offset), fixup_byte_offset, context);
             }
             if (triple.isAArch64()) {
                 validate_aarch64_fixup(fx, static_cast<uint64_t>(target_offset), context);
@@ -649,12 +647,12 @@ tl::expected<void, std::string> Nyxstone::disassemble_impl(const std::vector<uin
     }
 
     llvm::SmallString<128> error_msg;
-    disasm_context->setDiagnosticHandler([&error_msg](const llvm::SMDiagnostic& SMD, bool /*IsInlineAsm*/,
-                                             const llvm::SourceMgr& /*SrcMgr*/,
-                                             std::vector<const llvm::MDNode*> const& /*LocInfos*/) {
-        llvm::raw_svector_ostream error_stream(error_msg);
-        SMD.print(nullptr, error_stream, /* ShowColors */ false);
-    });
+    disasm_context->setDiagnosticHandler(
+        [&error_msg](const llvm::SMDiagnostic& SMD, bool /*IsInlineAsm*/, const llvm::SourceMgr& /*SrcMgr*/,
+            std::vector<const llvm::MDNode*> const& /*LocInfos*/) {
+            llvm::raw_svector_ostream error_stream(error_msg);
+            SMD.print(nullptr, error_stream, /* ShowColors */ false);
+        });
 
     const llvm::ArrayRef<u8> data(bytes.data(), bytes.size());
     uint64_t pos = 0;

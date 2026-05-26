@@ -8,12 +8,12 @@
 #include <llvm/MC/MCAsmBackend.h>
 #include <llvm/MC/MCAsmInfo.h>
 #include <llvm/MC/MCContext.h>
-#include <llvm/MC/MCSectionELF.h>
 #include <llvm/MC/MCDisassembler/MCDisassembler.h>
 #include <llvm/MC/MCInstPrinter.h>
 #include <llvm/MC/MCInstrInfo.h>
 #include <llvm/MC/MCObjectFileInfo.h>
 #include <llvm/MC/MCRegisterInfo.h>
+#include <llvm/MC/MCSectionELF.h>
 #include <llvm/MC/MCSubtargetInfo.h>
 #include <llvm/MC/TargetRegistry.h>
 #pragma GCC diagnostic pop
@@ -31,8 +31,8 @@ public:
     {
         // MCObjectFileInfo::Ctx is private; the parser never inspects it,
         // it only queries section pointers we populate here.
-        TextSection = ctx.getELFSection(
-            ".text", llvm::ELF::SHT_PROGBITS, llvm::ELF::SHF_ALLOC | llvm::ELF::SHF_EXECINSTR);
+        TextSection
+            = ctx.getELFSection(".text", llvm::ELF::SHT_PROGBITS, llvm::ELF::SHF_ALLOC | llvm::ELF::SHF_EXECINSTR);
     }
 };
 
@@ -79,8 +79,8 @@ public:
     Nyxstone(llvm::Triple&& triple, const llvm::Target& target, llvm::MCTargetOptions&& target_options,
         std::unique_ptr<llvm::MCRegisterInfo>&& register_info, std::unique_ptr<llvm::MCAsmInfo>&& assembler_info,
         std::unique_ptr<llvm::MCInstrInfo>&& instruction_info, std::unique_ptr<llvm::MCSubtargetInfo>&& subtarget_info,
-        std::unique_ptr<llvm::MCInstPrinter>&& instruction_printer,
-        std::unique_ptr<llvm::MCAsmBackend>&& asm_backend, std::unique_ptr<llvm::MCContext>&& disasm_context,
+        std::unique_ptr<llvm::MCInstPrinter>&& instruction_printer, std::unique_ptr<llvm::MCAsmBackend>&& asm_backend,
+        std::unique_ptr<llvm::MCContext>&& disasm_context,
         std::unique_ptr<llvm::MCDisassembler>&& disassembler) noexcept
         : triple(std::move(triple))
         , target(target)
