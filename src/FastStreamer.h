@@ -41,8 +41,11 @@ public:
     void emitLabel(llvm::MCSymbol* symbol, llvm::SMLoc /*loc*/ = llvm::SMLoc()) override;
 
     // Pure-virtual stubs — assemble() never produces directives that hit these.
+    // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
     bool emitSymbolAttribute(llvm::MCSymbol* /*sym*/, llvm::MCSymbolAttr /*attr*/) override { return true; }
+    // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
     void emitCommonSymbol(llvm::MCSymbol* /*sym*/, uint64_t /*size*/, llvm::Align /*align*/) override { }
+    // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
     void emitZerofill(llvm::MCSection* /*section*/, llvm::MCSymbol* /*sym*/ = nullptr, uint64_t /*size*/ = 0,
         llvm::Align /*align*/ = llvm::Align(1), llvm::SMLoc /*loc*/ = llvm::SMLoc()) override
     {
