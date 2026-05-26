@@ -10,8 +10,7 @@ const ENV_FORCE_FFI_LINKING: &str = "NYXSTONE_LINK_FFI";
 fn main() {
     let headers = [
         "nyxstone/include/nyxstone.h",
-        "nyxstone/src/ELFStreamerWrapper.h",
-        "nyxstone/src/ObjectWriterWrapper.h",
+        "nyxstone/src/FastStreamer.h",
         "nyxstone/src/Target/AArch64/MCTargetDesc/AArch64FixupKinds.h",
         "nyxstone/src/Target/AArch64/MCTargetDesc/AArch64MCExpr.h",
         "src/nyxstone_ffi.hpp",
@@ -19,8 +18,7 @@ fn main() {
 
     let sources = [
         "nyxstone/src/nyxstone.cpp",
-        "nyxstone/src/ObjectWriterWrapper.cpp",
-        "nyxstone/src/ELFStreamerWrapper.cpp",
+        "nyxstone/src/FastStreamer.cpp",
         "src/nyxstone_ffi.cpp",
     ];
 

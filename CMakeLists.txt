@@ -79,6 +79,11 @@ if(NYXSTONE_BUILD_EXAMPLES)
         nyxstone::nyxstone
     )
 
+    add_executable(benchmark examples/benchmark.cpp)
+    target_link_libraries(benchmark PRIVATE
+        nyxstone::nyxstone
+    )
+
     include(CTest)
     add_test(NAME TestExample COMMAND $<TARGET_FILE:example>)
     add_test(NAME TestCLI COMMAND "${CMAKE_CURRENT_LIST_DIR}/tool/test-cli.sh")
