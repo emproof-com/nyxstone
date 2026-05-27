@@ -8,8 +8,13 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <llvm/BinaryFormat/ELF.h>
+#include <llvm/Config/llvm-config.h>
 #include <llvm/MC/MCAsmBackend.h>
+#if LLVM_VERSION_MAJOR < 19
+// MCAsmLayout was removed in LLVM 19; in 19+ the relaxation API takes
+// MCAssembler directly.
 #include <llvm/MC/MCAsmLayout.h>
+#endif
 #include <llvm/MC/MCAssembler.h>
 #include <llvm/MC/MCCodeEmitter.h>
 #include <llvm/MC/MCDisassembler/MCDisassembler.h>
@@ -202,6 +207,23 @@ tl::expected<std::vector<Nyxstone::Instruction>, std::string> Nyxstone::disassem
 }
 
 namespace {
+    /// Cross-version `MCCodeEmitter::encodeInstruction` wrapper. LLVM 15-16
+    /// expose only the `raw_ostream&` overload; LLVM 17+ adds the public
+    /// `SmallVectorImpl<char>&` overload (and makes the stream variant
+    /// `protected`). We always carry our own SmallVector, so wrap it in
+    /// `raw_svector_ostream` for the older versions.
+    inline void encode_instruction(llvm::MCCodeEmitter& emitter, const llvm::MCInst& inst,
+        llvm::SmallVectorImpl<char>& bytes, llvm::SmallVectorImpl<llvm::MCFixup>& fixups,
+        const llvm::MCSubtargetInfo& sti)
+    {
+#if LLVM_VERSION_MAJOR < 17
+        llvm::raw_svector_ostream os(bytes);
+        emitter.encodeInstruction(inst, os, fixups, sti);
+#else
+        emitter.encodeInstruction(inst, bytes, fixups, sti);
+#endif
+    }
+
     /// Validates an ARM Thumb fixup: range and alignment checks LLVM is missing
     /// for some kinds, producing wrong bytes instead of an error. Alignment
     /// and range checks operate on the runtime addresses (`address +
@@ -403,7 +425,7 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
             continue;
         }
         EmittedEvent e { /*is_label=*/false, /*output_offset=*/0, /*symbol=*/nullptr, ev.inst, ev.sti, {}, {} };
-        code_emitter->encodeInstruction(e.inst, e.bytes, e.fixups, *e.sti);
+        encode_instruction(*code_emitter, e.inst, e.bytes, e.fixups, *e.sti);
         emitted.push_back(std::move(e));
     }
 
@@ -452,22 +474,24 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
 
     auto compute_fixup_value
         = [&](const llvm::MCFixup& fixup, int64_t target_offset, uint64_t fixup_byte_offset) -> uint64_t {
+        const auto kind = fixup.getTargetKind();
         const auto info = asm_backend_p->getFixupKindInfo(fixup.getKind());
         const bool is_pcrel = (info.Flags & llvm::MCFixupKindInfo::FKF_IsPCRel) != 0;
-        if (triple.isAArch64() && fixup.getTargetKind() == llvm::AArch64::fixup_aarch64_pcrel_adrp_imm21) {
+        const bool is_aligned_down_32 = (info.Flags & llvm::MCFixupKindInfo::FKF_IsAlignedDownTo32Bits) != 0;
+        if (triple.isAArch64() && kind == llvm::AArch64::fixup_aarch64_pcrel_adrp_imm21) {
             constexpr uint64_t PAGE_SIZE { 0x1000 };
             const uint64_t local_addr = address + fixup_byte_offset;
             const uint64_t target_addr = address + static_cast<uint64_t>(target_offset);
             return (target_addr & ~(PAGE_SIZE - 1)) - (local_addr & ~(PAGE_SIZE - 1));
         }
         if (is_pcrel) {
-            // Include `address` so that the FKF_IsAlignedDownTo32Bits flag's
-            // align-down operates on the runtime PC. Without this, Thumb's
-            // `Align(PC, 4)` PC-relative loads/ADRs at 2-byte-aligned addresses
-            // produced wrong bytes — the old code papered over this by
-            // prepending a `bkpt` to force alignment-parity in the output.
+            // Include `address` so that the align-down-to-4 operation works on
+            // the runtime PC. Without this, Thumb's `Align(PC, 4)` PC-relative
+            // loads/ADRs at 2-byte-aligned addresses produced wrong bytes —
+            // the old code papered over this by prepending a `bkpt` to force
+            // alignment-parity in the output.
             uint64_t pc = address + fixup_byte_offset;
-            if ((info.Flags & llvm::MCFixupKindInfo::FKF_IsAlignedDownTo32Bits) != 0) {
+            if (is_aligned_down_32) {
                 pc &= ~uint64_t { 3 };
             }
             const uint64_t target_addr = address + static_cast<uint64_t>(target_offset);
@@ -479,9 +503,11 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     // Relax loop. For each fixup, compute its value and ask the backend whether
     // it would need relaxation. If so and the instruction is relaxable, swap
     // for the relaxed form and restart. Mirrors MCAssembler::layoutOnce() but
-    // without fragments. The Layout is required by some backends' relaxation
-    // predicate but unused by the ones nyxstone supports here.
+    // without fragments. The Layout/Assembler ref is required by some backends'
+    // relaxation predicate but unused by the ones nyxstone supports here.
+#if LLVM_VERSION_MAJOR < 19
     llvm::MCAsmLayout layout(assembler);
+#endif
     constexpr size_t MAX_RELAX_ITERS { 32 };
     for (size_t iter = 0; iter < MAX_RELAX_ITERS; ++iter) {
         recompute_offsets();
@@ -503,15 +529,22 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
                 // instruction itself supports it; for non-relaxable instructions
                 // some backends return spurious "needs relaxation" answers from
                 // fixupNeedsRelaxationAdvanced.
-                if (asm_backend_p->mayNeedRelaxation(e.inst, *e.sti)
+#if LLVM_VERSION_MAJOR < 19
+                const bool needs_relax = asm_backend_p->mayNeedRelaxation(e.inst, *e.sti)
                     && asm_backend_p->fixupNeedsRelaxationAdvanced(
-                        fx, /*Resolved=*/true, value, nullptr, layout, /*WasForced=*/false)) {
+                        fx, /*Resolved=*/true, value, nullptr, layout, /*WasForced=*/false);
+#else
+                const bool needs_relax = asm_backend_p->mayNeedRelaxation(e.inst, *e.sti)
+                    && asm_backend_p->fixupNeedsRelaxationAdvanced(
+                        assembler, fx, /*Resolved=*/true, value, nullptr, /*WasForced=*/false);
+#endif
+                if (needs_relax) {
                     llvm::MCInst relaxed = e.inst;
                     asm_backend_p->relaxInstruction(relaxed, *e.sti);
                     e.inst = relaxed;
                     e.bytes.clear();
                     e.fixups.clear();
-                    code_emitter->encodeInstruction(e.inst, e.bytes, e.fixups, *e.sti);
+                    encode_instruction(*code_emitter, e.inst, e.bytes, e.fixups, *e.sti);
                     relaxed_one = true;
                     break;
                 }

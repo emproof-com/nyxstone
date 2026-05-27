@@ -20,8 +20,14 @@ option(NYXSTONE_SANITIZERS "Enable sanitizers" OFF)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 if(DEFINED ENV{NYXSTONE_LLVM_PREFIX})
-    # Ignore LLVM_ROOT variables
+    # Ignore LLVM_ROOT and system search paths so that a user-supplied prefix
+    # is the only place find_package(LLVM ...) looks. Without these,
+    # find_package would walk system paths and could pick up a different
+    # LLVM version (e.g., a newer one matching the iterated version) instead
+    # of the one the user pinned.
     set(CMAKE_FIND_USE_PACKAGE_ROOT_PATH OFF)
+    set(CMAKE_FIND_USE_CMAKE_SYSTEM_PATH OFF)
+    set(CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH OFF)
     set(CMAKE_PREFIX_PATH $ENV{NYXSTONE_LLVM_PREFIX})
 endif()
 

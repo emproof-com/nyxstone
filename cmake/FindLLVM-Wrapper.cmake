@@ -23,19 +23,51 @@ if(LLVM-Wrapper_FIND_REQUIRED)
     list(APPEND FIND_ARGS "REQUIRED")
 endif()
 
-set(ALLOWED_LLVM_VERSIONS 15 16 17 18.0 18.1)
+# Whitelist of supported major versions, ordered newest-first. Any minor/patch
+# within these majors is accepted (LLVMConfigVersion.cmake requires exact
+# major.minor matching, but we resolve the install before invoking
+# find_package, so a new 20.2 or 19.3 works without a repo change).
+#
+# LLVM 21 and 22 are not yet supported: their reworked
+# applyFixup/fixupNeedsRelaxationAdvanced APIs are MCFragment-centric and
+# need deeper integration than our detached dummy fragment provides (ARM
+# Thumb fixups crash inside libLLVM).
+set(ALLOWED_LLVM_MAJORS 20 19 18 17 16 15)
 
-# Find LLVM
-foreach(VERSION ${ALLOWED_LLVM_VERSIONS})
-    find_package(LLVM ${VERSION} QUIET ${FIND_ARGS})
-    if(${LLVM_FOUND})
-        break()
-    endif()
-endforeach()
+# When NYXSTONE_LLVM_PREFIX is set in CMakeLists.txt it pins CMAKE_PREFIX_PATH
+# and disables system search paths, so find_package will resolve to the
+# user-pinned install. Otherwise probe known per-major install layouts
+# newest-first so that, with multiple LLVM versions present on the system, we
+# pick the newest supported one rather than whatever happens to be first in
+# CMake's default search order.
+if(NOT DEFINED LLVM_DIR AND NOT DEFINED ENV{NYXSTONE_LLVM_PREFIX})
+    foreach(MAJOR ${ALLOWED_LLVM_MAJORS})
+        foreach(CANDIDATE
+            "/usr/lib/llvm-${MAJOR}/lib/cmake/llvm"
+            "/opt/homebrew/opt/llvm@${MAJOR}/lib/cmake/llvm"
+            "/usr/local/opt/llvm@${MAJOR}/lib/cmake/llvm")
+            if(EXISTS "${CANDIDATE}/LLVMConfig.cmake")
+                set(LLVM_DIR "${CANDIDATE}" CACHE PATH "LLVMConfig.cmake directory")
+                break()
+            endif()
+        endforeach()
+        if(DEFINED LLVM_DIR)
+            break()
+        endif()
+    endforeach()
+endif()
+
+find_package(LLVM QUIET ${FIND_ARGS} CONFIG)
 unset(FIND_ARGS)
 
 if(NOT ${LLVM_FOUND})
-    message(FATAL_ERROR "Did not find LLVM that has a compatible version. Allowed versions are 15-18.")
+    message(FATAL_ERROR "Did not find LLVM. Allowed major versions are ${ALLOWED_LLVM_MAJORS}.")
+endif()
+
+if(NOT LLVM_VERSION_MAJOR IN_LIST ALLOWED_LLVM_MAJORS)
+    message(FATAL_ERROR
+        "Found LLVM ${LLVM_PACKAGE_VERSION}, but major version ${LLVM_VERSION_MAJOR} is not supported. "
+        "Supported major versions: ${ALLOWED_LLVM_MAJORS}.")
 endif()
 
 if(NOT LLVM-Wrapper_FIND_QUIETLY)

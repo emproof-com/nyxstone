@@ -4,6 +4,7 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+#include <llvm/Config/llvm-config.h>
 #include <llvm/MC/MCContext.h>
 #include <llvm/MC/MCInst.h>
 #include <llvm/MC/MCStreamer.h>
@@ -41,8 +42,18 @@ public:
     void emitLabel(llvm::MCSymbol* symbol, llvm::SMLoc /*loc*/ = llvm::SMLoc()) override;
 
     // Pure-virtual stubs — assemble() never produces directives that hit these.
+    // The alignment parameter changed type in LLVM 16 (unsigned -> Align).
     // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
     bool emitSymbolAttribute(llvm::MCSymbol* /*sym*/, llvm::MCSymbolAttr /*attr*/) override { return true; }
+#if LLVM_VERSION_MAJOR < 16
+    // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
+    void emitCommonSymbol(llvm::MCSymbol* /*sym*/, uint64_t /*size*/, unsigned /*align*/) override { }
+    // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
+    void emitZerofill(llvm::MCSection* /*section*/, llvm::MCSymbol* /*sym*/ = nullptr, uint64_t /*size*/ = 0,
+        unsigned /*align*/ = 0, llvm::SMLoc /*loc*/ = llvm::SMLoc()) override
+    {
+    }
+#else
     // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
     void emitCommonSymbol(llvm::MCSymbol* /*sym*/, uint64_t /*size*/, llvm::Align /*align*/) override { }
     // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
@@ -50,6 +61,7 @@ public:
         llvm::Align /*align*/ = llvm::Align(1), llvm::SMLoc /*loc*/ = llvm::SMLoc()) override
     {
     }
+#endif
 
 private:
     std::vector<Event> m_events;
