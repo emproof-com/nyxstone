@@ -19,10 +19,11 @@ Nyxstone is a fast assembly and disassembly library built on top of LLVM. It doe
     4. [Rust Bindings](#rust-bindings)
     5. [Python Bindings](#python-bindings)
 3. [How it works](#how-it-works)
-4. [Roadmap](#roadmap)
-5. [License](#license)
-6. [Contributing](#contributing)
-7. [Maintainers](#maintainers)
+4. [Benchmarks](#benchmarks)
+5. [Roadmap](#roadmap)
+6. [License](#license)
+7. [Contributing](#contributing)
+8. [Maintainers](#maintainers)
 
 ## Core Features
 
@@ -280,7 +281,35 @@ The disassembly path is much simpler: an `MCDisassembler` and its `MCContext` ar
 
 * **Version coupling.** Nyxstone uses MC headers that LLVM does not promise stable across major versions. Each new major release tends to require a small number of version-conditional shims; the current range (15-20) is covered by `#if LLVM_VERSION_MAJOR` guards in [src/nyxstone.cpp](src/nyxstone.cpp) and [src/FastStreamer.h](src/FastStreamer.h). The vendored LLVM-internal headers under [src/Target/](src/Target/) (`AArch64FixupKinds.h`, `AArch64MCExpr.h`, `ARMFixupKinds.h`) are tracked similarly, because LLVM does not install them.
 
+## Benchmarks
 
+Numbers below were collected with the bundled benchmark binaries on a 13th Gen Intel Core i7-1370P (Linux, LLVM 18, release build, 2 s per measurement). Reproduce with:
+
+```bash
+# C++
+cmake --build build --target benchmark
+./build/benchmark 2
+
+# Rust
+cargo run --release --example benchmark -- 2
+```
+
+Each call assembles/disassembles a package of 1 or 10 instructions for the named architecture. The 10-instruction package amortizes fixed per-call overhead, which is why `ops/s` drops but `insns/s` (parenthesized) rises.
+
+| Architecture | Package      | C++ assemble (ops/s) | C++ disassemble (ops/s) |
+| ------------ | ------------ | -------------------- | ----------------------- |
+| x86_64       | 1 instr      | 79 k                 | 6.36 M                  |
+| x86_64       | 10 instr     | 47 k (470 k insns/s) | 675 k (6.75 M insns/s)  |
+| x86_32       | 1 instr      | 80 k                 | 6.42 M                  |
+| x86_32       | 10 instr     | 48 k (484 k insns/s) | 685 k (6.85 M insns/s)  |
+| aarch64      | 1 instr      | 26 k                 | 4.49 M                  |
+| aarch64      | 10 instr     | 7.0 k (70 k insns/s) | 373 k (3.73 M insns/s)  |
+| armv8m       | 1 instr      | 79 k                 | 5.68 M                  |
+| armv8m       | 10 instr     | 30 k (300 k insns/s) | 388 k (3.88 M insns/s)  |
+
+The Rust binding adds the cxx-bridge call overhead. For assembly this is negligible (within ~3 % of the C++ numbers); for the much faster disassembly path it costs roughly 30 % on single-instruction calls (e.g. x86_64 disassemble: 6.36 M ops/s in C++ vs 4.31 M ops/s in Rust) and shrinks to near-zero as the call does more work.
+
+AArch64 assembly is markedly slower per instruction than the other targets because that backend exercises the iterative relaxation loop more heavily.
 
 ## Roadmap
 
