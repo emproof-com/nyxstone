@@ -40,9 +40,8 @@ ByteResult NyxstoneFFI::assemble(
 {
     std::vector<Nyxstone::LabelDefinition> cpp_labels {};
     cpp_labels.reserve(labels.size());
-    std::transform(std::begin(labels), std::end(labels), std::back_inserter(cpp_labels), [](const auto& label) {
-        return Nyxstone::LabelDefinition { std::string(label.name), label.address };
-    });
+    std::transform(std::begin(labels), std::end(labels), std::back_inserter(cpp_labels),
+        [](const auto& label) { return Nyxstone::LabelDefinition { std::string(label.name), label.address }; });
 
     auto result = nyxstone->assemble(std::string { assembly }, address, cpp_labels).map([](const auto& cpp_bytes) {
         rust::Vec<uint8_t> bytes {};
@@ -59,9 +58,8 @@ InstructionResult NyxstoneFFI::assemble_to_instructions(
 {
     std::vector<Nyxstone::LabelDefinition> cpp_labels;
     cpp_labels.reserve(labels.size());
-    std::transform(std::begin(labels), std::end(labels), std::back_inserter(cpp_labels), [](const auto& label) {
-        return Nyxstone::LabelDefinition { std::string(label.name), label.address };
-    });
+    std::transform(std::begin(labels), std::end(labels), std::back_inserter(cpp_labels),
+        [](const auto& label) { return Nyxstone::LabelDefinition { std::string(label.name), label.address }; });
     std::vector<Nyxstone::Instruction> cpp_instructions {};
 
     auto result = nyxstone->assemble_to_instructions(std::string { assembly }, address, cpp_labels)

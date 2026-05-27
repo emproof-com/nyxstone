@@ -14,6 +14,7 @@
 #ifndef LLVM_LIB_TARGET_AARCH64_MCTARGETDESC_AARCH64MCEXPR_H
 #define LLVM_LIB_TARGET_AARCH64_MCTARGETDESC_AARCH64MCEXPR_H
 
+#include <llvm/Config/llvm-config.h>
 #include <llvm/MC/MCExpr.h>
 #include <llvm/Support/ErrorHandling.h>
 
@@ -160,7 +161,11 @@ public:
 
     MCFragment* findAssociatedFragment() const override;
 
+#if LLVM_VERSION_MAJOR < 19
     bool evaluateAsRelocatableImpl(MCValue& Res, const MCAsmLayout* Layout, const MCFixup* Fixup) const override;
+#else
+    bool evaluateAsRelocatableImpl(MCValue& Res, const MCAssembler* Asm, const MCFixup* Fixup) const override;
+#endif
 
     void fixELFSymbolsInTLSFixups(MCAssembler& Asm) const override;
 

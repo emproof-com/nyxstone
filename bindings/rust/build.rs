@@ -10,8 +10,7 @@ const ENV_FORCE_FFI_LINKING: &str = "NYXSTONE_LINK_FFI";
 fn main() {
     let headers = [
         "nyxstone/include/nyxstone.h",
-        "nyxstone/src/ELFStreamerWrapper.h",
-        "nyxstone/src/ObjectWriterWrapper.h",
+        "nyxstone/src/FastStreamer.h",
         "nyxstone/src/Target/AArch64/MCTargetDesc/AArch64FixupKinds.h",
         "nyxstone/src/Target/AArch64/MCTargetDesc/AArch64MCExpr.h",
         "src/nyxstone_ffi.hpp",
@@ -19,8 +18,7 @@ fn main() {
 
     let sources = [
         "nyxstone/src/nyxstone.cpp",
-        "nyxstone/src/ObjectWriterWrapper.cpp",
-        "nyxstone/src/ELFStreamerWrapper.cpp",
+        "nyxstone/src/FastStreamer.cpp",
         "src/nyxstone_ffi.cpp",
     ];
 
@@ -134,8 +132,8 @@ fn search_llvm_config() -> Result<PathBuf> {
         let version = version.parse::<u32>().context("Parsing LLVM version")?;
 
         ensure!(
-            (15..=18).contains(&version),
-            "LLVM major version is {}, must be 15-18.",
+            (15..=20).contains(&version),
+            "LLVM major version is {}, must be 15-20.",
             version
         );
 
@@ -198,7 +196,10 @@ fn target_os_is(name: &str) -> bool {
 
 /// Return an iterator over possible names for the llvm-config binary.
 fn llvm_config_binary_names() -> impl Iterator<Item = String> {
-    let base_names = (15..=18)
+    // Newest-first so $PATH can carry multiple llvm-config-N binaries without
+    // the older one masking the newest the user actually has installed.
+    let base_names = (15..=20)
+        .rev()
         .flat_map(|version| {
             [
                 format!("llvm-config-{}", version),
@@ -475,6 +476,12 @@ fn get_link_libraries(llvm_config_path: &Path, preferences: &LinkingPreferences)
 fn extract_library(s: &str, kind: LibraryKind) -> Vec<String> {
     s.split(&[' ', '\n'] as &[char])
         .filter(|s| !s.is_empty())
+        // Polly is an LLVM polyhedral optimizer that nyxstone does not use,
+        // but `llvm-config --libnames` lists it. Ubuntu's `llvm-N-dev` apt
+        // package ships the dynamic Polly libs but not the static archives,
+        // so a default `cargo build` (which prefers static linking) fails
+        // with `could not find native static library Polly`. Skip them.
+        .filter(|s| !s.starts_with("libPolly") && !s.starts_with("Polly"))
         .map(|name| {
             // --libnames gives library filenames. Extract only the name that
             // we need to pass to the linker.
