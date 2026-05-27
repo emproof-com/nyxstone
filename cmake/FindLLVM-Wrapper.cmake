@@ -45,7 +45,8 @@ if(NOT DEFINED LLVM_DIR AND NOT DEFINED ENV{NYXSTONE_LLVM_PREFIX})
         foreach(CANDIDATE
             "/usr/lib/llvm-${MAJOR}/lib/cmake/llvm"
             "/opt/homebrew/opt/llvm@${MAJOR}/lib/cmake/llvm"
-            "/usr/local/opt/llvm@${MAJOR}/lib/cmake/llvm")
+            "/usr/local/opt/llvm@${MAJOR}/lib/cmake/llvm"
+            "/opt/brew/opt/llvm@${MAJOR}/lib/cmake/llvm")
             if(EXISTS "${CANDIDATE}/LLVMConfig.cmake")
                 set(LLVM_DIR "${CANDIDATE}" CACHE PATH "LLVMConfig.cmake directory")
                 break()

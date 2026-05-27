@@ -3,30 +3,49 @@
 [![crates.io](https://img.shields.io/crates/v/nyxstone.svg)](https://crates.io/crates/nyxstone)
 [![Github Rust CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/rust.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/rust.yml)
 
-Official bindings for the Nyxstone assembler/disassembler engine. 
+Official Rust bindings for the [Nyxstone](https://github.com/emproof-com/nyxstone) assembler/disassembler engine.
 
 ## Building
 
-The project can be build via `cargo build`, as long as LLVM with a major version in the range 15-18 is installed in the `$PATH` or the environment variable `$NYXSTONE_LLVM_PREFIX` points to the installation location of a LLVM library.
+`cargo build` works as long as a supported LLVM is reachable. The build script discovers LLVM in this order:
 
-LLVM might be linked against FFI, but not correctly report this fact via `llvm-config`. If your LLVM does link FFI and
-Nyxstone fails to run, set the `NYXSTONE_LINK_FFI` environment variable to `1`, which will ensure that Nyxstone
-links against `libffi`.
+1. `$NYXSTONE_LLVM_PREFIX`, if set searched exclusively.
+2. `llvm-config-N`, `llvm-configN`, or `llvmN-config` on `$PATH`, probed newest-first for `N` in 15-20.
+3. Plain `llvm-config` on `$PATH` as a final fallback.
+
+**Supported LLVM major versions: 15-20.** Any minor/patch within those majors works.
+
+### LLVM linking
+
+By default the build links LLVM statically. The following Cargo features change that:
+
+| Feature          | Effect                                                |
+|------------------|-------------------------------------------------------|
+| `prefer-static`  | Prefer static, fall back to dynamic.                  |
+| `prefer-dynamic` | Prefer dynamic, fall back to static.                  |
+| `force-static`   | Static only; fail if static archives are missing.     |
+| `force-dynamic`  | Dynamic only; fail if shared libraries are missing.   |
+
+On Linux, `cargo build` defaults to `prefer-static`. On macOS it defaults to `prefer-dynamic` (Homebrew's LLVM ships shared libraries first).
+
+### FFI workaround
+
+LLVM may be linked against `libffi` without `llvm-config` reporting it. If you get unresolved-symbol errors involving FFI, set `NYXSTONE_LINK_FFI=1` so Nyxstone links `libffi` explicitly.
 
 ## Installation
 
-Add nyxstone as a dependency in your `Cargo.toml`:
-```
+Add Nyxstone as a dependency:
+
+```toml
 [dependencies]
 nyxstone = "0.1"
 ```
 
-Building nyxstone requires a C/C++ compiler to be installed on your system. Additionally, Nyxstone requires LLVM with 
-a major version in the range 15-18.
+You will need a C/C++ compiler available, plus an LLVM in the supported range.
 
 ## Sample
 
-In the following is a short sample of what using Nyxstone can look like:
+A short tour of the API:
 
 ```rust
 extern crate anyhow;
@@ -86,8 +105,8 @@ fn main() -> Result<()> {
 
 ## Technical overview
 
-The nyxstone-rs bindings are generated via the `cxx` crate. Since nyxstone is specifically a c++ library, we currently do not plan to support C bindings via bindgen. 
+The Rust bindings are generated with the [`cxx`](https://cxx.rs/) crate. Because the underlying engine is a C++ library, we don't plan to ship `bindgen`-based C bindings.
 
 ## Acknowledgements
 
-The build script of the rust bindings borrow heavily from the [llvm-sys](https://gitlab.com/taricorp/llvm-sys.rs) build script.
+The build script borrows heavily from [llvm-sys](https://gitlab.com/taricorp/llvm-sys.rs).

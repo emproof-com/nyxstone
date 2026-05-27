@@ -5,82 +5,83 @@
 
 ## Installation
 
-You need to have LLVM (with major version in the range 15-18) installed to build the nyxstone bindings. The `setup.py` searches for LLVM in the `PATH` or in the directory set in the environment variable `NYXSTONE_LLVM_PREFIX`. Specifically, it searches for the binary `$NYXSTONE_LLVM_PREFIX/bin/llvm-config` and uses it to set the required libraries and cpp flags.
+Building the bindings requires LLVM with a major version in **15-20** installed on your system. `setup.py` resolves LLVM by running `$NYXSTONE_LLVM_PREFIX/bin/llvm-config` if `NYXSTONE_LLVM_PREFIX` is set, otherwise `llvm-config` on `$PATH`.
 
-Running
+Install the published wheel from PyPI:
 
 ```sh
 pip install nyxstone
 ```
 
-will download nyxstone from PyPI. Alternatively, you can install nyxstone directly from source by running the following command in the python bindings subdirectory.
+Or build and install from source (run from the `bindings/python` directory):
 
-```
+```sh
 pip install .
 ```
 
-If you are using Arch Linux, you will need to use a virtual environment to install nyxstone:
+On Arch Linux (and other distros that mark the system Python as externally managed), do this inside a virtualenv:
 
-```
-mkdir env
-python -mvenv env/
-source env/bin/activate[.fish|.zsh]
-pip install [.|nyxstone]
+```sh
+python -m venv env
+source env/bin/activate    # or activate.fish / activate.zsh
+pip install .              # or `pip install nyxstone`
 ```
 
 ## Example
 
-After you have installed nyxstone, import the `Nyxstone` and `Instruction` classes from nyxstone.
+Import the `Nyxstone` and `Instruction` classes:
 
 ```python
 from nyxstone import Nyxstone, Instruction
 ```
 
-Now you can create the `Nyxstone` object.
+Create a `Nyxstone` instance for the target architecture:
 
 ```python
 nyxstone = Nyxstone("x86_64")
 ```
 
-The nyxstone object can be used to assemble and disassemble for the architecture it was initialized for.
+Assemble and disassemble raw bytes / text:
 
 ```python
-assert(nyxstone.assemble("mov rax, rbx") == [0x48, 0x89, 0xd8])
-assert(nyxstone.disassemble([0x48, 0x89, 0xd8]) == "mov rax, rbx\n")
+assert nyxstone.assemble("mov rax, rbx") == [0x48, 0x89, 0xd8]
+assert nyxstone.disassemble([0x48, 0x89, 0xd8]) == "mov rax, rbx\n"
 ```
 
-Nyxstone can also assemble and disassemble to instruction information holding the address, bytes, and assembly of the assembled or disassembled instructions.
+Or work with `Instruction` objects that bundle address, bytes, and assembly text:
 
 ```python
 instructions = [Instruction(0x0, "mov rax, rbx", [0x48, 0x89, 0xd8])]
-assert(nyxstone.assemble_to_instructions("mov rax, rbx") == instructions)
-assert(nyxstone.disassemble_to_instructions([0x48, 0x89, 0xd8]) == instructions)
+assert nyxstone.assemble_to_instructions("mov rax, rbx") == instructions
+assert nyxstone.disassemble_to_instructions([0x48, 0x89, 0xd8]) == instructions
 ```
 
-When assembling, you can also specify the address of the instructions, as well as external labels. If you need to assemble inline labels, Nyxstone also got you covered.
+When assembling, you can supply a base address and a label-to-address map for external labels; inline labels are resolved automatically:
 
 ```python
-assert(nyxstone.assemble("jmp .label", address = 0x1000, labels = {".label": 0x1200}) == [0xe9, 0xfb, 0x01, 0x00, 0x00])
-assert(nyxstone.assemble("jmp .label; nop; .label:", address = 0x1000) == [0xeb, 0x01, 0x90])
+assert nyxstone.assemble("jmp .label", address=0x1000, labels={".label": 0x1200}) == [0xe9, 0xfb, 0x01, 0x00, 0x00]
+assert nyxstone.assemble("jmp .label; nop; .label:", address=0x1000) == [0xeb, 0x01, 0x90]
 ```
 
-When disassembling, you can also specify the address, as well as the number of instructions to disassemble. Here, `0` means all instructions.
+When disassembling, you can specify the base address and a maximum instruction count (`0` means "until the bytes are exhausted"):
 
 ```python
-assert(nyxstone.disassemble([0x48, 0x31, 0xc0, 0x48, 0x01, 0xd8], 0x1000, 0) == "xor rax, rax\nadd rax, rbx\n")
-assert(nyxstone.disassemble([0x48, 0x31, 0xc0, 0x48, 0x01, 0xd8], 0x1000, 1) == "xor rax, rax\n")
+assert nyxstone.disassemble([0x48, 0x31, 0xc0, 0x48, 0x01, 0xd8], 0x1000, 0) == "xor rax, rax\nadd rax, rbx\n"
+assert nyxstone.disassemble([0x48, 0x31, 0xc0, 0x48, 0x01, 0xd8], 0x1000, 1) == "xor rax, rax\n"
 ```
 
 ## Building
 
-If you just want to build the python bindings, run:
-```
+To build without installing:
+
+```sh
 python setup.py build
 ```
 
 ## Packaging
 
-To package the python bindings, use
-```
+To produce a sdist / wheel:
+
+```sh
 python -m build
 ```
