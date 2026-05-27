@@ -5,7 +5,7 @@
 [![PyPI](https://img.shields.io/pypi/v/nyxstone.svg)](https://pypi.org/project/nyxstone)
 [![cpp-docs](https://github.com/emproof-com/nyxstone/actions/workflows/doxygen.yml/badge.svg)](https://emproof-com.github.io/nyxstone/)
 
-Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesn’t require patches to the LLVM source tree and links against standard LLVM libraries available in most Linux distributions. Implemented as a C++ library, Nyxstone also offers Rust and Python bindings. It supports all official LLVM architectures and allows to configure architecture-specific target settings.
+Nyxstone is a fast assembly and disassembly library built on top of LLVM. It does not require patches to the LLVM source tree and links against the standard LLVM libraries shipped by most Linux distributions, Homebrew, and `apt.llvm.org`. The core is a C++ library with Rust and Python bindings. Nyxstone supports every architecture the linked LLVM ships with and lets you configure architecture-specific CPU and feature settings.
 
 ![Nyxstone Python binding demo](/images/demo.svg)
 
@@ -19,31 +19,32 @@ Nyxstone is a powerful assembly and disassembly library based on LLVM. It doesn�
     4. [Rust Bindings](#rust-bindings)
     5. [Python Bindings](#python-bindings)
 3. [How it works](#how-it-works)
-4. [Roadmap](#roadmap)
-5. [License](#license)
-6. [Contributing](#contributing)
-7. [Contributors](#contributors)
+4. [Benchmarks](#benchmarks)
+5. [Roadmap](#roadmap)
+6. [License](#license)
+7. [Contributing](#contributing)
+8. [Maintainers](#maintainers)
 
 ## Core Features
 
-* Assembles and disassembles code for all architectures supported by the linked LLVM, including x86, ARM, MIPS, RISC-V and others.
+* Assembles and disassembles code for every architecture supported by the linked LLVM, including x86, ARM, AArch64, MIPS, RISC-V, and others.
 
-* C++ library based on LLVM with Rust and Python bindings.
+* C++ library built on LLVM, with Rust and Python bindings.
 
 * Native platform support for Linux and macOS.
 
-* Supports labels in the assembler, including the specification of label-to-address mappings
+* Supports labels in the assembler, including user-provided label-to-address mappings.
 
-* Assembles and disassembles to raw bytes and text, but also provides detailed instruction objects containing the address, raw bytes, and the assembly representation.
+* Produces raw bytes, text disassembly, or detailed instruction objects that carry the address, raw bytes, and assembly text together.
 
-* Disassembly can be limited to a user-specified number of instructions from byte sequences.
+* Disassembly can be limited to a user-specified number of instructions.
 
-* Allows to configure architecture-specific target features, such as ISA extensions and hardware features.
+* Configurable per-architecture target settings (CPU, ISA extensions, hardware features).
 
-For a comprehensive list of supported architectures, you can use `clang -print-targets`. For a comprehensive list of features for each architecture, refer to `llc -march=ARCH -mattr=help`.
+For the list of supported architectures, run `clang -print-targets`. For per-architecture features, run `llc -march=ARCH -mattr=help`.
 
 > [!NOTE]
-> Disclaimer: Nyxstone has been primarily developed and tested for x86_64, AArch64, and ARM32 architectures. We have a high degree of confidence in its ability to accurately generate assembly and identify errors for these platforms. For other architectures, Nyxstone's effectiveness depends on the reliability and performance of their respective LLVM backends.
+> Nyxstone has been primarily developed and tested on x86_64, AArch64, and ARM32. We have high confidence in its correctness and error reporting for those targets. For other architectures, the result depends on the underlying LLVM backend.
 
 ## Using Nyxstone
 
@@ -51,65 +52,62 @@ This section provides instructions on how to get started with Nyxstone, covering
 
 ### Prerequisites
 
-Before building Nyxstone, ensure clang and LLVM are present on your system. Nyxstone supports LLVM major versions 15-18.
-When building it looks for `llvm-config` in your system's `$PATH` or the specified environment variable `$NYXSTONE_LLVM_PREFIX/bin`.
+Before building Nyxstone, ensure clang and LLVM are present on your system. **Nyxstone supports LLVM major versions 15-20.** Any minor/patch within those majors works; the build picks the newest LLVM it can find unless you pin one.
 
-Installation Options for LLVM versions 15-18:
+The build resolves LLVM in this order:
 
-* Ubuntu
-```bash
-sudo apt install llvm-${version} llvm-${version}-dev
-```
+1. `$NYXSTONE_LLVM_PREFIX`, if set. The build searches that prefix exclusively (system paths are ignored), so this is the way to pin a specific version when multiple are installed.
+2. Known per-major install layouts probed newest-first: `/usr/lib/llvm-<N>` (Debian/Ubuntu), `/opt/homebrew/opt/llvm@<N>` (Homebrew on Apple Silicon), `/usr/local/opt/llvm@<N>` (Homebrew on x86 macOS), `/opt/brew/opt/llvm@<N>` (custom-prefix Homebrew on Linux).
+3. CMake's default `find_package(LLVM)` search.
 
-* Debian
-LLVM version 15 and 16 are available through debian repositories. Installation is the same as for Ubuntu.
-For versions 17 or 18 refer to [https://apt.llvm.org/](https://apt.llvm.org/) for installation instructions.
+If the resolved version is outside 15-20 the configure step fails with a clear error.
 
-* Arch
-```bash
-sudo pacman -S llvm llvm-libs
-```
+#### Installation
 
-* Homebrew (macOS, Linux and others):
-```bash
-brew install llvm@18
-export NYXSTONE_LLVM_PREFIX=/opt/homebrew/opt/llvm@18
-```
+* **Debian / Ubuntu**
+  ```bash
+  sudo apt install llvm-${version} llvm-${version}-dev
+  ```
+  Debian trixie ships 17-19, Ubuntu ships 15-17 in the default repos. For versions not in your distro's repos, follow the instructions at [apt.llvm.org](https://apt.llvm.org/). The script `apt.llvm.org/llvm.sh <version>` is the easiest path.
 
-* From LLVM Source:
+* **Arch**
+  ```bash
+  sudo pacman -S llvm llvm-libs
+  ```
 
-_Note_: On Windows you need to run these commands from a Visual Studio 2022 x64 command prompt. Additionally replace `~lib/my-llvm-18` with a different path.
+* **Homebrew (macOS / Linux)**
+  ```bash
+  brew install llvm@20
+  export NYXSTONE_LLVM_PREFIX="$(brew --prefix llvm@20)"
+  ```
 
-```bash
-# checkout llvm
-git clone -b release/18.x --single-branch https://github.com/llvm/llvm-project.git
-cd llvm-project
+* **From source**
 
-# build LLVM with custom installation directory
-cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_PARALLEL_LINK_JOBS=1
-cmake --build build
-cmake --install build --prefix ~/lib/my-llvm-18
+  On Windows, run these from a Visual Studio 2022 x64 command prompt and replace `~/lib/my-llvm-20` with a path of your choice.
 
-# export path
-export NYXSTONE_LLVM_PREFIX=~/lib/my-llvm-18
-```
+  ```bash
+  git clone -b release/20.x --single-branch https://github.com/llvm/llvm-project.git
+  cd llvm-project
+  cmake -S llvm -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DLLVM_PARALLEL_LINK_JOBS=1
+  cmake --build build
+  cmake --install build --prefix ~/lib/my-llvm-20
+  export NYXSTONE_LLVM_PREFIX=~/lib/my-llvm-20
+  ```
 
-Also make sure to install any system dependent libraries needed by your LLVM version for static linking. They can be viewed with the command `llvm-config --system-libs`; the list can be empty. On Ubuntu/Debian, you will need the packages `zlib1g-dev` and `zlibstd-dev`.
+You may also need any system libraries LLVM was built against. Check with `llvm-config --system-libs`; on Debian/Ubuntu this is typically `zlib1g-dev` and `libzstd-dev`.
 
 ### CLI Tool
 
-Nyxstone comes with a handy [CLI tool](examples/nyxstone-cli.cpp) for quick assembly and disassembly tasks. Checkout the Nyxstone repository, and build the tool with CMake:
+Nyxstone ships a [CLI tool](examples/nyxstone-cli.cpp) for one-off assembly and disassembly. Clone the repository and build it with CMake:
 
 ```bash
-# clone directory
 git clone https://github.com/emproof-com/nyxstone
 cd nyxstone
-
-# build nyxstone
-mkdir build && cd build && cmake .. && make 
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
 ```
 
-Then, `nyxstone` can be used from the command line. Here's an output of its help menu:
+The resulting `nyxstone` binary lands in `build/`. Its help menu:
 
 ```
 $ ./nyxstone -h
@@ -145,14 +143,14 @@ Notes:
   The features for a target can be found with 'llc -mtriple=<triple> -mattr=help'.
 ```
 
-Now, we can assemble an instruction for the x86_64 architecture:
+Assemble a single x86_64 instruction:
 
 ```
 $ ./nyxstone -t x86_64 "mov rax, rbx"
         0x00000000: mov rax, rbx                     ; 48 89 d8
 ```
 
-We can also assemble a sequence of instructions. In the following, we make use of label-based addressing and assume the first instruction is mapped to address `0xdeadbeef`:
+Assemble a sequence with internal labels, anchored at `0xdeadbeef`:
 
 ```
 $ ./nyxstone -t x86_64 -p 0xdeadbeef "cmp rax, rbx; jz .exit; inc rax; .exit: ret"
@@ -162,14 +160,14 @@ $ ./nyxstone -t x86_64 -p 0xdeadbeef "cmp rax, rbx; jz .exit; inc rax; .exit: re
         0xdeadbef7: ret                              ; c3 
 ```
 
-Furthermore, we can disassemble instructions for different instruction sets, here the ARM32 thumb instruction set:
+Disassemble for a different ISA, here ARM Thumb:
 
 ```
 $ ./nyxstone -t thumbv8 -d "13 37"
         0x00000000: adds r7, #19                     ; 13 37 
 ```
 
-Using the support for user-defined labels, we can assemble this snippet which does not contain the label `.label` by specifying its memory location ourself.
+Pin an external label to a specific address with `--labels`:
 
 ```
 $ ./nyxstone -p "0x1000" -l ".label=0x1238" "jmp .label"
@@ -178,51 +176,46 @@ $ ./nyxstone -p "0x1000" -l ".label=0x1238" "jmp .label"
 
 ### C++ Library
 
-To use Nyxstone as a C++ library, your C++ code has to be linked against Nyxstone and LLVM.
+Link your code against the `nyxstone::nyxstone` CMake target. Nyxstone propagates its LLVM dependency transitively, so consumers do not need to call `find_package(LLVM)` themselves.
 
-The following cmake example assumes Nyxstone in a subdirectory `nyxstone` in your project:
+Assuming Nyxstone lives in a `nyxstone/` subdirectory:
 
 ```cmake
 add_subdirectory(nyxstone)
 
 add_executable(my_executable main.cpp)
-target_link_libraries(my_executable nyxstone::nyxstone)
+target_link_libraries(my_executable PRIVATE nyxstone::nyxstone)
 ```
 
-The corresponding C++ usage example:
-
+A minimal C++ usage example:
 
 ```c++
 #include <cassert>
-#include <iostream>
+#include <vector>
 
 #include "nyxstone.h"
 
-int main(int, char**) {
-    // Create the nyxstone instance:
-    auto nyxstone {
-        NyxstoneBuilder("x86_64")
-            .build()
-            .value()
-    };
+using namespace nyxstone;
 
-     // Assemble to bytes
-    std::vector<uint8_t> bytes = 
-        nyxstone->assemble(/*assembly=*/"mov rax, rbx", /*address=*/0x1000, /* labels= */ {}).value();
+int main() {
+    auto nyxstone = NyxstoneBuilder("x86_64").build().value();
 
-    std::vector<uint8_t> expected {0x48, 0x89, 0xd8};
+    // Assemble to bytes.
+    auto bytes = nyxstone->assemble(/*assembly=*/"mov rax, rbx",
+                                    /*address=*/0x1000,
+                                    /*labels=*/{}).value();
+
+    const std::vector<uint8_t> expected{0x48, 0x89, 0xd8};
     assert(bytes == expected);
-
-    return 0;
 }
 ```
 
-For a comprehensive C++ example, take a look at [example.cpp](examples/example.cpp).
+For a fuller walkthrough, including `assemble_to_instructions`, label definitions, and disassembly, see [examples/example.cpp](examples/example.cpp).
 
 
 ### Rust Bindings
 
-To use Nyxstone as a Rust library, add it to your `Cargo.toml`and use it as shown in the following example:
+Add `nyxstone` to your `Cargo.toml` and use it like so:
 
 ```rust
 use anyhow::Result;
@@ -245,17 +238,17 @@ fn main() -> Result<()> {
 }
 ```
 
-For more instructions regarding the Rust binding, take a look at the corresponding [README](bindings/rust/README.md).
+See the [Rust binding README](bindings/rust/README.md) for build options (static vs. dynamic LLVM linking, FFI quirks).
 
 ### Python Bindings
 
-To use Nyxstone from Python, install it using pip:
+Install via pip:
 
 ```bash
 pip install nyxstone
 ```
 
-Then, you can use it from Python:
+Then from Python:
 
 ```
 $ python -q
@@ -264,41 +257,75 @@ $ python -q
 >>> nyxstone.assemble("jne .loop", 0x1100, {".loop": 0x1000})
 ```
 
-Detailed instructions are available in the corresponding [README](bindings/python/README.md).
+See the [Python binding README](bindings/python/README.md) for build-from-source instructions.
 
 
 
 ## How it works
 
-Nyxstone leverages public C++ API functions from LLVM such as `Target::createMCAsmParser` and `Target::createMCDisassembler` to perform assembly and disassembly tasks. Nyxstone also extends two LLVM classes, `MCELFStreamer` and `MCObjectWriter`, to inject custom logic and extract additional information. Specifically, Nyxstone augments the assembly process with the following steps:
+Nyxstone drives the LLVM MC layer directly through its public C++ API (`Target::createMCAsmParser`, `Target::createMCDisassembler`, `MCAsmBackend`, `MCCodeEmitter`, …) instead of going through the object-file emission pipeline. This avoids both the cost of producing a complete ELF and the need to extend `MCELFStreamer` / `MCObjectWriter` as earlier versions did.
 
-* `ELFStreamerWrapper::emitInstruction`: Captures assembly representation and initial raw bytes of instructions if detailed instruction objects are requested by the user.
+The assembly path is structured as follows:
 
-* `ObjectWriterWrapper::writeObject`: Writes the final raw bytes of instructions (with relocation adjustments) to detailed instruction objects. Furthermore, it switches raw bytes output from complete ELF file to just the .text section.
+* **Parse into events.** A minimal `MCStreamer` subclass, [`FastStreamer`](src/FastStreamer.h), captures the parser's `emitLabel` / `emitInstruction` calls into a flat event list, deferring all encoding. The full ELF object-file machinery is bypassed.
 
-* `ObjectWriterWrapper::validate_fixups`: Conducts extra checks, such as verifying the range and alignment of relocations.
+* **Skip the rest of the MC pipeline.** Nyxstone installs a minimal `TextOnlyObjectFileInfo` that registers only `.text` with the `MCContext`, skipping the ~40 other section creations `MCObjectFileInfo::initMCObjectFileInfo` performs by default.
 
-* `ObjectWriterWrapper::recordRelocation`: Applies additional relocations. `MCObjectWriter` skips some relocations that are only applied during linking. Right now, this is only relevant for the `fixup_aarch64_pcrel_adrp_imm21` relocation of the Aarch64 instruction `adrp`.
+* **Encode and lay out.** Each captured `MCInst` is encoded once with `MCCodeEmitter::encodeInstruction`. Nyxstone then runs its own iterative relax loop, mirroring `MCAssembler::layoutOnce` without fragments, and computes per-fixup PC-relative values directly from the user-supplied base address.
 
-While extending LLVM classes introduces some drawbacks, like a strong dependency on a specific LLVM version, we believe this approach is still preferable over alternatives that require hard to maintain patches in the LLVM source tree.
+* **Apply fixups.** After layout converges, fixups are evaluated and `MCAsmBackend::applyFixup` patches the final bytes.
 
-We are committed to further reduce the project's complexity and open to suggestions for improvement. Looking ahead, we may eliminate the need to extend LLVM classes by leveraging the existing LLVM infrastructure in a smarter way or incorporating additional logic in a post-processing step.
+* **Validate.** Nyxstone runs additional range and alignment checks for ARM Thumb (`adr`, `ldr` literal, `b/bl/bcc`, …) and AArch64 (`adr`) fixup kinds that LLVM's backend silently mis-encodes when out of range.
 
+The disassembly path is much simpler: an `MCDisassembler` and its `MCContext` are constructed once on each `Nyxstone` instance and reused across calls, since disassembly never mutates the context.
 
+* **Version coupling.** Nyxstone uses MC headers that LLVM does not promise stable across major versions. Each new major release tends to require a small number of version-conditional shims; the current range (15-20) is covered by `#if LLVM_VERSION_MAJOR` guards in [src/nyxstone.cpp](src/nyxstone.cpp) and [src/FastStreamer.h](src/FastStreamer.h). The vendored LLVM-internal headers under [src/Target/](src/Target/) (`AArch64FixupKinds.h`, `AArch64MCExpr.h`, `ARMFixupKinds.h`) are tracked similarly, because LLVM does not install them.
+
+## Benchmarks
+
+Numbers below were collected with the bundled benchmark binaries on a 13th Gen Intel Core i7-1370P (Linux, LLVM 18, release build, 2 s per measurement). Reproduce with:
+
+```bash
+# C++
+cmake --build build --target benchmark
+./build/benchmark 2
+
+# Rust
+cargo run --release --example benchmark -- 2
+```
+
+Each call assembles/disassembles a package of 1 or 10 instructions for the named architecture. The 10-instruction package amortizes fixed per-call overhead, which is why `ops/s` drops but `insns/s` (parenthesized) rises.
+
+| Architecture | Package      | C++ assemble (ops/s) | C++ disassemble (ops/s) |
+| ------------ | ------------ | -------------------- | ----------------------- |
+| x86_64       | 1 instr      | 79 k                 | 6.36 M                  |
+| x86_64       | 10 instr     | 47 k (470 k insns/s) | 675 k (6.75 M insns/s)  |
+| x86_32       | 1 instr      | 80 k                 | 6.42 M                  |
+| x86_32       | 10 instr     | 48 k (484 k insns/s) | 685 k (6.85 M insns/s)  |
+| aarch64      | 1 instr      | 26 k                 | 4.49 M                  |
+| aarch64      | 10 instr     | 7.0 k (70 k insns/s) | 373 k (3.73 M insns/s)  |
+| armv8m       | 1 instr      | 79 k                 | 5.68 M                  |
+| armv8m       | 10 instr     | 30 k (300 k insns/s) | 388 k (3.88 M insns/s)  |
+
+The Rust binding adds the cxx-bridge call overhead. For assembly this is negligible (within ~3 % of the C++ numbers); for the much faster disassembly path it costs roughly 30 % on single-instruction calls (e.g. x86_64 disassemble: 6.36 M ops/s in C++ vs 4.31 M ops/s in Rust) and shrinks to near-zero as the call does more work.
+
+AArch64 assembly is markedly slower per instruction than the other targets because that backend exercises the iterative relaxation loop more heavily.
 
 ## Roadmap
 
-Below are some ideas and improvements we believe would significantly advance Nyxstone. The items are not listed in any particular order:
+Recent work:
 
-* [ ] Check thread safety
+* [x] Replace the `MCELFStreamer` / `MCObjectWriter` extensions with the lighter `FastStreamer` + own layout/fixup loop.
+* [x] Handle relocations LLVM's writer skipped (e.g. AArch64 `adrp`) directly in our fixup pass.
+* [x] Run range/alignment validators as a post-processing step on the laid-out output instead of inside a custom writer.
+* [x] Drop the ARM Thumb `bkpt`-prepend workaround by making the PC computation address-aware.
+* [x] Cache `MCAsmBackend`, `MCContext`, and `MCDisassembler` across calls for substantially faster assembly and disassembly.
+* [x] Support LLVM 15-20 with auto-selection of the newest installed version.
 
-* [ ] Add support for more LLVM versions (auto select depending on found LLVM library version)
+Still open:
 
-* [ ] Explore option to make LLVM apply all relocations (including `adrp`) by configuring `MCObjectWriter` differently or using a different writer
-
-* [ ] Explore option to generate detailed instructions objects by disassembling the raw bytes output of the assembly process instead of relying on the extension of LLVM classes
-
-* [ ] Explore option to implement extra range and alignment of relocations in a post-processing step instead of relying on the extension of LLVM classes
+* [ ] Verify and document thread safety beyond `NyxstoneBuilder::build()` (LLVM init is mutex-guarded; subsequent `assemble`/`disassemble` are not formally verified concurrent-safe on a single instance).
+* [ ] Extend support to LLVM 21+ (the reworked fragment-centric `applyFixup` / `fixupNeedsRelaxationAdvanced` API needs deeper integration than the current detached dummy fragment provides).
 
 
 ## License
@@ -307,28 +334,24 @@ Nyxstone is available under the [MIT license](LICENSE).
 
 ## Contributing
 
-We welcome contributions from the community! If you encounter any issues with Nyxstone, please feel free to open a GitHub issue. 
+Contributions are welcome. If you hit a bug, please open a GitHub issue with a reproducer (target triple, input, expected vs. actual output).
 
-If you are interested in contributing directly to the project, you can for example:
+If you'd like to send code, useful starting points are:
 
-* Address an existing issue
-* Develop new features
-* Improve documentation
+* Picking up an open roadmap item or an existing issue.
+* Adding tests, particularly for architectures other than x86/AArch64/ARM, where coverage is thinnest.
+* Improving the documentation.
 
-Once you're ready, submit a pull request with your changes. We are looking forward to your contribution!
+PRs welcome, please run the existing C++ and Rust tests, plus `tool/format.sh check` and `tool/static-analysis-{cppcheck,tidy}.sh`, before opening one.
 
-## Contributors
+## Maintainers
 
-The current contributors are:
+Nyxstone is maintained by [emproof](https://emproof.com). For questions or anything that needs a real human, ping:
 
-**Core**:
-* Philipp Koppe (emproof)
-* Rachid Mzannar (emproof)
-* Darius Hartlief (emproof)
+* [Philipp Koppe](https://github.com/pkoppe)
+* [Darius Hartlief](https://github.com/stuxnot)
 
-**Minor**:
-* Marc Fyrbiak (emproof)
-* Tim Blazytko (emproof)
+For the full list of everyone who has contributed code, see [the contributors graph](https://github.com/emproof-com/nyxstone/graphs/contributors).
 
 ## Acknowledgements
 
