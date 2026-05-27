@@ -139,7 +139,7 @@ impl Nyxstone {
     /// - `assembly`: The instructions to assemble.
     /// - `address`: The start location of the instructions.
     /// - `labels`: Additional label definitions by absolute address, expects a reference to some `Map<AsRef<str>, u64>`
-    ///             which can be iterated over.
+    ///   which can be iterated over.
     ///
     /// # Returns:
     /// Ok() and bytecode on success, Err() otherwise.
