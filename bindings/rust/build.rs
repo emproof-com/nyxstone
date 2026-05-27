@@ -476,6 +476,12 @@ fn get_link_libraries(llvm_config_path: &Path, preferences: &LinkingPreferences)
 fn extract_library(s: &str, kind: LibraryKind) -> Vec<String> {
     s.split(&[' ', '\n'] as &[char])
         .filter(|s| !s.is_empty())
+        // Polly is an LLVM polyhedral optimizer that nyxstone does not use,
+        // but `llvm-config --libnames` lists it. Ubuntu's `llvm-N-dev` apt
+        // package ships the dynamic Polly libs but not the static archives,
+        // so a default `cargo build` (which prefers static linking) fails
+        // with `could not find native static library Polly`. Skip them.
+        .filter(|s| !s.starts_with("libPolly") && !s.starts_with("Polly"))
         .map(|name| {
             // --libnames gives library filenames. Extract only the name that
             // we need to pass to the linker.
