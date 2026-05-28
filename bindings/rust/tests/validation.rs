@@ -707,6 +707,89 @@ mod tests {
     }
 
     #[test]
+    fn arm_ldr_constant_pool() -> Result<()> {
+        let nyxstone_armv7m = Nyxstone::new("armv7m-none-eabi", NyxstoneConfig::default())?;
+
+        // `ldr rX, =const` is the ARM literal-pool pseudo-instruction. A constant
+        // that fits an immediate is folded into a movw, so no pool is needed.
+        assert_eq!(nyxstone_armv7m.assemble("ldr r0, =0x1234", 0x0)?, vec![0x41, 0xf2, 0x34, 0x20]);
+
+        // A wide constant is placed in a literal pool emitted right after the
+        // code (`ldr r0, [pc]` + 2 bytes of alignment + the 4-byte constant).
+        assert_eq!(
+            nyxstone_armv7m.assemble("ldr r0, =0xfefaff", 0x0)?,
+            vec![0x00, 0x48, 0x00, 0x00, 0xff, 0xfa, 0xfe, 0x00]
+        );
+
+        // `.ltorg` forces the pool to be emitted at that point instead of at the
+        // end, so the trailing `nop` comes after the pooled constant.
+        assert_eq!(
+            nyxstone_armv7m.assemble("ldr r0, =0xdeadbeef\nbx lr\n.ltorg\nnop", 0x0)?,
+            vec![0x00, 0x48, 0x70, 0x47, 0xef, 0xbe, 0xad, 0xde, 0x00, 0xbf]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn arm_ldr_constant_pool_multiple_instructions() -> Result<()> {
+        let nyxstone_armv7m = Nyxstone::new("armv7m-none-eabi", NyxstoneConfig::default())?;
+
+        // Several instructions with two distinct pooled constants. With no
+        // `.ltorg`, the pool is allocated at the very end (after `bx lr`),
+        // 4-byte aligned, and each `ldr` resolves to the correct entry: the
+        // PC-relative offsets #4 and #8 land exactly on pool[0] and pool[1].
+        assert_eq!(
+            nyxstone_armv7m.assemble("ldr r0, =0x11223344\nldr r1, =0x55667788\nadds r0, r0, r1\nbx lr", 0x0)?,
+            vec![
+                0x01, 0x48, // ldr r0, [pc, #4]  -> pool[0]
+                0x02, 0x49, // ldr r1, [pc, #8]  -> pool[1]
+                0x40, 0x18, // adds r0, r0, r1
+                0x70, 0x47, // bx lr
+                0x44, 0x33, 0x22, 0x11, // pool[0] = 0x11223344
+                0x88, 0x77, 0x66, 0x55, // pool[1] = 0x55667788
+            ]
+        );
+
+        // Identical constants are de-duplicated into a single pool entry, so
+        // both loads reference the same address (both offsets are #4).
+        assert_eq!(
+            nyxstone_armv7m.assemble("ldr r0, =0xcafebabe\nldr r1, =0xcafebabe\nbx lr", 0x0)?,
+            vec![
+                0x01, 0x48, // ldr r0, [pc, #4]
+                0x01, 0x49, // ldr r1, [pc, #4]  (same entry)
+                0x70, 0x47, // bx lr
+                0x00, 0x00, // alignment padding before the 4-byte-aligned pool
+                0xbe, 0xba, 0xfe, 0xca, // pool[0] = 0xcafebabe
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn aarch64_ldr_constant_pool() -> Result<()> {
+        let nyxstone = Nyxstone::new("aarch64-linux-gnueabihf", NyxstoneConfig::default())?;
+
+        // AArch64 also supports `ldr xX, =const`. With no explicit pool the two
+        // 8-byte entries sit after the code and each `ldr` literal resolves to
+        // its entry (offsets #8 and #16).
+        assert_eq!(
+            nyxstone.assemble("ldr x0, =0x1122334455667788\nldr x1, =0xaabbccdd\nadd x0, x0, x1\nret", 0x0)?,
+            vec![
+                0x80, 0x00, 0x00, 0x58, // ldr x0, #8   -> pool[0]
+                0xa1, 0x00, 0x00, 0x58, // ldr x1, #16  -> pool[1]
+                0x00, 0x00, 0x01, 0x8b, // add x0, x0, x1
+                0xc0, 0x03, 0x5f, 0xd6, // ret
+                0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, // pool[0] = 0x1122334455667788
+                0xdd, 0xcc, 0xbb, 0xaa, 0x00, 0x00, 0x00, 0x00, // pool[1] = 0xaabbccdd
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn armv8m_check_label_range_validation() -> Result<()> {
         let instructions: Vec<InstructionRange> = vec![
             InstructionRange::new(
