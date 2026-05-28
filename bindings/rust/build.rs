@@ -99,6 +99,11 @@ fn main() {
         .include("nyxstone/vendor")
         .include(llvm_include_dir.trim())
         // .include(cxxbridge_dir)
+        // GCC's -Wmaybe-uninitialized (pulled in by cxx-build's -Wextra) produces
+        // false positives inside LLVM's SmallVector headers and the cxx-generated
+        // bridge, neither of which is our code. Silence just that check; it is a
+        // no-op on clang (which has no such flag).
+        .flag_if_supported("-Wno-maybe-uninitialized")
         .files(sources)
         .compile("nyxstone_wrap");
 
