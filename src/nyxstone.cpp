@@ -1,6 +1,6 @@
 #include "nyxstone.h"
 
-#include "FastStreamer.h"
+#include "ELFStreamerWrapper.h"
 #include "Target/AArch64/MCTargetDesc/AArch64FixupKinds.h"
 #include "Target/AArch64/MCTargetDesc/AArch64MCExpr.h"
 #include "Target/ARM/MCTargetDesc/ARMFixupKinds.h"
@@ -38,6 +38,7 @@
 #include <llvm/Support/TargetSelect.h>
 #pragma GCC diagnostic pop
 
+#include <array>
 #include <iostream>
 #include <mutex>
 #include <numeric>
@@ -208,23 +209,6 @@ tl::expected<std::vector<Nyxstone::Instruction>, std::string> Nyxstone::disassem
 }
 
 namespace {
-    /// Cross-version `MCCodeEmitter::encodeInstruction` wrapper. LLVM 15-16
-    /// expose only the `raw_ostream&` overload; LLVM 17+ adds the public
-    /// `SmallVectorImpl<char>&` overload (and makes the stream variant
-    /// `protected`). We always carry our own SmallVector, so wrap it in
-    /// `raw_svector_ostream` for the older versions.
-    inline void encode_instruction(llvm::MCCodeEmitter& emitter, const llvm::MCInst& inst,
-        llvm::SmallVectorImpl<char>& bytes, llvm::SmallVectorImpl<llvm::MCFixup>& fixups,
-        const llvm::MCSubtargetInfo& sti)
-    {
-#if LLVM_VERSION_MAJOR < 17
-        llvm::raw_svector_ostream os(bytes);
-        emitter.encodeInstruction(inst, os, fixups, sti);
-#else
-        emitter.encodeInstruction(inst, bytes, fixups, sti);
-#endif
-    }
-
     /// Validates an ARM Thumb fixup: range and alignment checks LLVM is missing
     /// for some kinds, producing wrong bytes instead of an error. Alignment
     /// and range checks operate on the runtime addresses (`address +
@@ -295,6 +279,41 @@ namespace {
             context.reportError(fixup.getLoc(), "fixup value out of range (reported by Nyxstone)");
         }
     }
+
+    // ARM Thumb mixes 2- and 4-byte instructions and aligns the PC down to the
+    // last 4-byte boundary (`base = Align(PC, 4)`) for PC-relative loads/ADR.
+    // LLVM lays the section out from offset 0, so when the real start `address`
+    // is 2- but not 4-byte aligned the layout parity is wrong: LLVM then relaxes
+    // to the wrong encoding size or rejects the fixup outright — and that
+    // happens during layout, before any post-pass can intervene. Prepending a
+    // single 2-byte `bkpt #0x42` for `address % 4 == 2` restores the parity; it
+    // is stripped from the output bytes and instruction list afterwards. `bkpt`
+    // is used because it has a 2-byte encoding on ARMv6/7/8-M and is unusual.
+    const char* const PREPENDED_BKPT_ASSEMBLY { "bkpt #0x42\n" };
+    constexpr std::array<uint8_t, 2> PREPENDED_BKPT_BYTES { 0x42, 0xbe };
+
+    // Strips the prepended bkpt (2 bytes + leading instruction entry) added for
+    // Thumb alignment. Returns false (with an error in `context`) if it is not
+    // present where expected.
+    bool strip_prepended_bkpt(
+        std::vector<uint8_t>& bytes, std::vector<Nyxstone::Instruction>* instructions, llvm::MCContext& context)
+    {
+        if (instructions != nullptr) {
+            if (instructions->empty() || instructions->front().bytes.size() != 2
+                || !std::equal(instructions->front().bytes.begin(), instructions->front().bytes.end(),
+                    PREPENDED_BKPT_BYTES.begin())) {
+                context.reportError(llvm::SMLoc(), "Did not find prepended bkpt at first instruction (Nyxstone)");
+                return false;
+            }
+            instructions->erase(instructions->begin());
+        }
+        if (bytes.size() < 2 || bytes[0] != PREPENDED_BKPT_BYTES[0] || bytes[1] != PREPENDED_BKPT_BYTES[1]) {
+            context.reportError(llvm::SMLoc(), "Did not find prepended bkpt at first two bytes (Nyxstone)");
+            return false;
+        }
+        bytes.erase(bytes.begin(), bytes.begin() + 2);
+        return true;
+    }
 } // namespace
 
 tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assembly, uint64_t address,
@@ -310,8 +329,19 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         return {};
     }
 
+    // See PREPENDED_BKPT_ASSEMBLY: for ARM Thumb with a 2-but-not-4-byte-aligned
+    // start address, prepend a 2-byte bkpt so LLVM's section-base-0 layout has
+    // the right alignment parity. The extra bytes are compensated in label
+    // offsets (below) and stripped from the output (at the end).
+    const bool needs_prepend = is_ArmT16_or_ArmT32(triple) && (address % 4 == 2);
+    const std::string input_assembly = needs_prepend ? (PREPENDED_BKPT_ASSEMBLY + assembly) : assembly;
+    // The runtime address of a byte at section offset O is `effective_base + O`;
+    // the prepended bkpt shifts every section offset up by its 2 bytes.
+    const uint64_t prepend_bytes = needs_prepend ? PREPENDED_BKPT_BYTES.size() : 0;
+    const uint64_t effective_base = address - prepend_bytes;
+
     llvm::SourceMgr source_manager;
-    source_manager.AddNewSourceBuffer(llvm::MemoryBuffer::getMemBuffer(assembly), llvm::SMLoc());
+    source_manager.AddNewSourceBuffer(llvm::MemoryBuffer::getMemBuffer(input_assembly), llvm::SMLoc());
 
     std::string extended_error;
 
@@ -331,70 +361,55 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         error_stream << "ELF does not support target triple '" << triple.getTriple() << "'.";
         return tl::unexpected(error_stream.str());
     }
+
+    // A `.text`-only object file info: skipping the setup/bookkeeping of the
+    // other ELF sections is the single largest performance win over LLVM's full
+    // MCObjectFileInfo, while still letting the real MCELFStreamer pipeline run.
     TextOnlyObjectFileInfo object_file_info;
     object_file_info.initTextOnly(context);
     context.setObjectFileInfo(&object_file_info);
     auto* text_section = object_file_info.getTextSection();
 
-    auto code_emitter_uptr
-        = std::unique_ptr<llvm::MCCodeEmitter>(target.createMCCodeEmitter(*instruction_info, context));
-    if (!code_emitter_uptr) {
+    // The streamer must own its backend/emitter/writer (LLVM takes unique_ptrs),
+    // so these are created per call; the version-independent `*_info` objects and
+    // the instruction printer remain cached on the Nyxstone instance.
+    auto code_emitter = std::unique_ptr<llvm::MCCodeEmitter>(target.createMCCodeEmitter(*instruction_info, context));
+    if (!code_emitter) {
         return tl::unexpected("Could not create LLVM object (= MCCodeEmitter )");
     }
-
-    // MCAsmBackend is cached on Nyxstone (no MCContext dependency). MCAssembler
-    // ctor requires unique_ptr ownership of *a* backend, so create a throwaway
-    // per call for that role; our own applyFixup/relax calls use the cached
-    // backend directly.
-    auto throwaway_backend = std::unique_ptr<llvm::MCAsmBackend>(
+    auto assembler_backend = std::unique_ptr<llvm::MCAsmBackend>(
         target.createMCAsmBackend(*subtarget_info, *register_info, target_options));
-    if (!throwaway_backend) {
+    if (!assembler_backend) {
         return tl::unexpected("Could not create LLVM object (= MCAsmBackend )");
     }
+    // The cached, MCContext-independent backend is reused for the post-layout
+    // fixup queries/re-application below; the streamer owns its own per-call
+    // backend (LLVM requires unique_ptr ownership) for the layout itself.
+    auto* backend = asm_backend.get();
 
-    llvm::SmallVector<char, 64> dummy_writer_buffer;
-    llvm::raw_svector_ostream dummy_writer_stream(dummy_writer_buffer);
-    auto object_writer_uptr = throwaway_backend->createObjectWriter(dummy_writer_stream);
+    // The full ELF object is written into this throwaway buffer by finish(); we
+    // extract `.text` ourselves via MCAssembler::writeSectionData afterwards.
+    llvm::SmallVector<char, 128> object_buffer;
+    llvm::raw_svector_ostream object_stream(object_buffer);
+    auto object_writer = assembler_backend->createObjectWriter(object_stream);
+    if (!object_writer) {
+        return tl::unexpected("Could not create LLVM object (= MCObjectWriter )");
+    }
 
-    auto* code_emitter = code_emitter_uptr.get();
-    auto* asm_backend_p = asm_backend.get();
-
-    // MCAssembler is only used to satisfy the `const MCAssembler&` parameter of
-    // MCAsmBackend::applyFixup (some backends call Asm.getContext() for error
-    // reporting). The backend/emitter/writer it owns are not invoked through it.
-    llvm::MCAssembler assembler(
-        context, std::move(throwaway_backend), std::move(code_emitter_uptr), std::move(object_writer_uptr));
-
-    auto streamer = std::make_unique<FastStreamer>(context);
+    auto streamer = std::make_unique<ELFStreamerWrapper>(context, std::move(assembler_backend),
+        std::move(object_writer), std::move(code_emitter), instructions, extended_error, *instruction_printer);
     streamer->setUseAssemblerInfoForParsing(true);
     // Attach the target's streamer so the `ldr rX, =const` pseudo works: the ARM
-    // and AArch64 parsers route its literal pool through this object, and without
-    // one they dereference a null target streamer and crash. The MCTargetStreamer
-    // ctor registers itself as the streamer's (owned) target streamer, so the
-    // returned pointer must be discarded rather than wrapped. The pool is flushed
-    // during parsing (`.ltorg`/`.pool` or finalize) via emit{Label,Value,ValueToAlignment},
-    // which FastStreamer already records as ordinary events.
+    // and AArch64 parsers route its literal pool through this object (without one
+    // they dereference a null target streamer and crash). It registers itself as
+    // the streamer's owned target streamer, so the return value is discarded.
     target.createNullTargetStreamer(*streamer);
-    streamer->switchSection(text_section);
-
-    // Dummy data fragment to attach symbol definitions to so that MCSymbol::isDefined()
-    // returns true during parsing — required by the parser but never inspected for content.
-    llvm::MCDataFragment dummy_fragment_storage;
-    auto* dummy_fragment = &dummy_fragment_storage;
-
-    // Inject external label definitions before parsing so the parser knows their addresses.
-    for (const auto& label : labels) {
-        auto* inj_symbol = context.getOrCreateSymbol(label.name);
-        inj_symbol->setOffset(label.address - address);
-        inj_symbol->setFragment(dummy_fragment);
-    }
 
     auto parser
         = std::unique_ptr<llvm::MCAsmParser>(createMCAsmParser(source_manager, context, *streamer, *assembler_info));
     if (!parser) {
         return tl::unexpected("Could not create LLVM object (= MCAsmParser )");
     }
-
     auto target_parser = std::unique_ptr<llvm::MCTargetAsmParser>(
         target.createMCAsmParser(*subtarget_info, *parser, *instruction_info, target_options));
     if (!target_parser) {
@@ -403,8 +418,37 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     parser->setAssemblerDialect(1);
     parser->setTargetParser(*target_parser);
 
-    const bool error = parser->Run(/* NoInitialTextSection= */ true);
-    if (error || !extended_error.empty()) {
+    // Set up `.text` and grab its initial data fragment so externally supplied
+    // labels can be anchored (MCSymbol::isDefined() must hold during parsing).
+    // LLVM lays the section out from offset 0; the runtime `address` is applied
+    // only to the label offsets here and to the address-sensitive fixups below.
+    streamer->initSections(false, parser->getTargetParser().getSTI());
+    auto* current_section = streamer->getCurrentSectionOnly();
+    if (current_section == nullptr) {
+        return tl::unexpected("Could not set up the .text section.");
+    }
+    llvm::MCFragment* anchor_fragment = nullptr;
+    for (llvm::MCFragment& fragment : *current_section) {
+        if (fragment.getKind() == llvm::MCFragment::FT_Data) {
+            anchor_fragment = &fragment;
+            break;
+        }
+    }
+    if (anchor_fragment == nullptr) {
+        return tl::unexpected("Could not find initial data fragment.");
+    }
+    for (const auto& label : labels) {
+        auto* inj_symbol = context.getOrCreateSymbol(label.name);
+        inj_symbol->setOffset(label.address - effective_base);
+        inj_symbol->setFragment(anchor_fragment);
+    }
+
+    // Parse + finalize. LLVM lays out the section, relaxes, and resolves every
+    // fixup/relocation it can — including target-specific ones such as RISC-V
+    // %pcrel_hi/%pcrel_lo (the `la` pseudo). That automatic, complete relocation
+    // handling for all architectures is the reason this path uses MCELFStreamer.
+    const bool parse_error = parser->Run(/* NoInitialTextSection= */ true);
+    if (parse_error || !extended_error.empty()) {
         std::ostringstream error_stream;
         error_stream << "Error during assembly";
         if (!extended_error.empty()) {
@@ -413,437 +457,103 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         return tl::unexpected(error_stream.str());
     }
 
-    // Encode each instruction once up front. Labels, instructions, and data
-    // directives stay in the same ordered vector so subsequent relaxation
-    // passes can recompute output offsets after re-encoding any instruction
-    // that grew (which in turn shifts alignment padding and label addresses).
-    enum class EvKind { Label, Instruction, Value, Bytes, Align, Org };
-    struct EmittedEvent {
-        EvKind kind;
-        size_t output_offset = 0;
-        llvm::MCSymbol* symbol = nullptr; // Label
-        llvm::MCInst inst {}; // Instruction
-        const llvm::MCSubtargetInfo* sti = nullptr; // Instruction, Align (code alignment)
-        llvm::SmallVector<char, 8> bytes {}; // current/final bytes for everything but Label
-        llvm::SmallVector<llvm::MCFixup, 1> fixups {}; // Instruction
-        const llvm::MCExpr* value_expr = nullptr; // Value
-        unsigned value_size = 0; // Value
-        unsigned align = 0; // Align — byte alignment (power of two)
-        int64_t align_fill = 0; // Align — fill value for value alignment
-        unsigned align_fill_size = 0; // Align — fill unit size; 0 means code (NOP) alignment
-        unsigned align_max_bytes = 0; // Align — skip if more padding than this is needed (0 = no limit)
-        int64_t org_target = 0; // Org — section-relative offset to pad up to
-        char org_fill = 0; // Org — byte used for the padding
-    };
-    llvm::SmallVector<EmittedEvent, 16> emitted;
-
-    for (const auto& ev : streamer->events()) {
-        EmittedEvent e;
-        switch (ev.kind) {
-        case FastStreamer::EventKind::Label:
-            e.kind = EvKind::Label;
-            e.symbol = ev.symbol;
-            break;
-        case FastStreamer::EventKind::Instruction:
-            e.kind = EvKind::Instruction;
-            e.inst = ev.inst;
-            e.sti = ev.sti;
-            encode_instruction(*code_emitter, e.inst, e.bytes, e.fixups, *e.sti);
-            break;
-        case FastStreamer::EventKind::Value:
-            // Size is fixed; the bytes are filled in once the layout (and thus
-            // any referenced label addresses) is final.
-            e.kind = EvKind::Value;
-            e.value_expr = ev.value_expr;
-            e.value_size = ev.value_size;
-            e.bytes.resize(ev.value_size, 0);
-            break;
-        case FastStreamer::EventKind::Bytes:
-            e.kind = EvKind::Bytes;
-            e.bytes.assign(ev.data.begin(), ev.data.end());
-            break;
-        case FastStreamer::EventKind::Fill: {
-            // `.space`/`.skip`/`.zero`/`.fill`: the repeat count must be an
-            // absolute constant (it cannot depend on the layout being computed).
-            // The resulting bytes are fixed, so this behaves like a Bytes event.
-            e.kind = EvKind::Bytes;
-            int64_t count = 0;
-            if (!ev.value_expr->evaluateAsAbsolute(count) || count < 0) {
-                context.reportError(llvm::SMLoc(), "Could not evaluate fill count (reported by Nyxstone)");
-                break;
-            }
-            const unsigned unit = ev.fill_unit != 0 ? ev.fill_unit : 1;
-            e.bytes.resize(static_cast<size_t>(count) * unit, 0);
-            for (int64_t rep = 0; rep < count; ++rep) {
-                for (unsigned b = 0; b < unit; ++b) {
-                    const unsigned shift = triple.isLittleEndian() ? b : (unit - 1 - b);
-                    e.bytes[static_cast<size_t>(rep) * unit + b]
-                        = static_cast<char>((static_cast<uint64_t>(ev.fill_value) >> (8U * shift)) & 0xffU);
-                }
-            }
-            break;
-        }
-        case FastStreamer::EventKind::Leb: {
-            // `.uleb128`/`.sleb128`: the value must be an absolute constant, so
-            // its variable-length encoding is fixed up front.
-            e.kind = EvKind::Bytes;
-            int64_t v = 0;
-            if (!ev.value_expr->evaluateAsAbsolute(v)) {
-                context.reportError(llvm::SMLoc(), "Could not evaluate LEB128 value (reported by Nyxstone)");
-                break;
-            }
-            llvm::SmallString<16> encoded;
-            llvm::raw_svector_ostream encoded_stream(encoded);
-            if (ev.leb_signed) {
-                llvm::encodeSLEB128(v, encoded_stream);
-            } else {
-                llvm::encodeULEB128(static_cast<uint64_t>(v), encoded_stream);
-            }
-            e.bytes.assign(encoded.begin(), encoded.end());
-            break;
-        }
-        case FastStreamer::EventKind::Align:
-            // Padding size depends on the running offset, so it is computed in
-            // recompute_offsets() and may change as instructions relax.
-            e.kind = EvKind::Align;
-            e.sti = ev.sti;
-            e.align = ev.alignment;
-            e.align_fill = ev.align_fill;
-            e.align_fill_size = ev.align_fill_size;
-            e.align_max_bytes = ev.align_max_bytes;
-            break;
-        case FastStreamer::EventKind::Org: {
-            // `.org`: advance to a fixed section-relative offset. The target
-            // must be an absolute constant; the padding size depends on the
-            // running offset and is (re)computed in recompute_offsets().
-            e.kind = EvKind::Org;
-            int64_t org_offset = 0;
-            if (!ev.value_expr->evaluateAsAbsolute(org_offset) || org_offset < 0) {
-                context.reportError(llvm::SMLoc(), "Could not evaluate .org offset (reported by Nyxstone)");
-                break;
-            }
-            e.org_target = org_offset;
-            e.org_fill = static_cast<char>(static_cast<uint64_t>(ev.fill_value) & 0xffU);
-            break;
-        }
-        case FastStreamer::EventKind::Nops: {
-            // `.nops`: emit a fixed number of NOP-encoded padding bytes. The
-            // count is constant, so the bytes are generated up front like a
-            // Bytes event. `nops_control` caps the length of each individual NOP
-            // (0 = let the backend pick the largest NOP it supports).
-            e.kind = EvKind::Bytes;
-            if (ev.nops_num_bytes < 0 || ev.nops_control < 0) {
-                context.reportError(llvm::SMLoc(), "Negative .nops length (reported by Nyxstone)");
-                break;
-            }
-            llvm::raw_svector_ostream nop_stream(e.bytes);
-            if (ev.nops_control == 0) {
-                asm_backend_p->writeNopData(nop_stream, static_cast<uint64_t>(ev.nops_num_bytes), ev.sti);
-            } else {
-                int64_t remaining = ev.nops_num_bytes;
-                while (remaining > 0) {
-                    const auto chunk = static_cast<uint64_t>(std::min(remaining, ev.nops_control));
-                    if (!asm_backend_p->writeNopData(nop_stream, chunk, ev.sti)) {
-                        context.reportError(llvm::SMLoc(), "Could not emit .nops padding (reported by Nyxstone)");
-                        break;
-                    }
-                    remaining -= static_cast<int64_t>(chunk);
-                }
-            }
-            break;
-        }
-        }
-        emitted.push_back(std::move(e));
-    }
-    if (!extended_error.empty()) {
-        std::ostringstream error_stream;
-        error_stream << "Error during assembly: " << extended_error;
-        return tl::unexpected(error_stream.str());
-    }
-
-    auto recompute_offsets = [&]() {
-        size_t offset = 0;
-        for (auto& e : emitted) {
-            e.output_offset = offset;
-            switch (e.kind) {
-            case EvKind::Label:
-                e.symbol->setOffset(offset);
-                e.symbol->setFragment(dummy_fragment);
-                break;
-            case EvKind::Align: {
-                // Align is always a power of two, so mask the low bits.
-                const size_t aligned
-                    = (e.align <= 1) ? offset : ((offset + e.align - 1) & ~(static_cast<size_t>(e.align) - 1));
-                size_t pad = aligned - offset;
-                if (e.align_max_bytes != 0 && pad > e.align_max_bytes) {
-                    pad = 0; // GNU as semantics: skip the alignment if it would need more than max bytes
-                }
-                e.bytes.clear();
-                if (e.align_fill_size == 0) {
-                    // Code alignment: fill with target NOP padding.
-                    llvm::raw_svector_ostream pad_stream(e.bytes);
-                    asm_backend_p->writeNopData(pad_stream, pad, e.sti);
-                } else {
-                    // Value alignment: repeat the low byte of the fill value.
-                    e.bytes.assign(pad, static_cast<char>(e.align_fill & 0xff));
-                }
-                offset += e.bytes.size();
-                break;
-            }
-            case EvKind::Org: {
-                // Pad forward to the requested offset. A target behind the
-                // current offset is an error (caught after relaxation settles);
-                // emit no padding here so the layout stays well-defined.
-                e.bytes.clear();
-                if (e.org_target > static_cast<int64_t>(offset)) {
-                    e.bytes.assign(static_cast<size_t>(e.org_target) - offset, e.org_fill);
-                }
-                offset += e.bytes.size();
-                break;
-            }
-            default:
-                offset += e.bytes.size();
-                break;
-            }
-        }
-    };
-    recompute_offsets();
-
-    auto evaluate_target = [&](const llvm::MCFixup& fixup, int64_t& out_value, llvm::MCValue& out_mc_value) -> bool {
-        const llvm::MCExpr* expr = fixup.getValue();
-        if (expr == nullptr) {
-            context.reportError(fixup.getLoc(), "Fixup has no value expression (reported by Nyxstone)");
-            return false;
-        }
-        if (!expr->evaluateAsRelocatable(out_mc_value, nullptr, &fixup)) {
-            context.reportError(fixup.getLoc(), "Could not evaluate fixup expression (reported by Nyxstone)");
-            return false;
-        }
-        if (out_mc_value.getSymA() != nullptr && !out_mc_value.getSymA()->getSymbol().isDefined()) {
-            context.reportError(fixup.getLoc(), "Label undefined (reported by Nyxstone)");
-            return false;
-        }
-        if (out_mc_value.getSymB() != nullptr && !out_mc_value.getSymB()->getSymbol().isDefined()) {
-            context.reportError(fixup.getLoc(), "Label undefined (reported by Nyxstone)");
-            return false;
-        }
-        int64_t v = out_mc_value.getConstant();
-        if (out_mc_value.getSymA() != nullptr) {
-            v += static_cast<int64_t>(out_mc_value.getSymA()->getSymbol().getOffset());
-        }
-        if (out_mc_value.getSymB() != nullptr) {
-            v -= static_cast<int64_t>(out_mc_value.getSymB()->getSymbol().getOffset());
-        }
-        out_value = v;
-        return true;
-    };
-
-    // Evaluates a data directive value expression (`.byte`/`.int`/…). Symbol
-    // references resolve to absolute runtime addresses (`address + offset`);
-    // label differences cancel the base address as expected. Returns false on
-    // an unresolved/undefined reference.
-    auto evaluate_data_value = [&](const llvm::MCExpr* expr, uint64_t& out_value) -> bool {
-        llvm::MCValue mc_value;
-        if (!expr->evaluateAsRelocatable(mc_value, nullptr, nullptr)) {
-            context.reportError(llvm::SMLoc(), "Could not evaluate data value (reported by Nyxstone)");
-            return false;
-        }
-        const auto* sym_a = mc_value.getSymA();
-        const auto* sym_b = mc_value.getSymB();
-        if ((sym_a != nullptr && !sym_a->getSymbol().isDefined())
-            || (sym_b != nullptr && !sym_b->getSymbol().isDefined())) {
-            context.reportError(llvm::SMLoc(), "Label undefined in data value (reported by Nyxstone)");
-            return false;
-        }
-        int64_t v = mc_value.getConstant();
-        if (sym_a != nullptr) {
-            v += static_cast<int64_t>(address + sym_a->getSymbol().getOffset());
-        }
-        if (sym_b != nullptr) {
-            v -= static_cast<int64_t>(address + sym_b->getSymbol().getOffset());
-        }
-        out_value = static_cast<uint64_t>(v);
-        return true;
-    };
-
-    auto compute_fixup_value
-        = [&](const llvm::MCFixup& fixup, int64_t target_offset, uint64_t fixup_byte_offset) -> uint64_t {
-        const auto kind = fixup.getTargetKind();
-        const auto info = asm_backend_p->getFixupKindInfo(fixup.getKind());
-        const bool is_pcrel = (info.Flags & llvm::MCFixupKindInfo::FKF_IsPCRel) != 0;
-        const bool is_aligned_down_32 = (info.Flags & llvm::MCFixupKindInfo::FKF_IsAlignedDownTo32Bits) != 0;
-        if (triple.isAArch64() && kind == llvm::AArch64::fixup_aarch64_pcrel_adrp_imm21) {
-            constexpr uint64_t PAGE_SIZE { 0x1000 };
-            const uint64_t local_addr = address + fixup_byte_offset;
-            const uint64_t target_addr = address + static_cast<uint64_t>(target_offset);
-            return (target_addr & ~(PAGE_SIZE - 1)) - (local_addr & ~(PAGE_SIZE - 1));
-        }
-        if (is_pcrel) {
-            // Include `address` so that the align-down-to-4 operation works on
-            // the runtime PC. Without this, Thumb's `Align(PC, 4)` PC-relative
-            // loads/ADRs at 2-byte-aligned addresses produced wrong bytes —
-            // the old code papered over this by prepending a `bkpt` to force
-            // alignment-parity in the output.
-            uint64_t pc = address + fixup_byte_offset;
-            if (is_aligned_down_32) {
-                pc &= ~uint64_t { 3 };
-            }
-            const uint64_t target_addr = address + static_cast<uint64_t>(target_offset);
-            return target_addr - pc;
-        }
-        return static_cast<uint64_t>(target_offset) + address;
-    };
-
-    // Relax loop. For each fixup, compute its value and ask the backend whether
-    // it would need relaxation. If so and the instruction is relaxable, swap
-    // for the relaxed form and restart. Mirrors MCAssembler::layoutOnce() but
-    // without fragments. The Layout/Assembler ref is required by some backends'
-    // relaxation predicate but unused by the ones nyxstone supports here.
+    auto& assembler = streamer->getAssembler();
 #if LLVM_VERSION_MAJOR < 19
+    // MCAsmLayout was removed in LLVM 19; before that the offset/section-data
+    // queries live on the layout rather than directly on the assembler.
     llvm::MCAsmLayout layout(assembler);
 #endif
-    constexpr size_t MAX_RELAX_ITERS { 32 };
-    for (size_t iter = 0; iter < MAX_RELAX_ITERS; ++iter) {
-        recompute_offsets();
-        bool relaxed_one = false;
-        for (auto& e : emitted) {
-            if (e.kind != EvKind::Instruction) {
+    auto symbol_offset = [&](const llvm::MCSymbol& symbol) -> uint64_t {
+#if LLVM_VERSION_MAJOR < 19
+        return layout.getSymbolOffset(symbol);
+#else
+        return assembler.getSymbolOffset(symbol);
+#endif
+    };
+    auto fragment_offset = [&](const llvm::MCFragment& fragment) -> uint64_t {
+#if LLVM_VERSION_MAJOR < 19
+        return layout.getFragmentOffset(&fragment);
+#else
+        return assembler.getFragmentOffset(fragment);
+#endif
+    };
+
+    // Resolves a fixup's value expression to a section-relative offset
+    // (`A - B + constant`). Returns false on an undefined symbol reference.
+    auto target_section_offset = [&](const llvm::MCFixup& fixup, int64_t& out) -> bool {
+        const llvm::MCExpr* expr = fixup.getValue();
+        llvm::MCValue value;
+        if (expr == nullptr || !expr->evaluateAsRelocatable(value, nullptr, &fixup)) {
+            return false;
+        }
+        int64_t result = value.getConstant();
+        if (const auto* sym_a = value.getSymA()) {
+            if (!sym_a->getSymbol().isDefined()) {
+                return false;
+            }
+            result += static_cast<int64_t>(symbol_offset(sym_a->getSymbol()));
+        }
+        if (const auto* sym_b = value.getSymB()) {
+            if (!sym_b->getSymbol().isDefined()) {
+                return false;
+            }
+            result -= static_cast<int64_t>(symbol_offset(sym_b->getSymbol()));
+        }
+        out = result;
+        return true;
+    };
+
+    // Re-run the Nyxstone-specific validators on the final layout, and resolve
+    // the one fixup family LLVM defers to link time and that depends on the
+    // runtime base: AArch64 `adrp` (page-of-target minus page-of-pc). Everything
+    // else is either translation-invariant or already handled (Thumb alignment
+    // via the bkpt prepend), so it is left exactly as LLVM resolved it.
+    const bool is_thumb = is_ArmT16_or_ArmT32(triple);
+    for (llvm::MCFragment& fragment : *text_section) {
+        llvm::MutableArrayRef<char> contents;
+        const llvm::SmallVectorImpl<llvm::MCFixup>* fixups = nullptr;
+        if (fragment.getKind() == llvm::MCFragment::FT_Data) {
+            auto& data_fragment = llvm::cast<llvm::MCDataFragment>(fragment);
+            contents = data_fragment.getContents();
+            fixups = &data_fragment.getFixups();
+        } else if (fragment.getKind() == llvm::MCFragment::FT_Relaxable) {
+            auto& relaxable_fragment = llvm::cast<llvm::MCRelaxableFragment>(fragment);
+            contents = relaxable_fragment.getContents();
+            fixups = &relaxable_fragment.getFixups();
+        } else {
+            continue;
+        }
+
+        const uint64_t frag_offset = fragment_offset(fragment);
+        for (const llvm::MCFixup& fixup : *fixups) {
+            int64_t target_offset = 0;
+            if (!target_section_offset(fixup, target_offset)) {
+                context.reportError(fixup.getLoc(), "Label undefined (reported by Nyxstone)");
                 continue;
             }
-            for (const auto& fx : e.fixups) {
-                int64_t target_offset = 0;
-                llvm::MCValue mc_value;
-                if (!evaluate_target(fx, target_offset, mc_value)) {
-                    break;
-                }
-                const uint64_t fixup_byte_offset = e.output_offset + fx.getOffset();
-                const uint64_t value = compute_fixup_value(fx, target_offset, fixup_byte_offset);
+            const uint64_t fixup_offset = frag_offset + fixup.getOffset();
 
-                // Only ask the backend whether the fixup needs relaxation when the
-                // instruction itself supports it; for non-relaxable instructions
-                // some backends return spurious "needs relaxation" answers from
-                // fixupNeedsRelaxationAdvanced.
-#if LLVM_VERSION_MAJOR < 19
-                const bool needs_relax = asm_backend_p->mayNeedRelaxation(e.inst, *e.sti)
-                    && asm_backend_p->fixupNeedsRelaxationAdvanced(
-                        fx, /*Resolved=*/true, value, nullptr, layout, /*WasForced=*/false);
-#else
-                const bool needs_relax = asm_backend_p->mayNeedRelaxation(e.inst, *e.sti)
-                    && asm_backend_p->fixupNeedsRelaxationAdvanced(
-                        assembler, fx, /*Resolved=*/true, value, nullptr, /*WasForced=*/false);
-#endif
-                if (needs_relax) {
-                    llvm::MCInst relaxed = e.inst;
-                    asm_backend_p->relaxInstruction(relaxed, *e.sti);
-                    e.inst = relaxed;
-                    e.bytes.clear();
-                    e.fixups.clear();
-                    encode_instruction(*code_emitter, e.inst, e.bytes, e.fixups, *e.sti);
-                    relaxed_one = true;
-                    break;
-                }
-            }
-            if (relaxed_one || !extended_error.empty()) {
-                break;
-            }
-        }
-        if (!relaxed_one || !extended_error.empty()) {
-            break;
-        }
-    }
-    if (!extended_error.empty()) {
-        std::ostringstream error_stream;
-        error_stream << "Error during assembly: " << extended_error;
-        return tl::unexpected(error_stream.str());
-    }
-
-    // The layout is final: reject any `.org` that would move the location
-    // counter backwards (GNU as semantics) rather than silently truncating.
-    const auto* backwards_org = std::find_if(emitted.begin(), emitted.end(), [](const EmittedEvent& e) {
-        return e.kind == EvKind::Org && e.org_target < static_cast<int64_t>(e.output_offset);
-    });
-    if (backwards_org != emitted.end()) {
-        std::ostringstream msg;
-        msg << "Cannot move .org backwards to offset 0x" << std::hex << backwards_org->org_target
-            << " (already at offset 0x" << backwards_org->output_offset << ") (reported by Nyxstone)";
-        return tl::unexpected("Error during assembly: " + msg.str());
-    }
-
-    // The layout is final, so data directive values (which may reference label
-    // addresses) can now be resolved into their bytes. Integers are written in
-    // the target's byte order.
-    const bool little_endian = triple.isLittleEndian();
-    for (auto& e : emitted) {
-        if (e.kind != EvKind::Value) {
-            continue;
-        }
-        uint64_t value = 0;
-        if (!evaluate_data_value(e.value_expr, value)) {
-            break;
-        }
-        for (unsigned i = 0; i < e.value_size; ++i) {
-            const unsigned shift = little_endian ? i : (e.value_size - 1 - i);
-            e.bytes[i] = static_cast<char>((value >> (8U * shift)) & 0xffU);
-        }
-    }
-    if (!extended_error.empty()) {
-        std::ostringstream error_stream;
-        error_stream << "Error during assembly: " << extended_error;
-        return tl::unexpected(error_stream.str());
-    }
-
-    // Build the final output and apply fixups.
-    llvm::SmallVector<uint8_t, 128> output;
-    for (const auto& e : emitted) {
-        if (e.kind != EvKind::Label) {
-            output.append(e.bytes.begin(), e.bytes.end());
-        }
-    }
-
-    for (auto& e : emitted) {
-        if (e.kind != EvKind::Instruction) {
-            continue;
-        }
-        for (const auto& fx : e.fixups) {
-            int64_t target_offset = 0;
-            llvm::MCValue mc_value;
-            if (!evaluate_target(fx, target_offset, mc_value)) {
-                break;
-            }
-            const uint64_t fixup_byte_offset = e.output_offset + fx.getOffset();
-            const uint64_t value = compute_fixup_value(fx, target_offset, fixup_byte_offset);
-
-            llvm::MutableArrayRef<char> data(reinterpret_cast<char*>(output.data()) + e.output_offset, e.bytes.size());
-            asm_backend_p->applyFixup(assembler, fx, mc_value, data, value, /*IsResolved=*/true, e.sti);
-        }
-        if (!extended_error.empty()) {
-            break;
-        }
-    }
-    if (!extended_error.empty()) {
-        std::ostringstream error_stream;
-        error_stream << "Error during assembly: " << extended_error;
-        return tl::unexpected(error_stream.str());
-    }
-
-    // Re-run the nyxstone-specific validators on the final layout. These check
-    // ranges/alignments LLVM's backend misses for certain ARM/AArch64 fixups.
-    for (const auto& e : emitted) {
-        if (e.kind != EvKind::Instruction) {
-            continue;
-        }
-        for (const auto& fx : e.fixups) {
-            int64_t target_offset = 0;
-            llvm::MCValue mc_value;
-            if (!evaluate_target(fx, target_offset, mc_value)) {
-                break;
-            }
-            const uint64_t fixup_byte_offset = e.output_offset + fx.getOffset();
-            if (is_ArmT16_or_ArmT32(triple)) {
-                validate_arm_thumb_fixup(fx, address, static_cast<uint64_t>(target_offset), fixup_byte_offset, context);
+            if (is_thumb) {
+                validate_arm_thumb_fixup(
+                    fixup, effective_base, static_cast<uint64_t>(target_offset), fixup_offset, context);
             }
             if (triple.isAArch64()) {
-                validate_aarch64_fixup(fx, static_cast<uint64_t>(target_offset), context);
+                validate_aarch64_fixup(fixup, static_cast<uint64_t>(target_offset), context);
+            }
+
+            // AArch64 `adrp` is page-relative and deferred to link time by LLVM,
+            // so resolve it here against the runtime base. (Thumb's Align(PC,4)
+            // sensitivity is handled by the bkpt prepend, which makes LLVM's
+            // layout-time computation correct, so it needs nothing here.)
+            if (triple.isAArch64() && fixup.getTargetKind() == llvm::AArch64::fixup_aarch64_pcrel_adrp_imm21) {
+                constexpr uint64_t PAGE_SIZE { 0x1000 };
+                const uint64_t local_addr = effective_base + fixup_offset;
+                const uint64_t target_addr = effective_base + static_cast<uint64_t>(target_offset);
+                const uint64_t value = (target_addr & ~(PAGE_SIZE - 1)) - (local_addr & ~(PAGE_SIZE - 1));
+                llvm::MCValue mc_value;
+                fixup.getValue()->evaluateAsRelocatable(mc_value, nullptr, &fixup);
+                backend->applyFixup(
+                    assembler, fixup, mc_value, contents, value, /*IsResolved=*/true, subtarget_info.get());
             }
         }
         if (!extended_error.empty()) {
@@ -856,47 +566,55 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         return tl::unexpected(error_stream.str());
     }
 
+    // Extract the final `.text` bytes (fixups applied, including our re-applied
+    // address-sensitive ones above).
+    llvm::SmallVector<char, 128> text_bytes;
+    llvm::raw_svector_ostream text_stream(text_bytes);
+#if LLVM_VERSION_MAJOR < 19
+    assembler.writeSectionData(text_stream, text_section, layout);
+#else
+    assembler.writeSectionData(text_stream, text_section);
+#endif
+    bytes.assign(text_bytes.begin(), text_bytes.end());
+
+    // Replace the tentative per-instruction bytes captured during emission with
+    // the final post-layout bytes, walking the fragments in order. Data
+    // directives (`.byte`/`.word`/…) are not recorded as instructions, so this
+    // only fills the recorded instruction entries.
     if (instructions != nullptr) {
-        size_t offset = 0;
-        for (const auto& e : emitted) {
-            if (e.kind == EvKind::Label) {
-                continue;
+        size_t curr_insn = 0;
+        for (llvm::MCFragment& fragment : *text_section) {
+            if (curr_insn >= instructions->size()) {
+                break;
             }
-            const size_t n = e.bytes.size();
-            if (n == 0) {
-                continue; // e.g. a no-op alignment that needed no padding
-            }
-            Nyxstone::Instruction insn;
-            insn.bytes.assign(output.begin() + offset, output.begin() + offset + n);
-            std::string text;
-            if (e.kind == EvKind::Instruction) {
-                llvm::raw_string_ostream text_stream(text);
-                instruction_printer->printInst(&e.inst, /*Address=*/0, /*Annot=*/"", *e.sti, text_stream);
-                text.erase(0, text.find_first_not_of(" \t\n\r"));
-                std::replace(text.begin(), text.end(), '\t', ' ');
-            } else {
-                // Data directives have no instruction form; render their bytes
-                // as a `.byte` directive so the assembly text round-trips and
-                // the per-entry byte lengths still sum to the full output.
-                constexpr char HEX[] = "0123456789abcdef";
-                llvm::raw_string_ostream text_stream(text);
-                text_stream << ".byte ";
-                for (size_t i = 0; i < insn.bytes.size(); ++i) {
-                    if (i != 0) {
-                        text_stream << ", ";
+            if (fragment.getKind() == llvm::MCFragment::FT_Data) {
+                const llvm::ArrayRef<char> contents = llvm::cast<llvm::MCDataFragment>(fragment).getContents();
+                size_t pos = 0;
+                while (curr_insn < instructions->size()) {
+                    auto& insn_bytes = instructions->at(curr_insn).bytes;
+                    const size_t insn_len = insn_bytes.size();
+                    if (pos + insn_len > contents.size()) {
+                        break;
                     }
-                    const auto byte = static_cast<uint8_t>(insn.bytes[i]);
-                    text_stream << "0x" << HEX[byte >> 4U] << HEX[byte & 0xfU];
+                    insn_bytes.assign(contents.begin() + pos, contents.begin() + pos + insn_len);
+                    pos += insn_len;
+                    curr_insn++;
                 }
+            } else if (fragment.getKind() == llvm::MCFragment::FT_Relaxable) {
+                const llvm::ArrayRef<char> contents = llvm::cast<llvm::MCRelaxableFragment>(fragment).getContents();
+                instructions->at(curr_insn).bytes.assign(contents.begin(), contents.end());
+                curr_insn++;
             }
-            insn.assembly = std::move(text);
-            insn.address = offset;
-            instructions->push_back(std::move(insn));
-            offset += n;
         }
     }
 
-    bytes.assign(output.begin(), output.end());
+    // Strip the alignment bkpt we prepended for Thumb (if any) from both the
+    // bytes and the instruction list, so the result reflects the real input.
+    if (needs_prepend && !strip_prepended_bkpt(bytes, instructions, context)) {
+        std::ostringstream error_stream;
+        error_stream << "Error during assembly: " << extended_error;
+        return tl::unexpected(error_stream.str());
+    }
 
     if (instructions != nullptr) {
         uint64_t current_address = address;
