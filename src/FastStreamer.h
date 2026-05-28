@@ -84,12 +84,14 @@ public:
     // bytes that follow. Reject it instead of dropping them.
     // The subsection parameter changed type in LLVM 19 (const MCExpr* -> uint32_t).
 #if LLVM_VERSION_MAJOR < 19
+    // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
     void changeSection(llvm::MCSection* section, const llvm::MCExpr* subsection) override
     {
         reject_non_text_section(section);
         llvm::MCStreamer::changeSection(section, subsection);
     }
 #else
+    // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
     void changeSection(llvm::MCSection* section, uint32_t subsection) override
     {
         reject_non_text_section(section);
@@ -99,21 +101,25 @@ public:
 
     // The alignment parameter changed type in LLVM 16 (unsigned -> Align).
 #if LLVM_VERSION_MAJOR < 16
+    // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
     void emitValueToAlignment(
         unsigned alignment, int64_t value = 0, unsigned value_size = 1, unsigned max_bytes = 0) override
     {
         record_alignment(alignment, value, value_size, nullptr, max_bytes);
     }
+    // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
     void emitCodeAlignment(unsigned alignment, const llvm::MCSubtargetInfo* sti, unsigned max_bytes = 0) override
     {
         record_alignment(alignment, 0, 0, sti, max_bytes);
     }
 #else
+    // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
     void emitValueToAlignment(
         llvm::Align alignment, int64_t value = 0, unsigned value_size = 1, unsigned max_bytes = 0) override
     {
         record_alignment(static_cast<unsigned>(alignment.value()), value, value_size, nullptr, max_bytes);
     }
+    // cppcheck-suppress unusedFunction // virtual override called via MCStreamer
     void emitCodeAlignment(llvm::Align alignment, const llvm::MCSubtargetInfo* sti, unsigned max_bytes = 0) override
     {
         record_alignment(static_cast<unsigned>(alignment.value()), 0, 0, sti, max_bytes);
