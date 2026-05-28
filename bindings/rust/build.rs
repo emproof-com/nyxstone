@@ -10,7 +10,7 @@ const ENV_FORCE_FFI_LINKING: &str = "NYXSTONE_LINK_FFI";
 fn main() {
     let headers = [
         "nyxstone/include/nyxstone.h",
-        "nyxstone/src/FastStreamer.h",
+        "nyxstone/src/ELFStreamerWrapper.h",
         "nyxstone/src/Target/AArch64/MCTargetDesc/AArch64FixupKinds.h",
         "nyxstone/src/Target/AArch64/MCTargetDesc/AArch64MCExpr.h",
         "src/nyxstone_ffi.hpp",
@@ -18,7 +18,7 @@ fn main() {
 
     let sources = [
         "nyxstone/src/nyxstone.cpp",
-        "nyxstone/src/FastStreamer.cpp",
+        "nyxstone/src/ELFStreamerWrapper.cpp",
         "src/nyxstone_ffi.cpp",
     ];
 
@@ -99,6 +99,11 @@ fn main() {
         .include("nyxstone/vendor")
         .include(llvm_include_dir.trim())
         // .include(cxxbridge_dir)
+        // GCC's -Wmaybe-uninitialized (pulled in by cxx-build's -Wextra) produces
+        // false positives inside LLVM's SmallVector headers and the cxx-generated
+        // bridge, neither of which is our code. Silence just that check; it is a
+        // no-op on clang (which has no such flag).
+        .flag_if_supported("-Wno-maybe-uninitialized")
         .files(sources)
         .compile("nyxstone_wrap");
 

@@ -29,9 +29,9 @@ class ValidLLVMConfig:
 
         major_version = int(version.split(".")[0])
 
-        if major_version < 15 or major_version > 18:
+        if major_version < 15 or major_version > 20:
             print(
-                f"LLVM Major version must be in the range 15-18, found {major_version}! Set the environment variable ${LLVM_PREFIX_NAME} to tell nyxstone about the install location of LLVM."
+                f"LLVM Major version must be in the range 15-20, found {major_version}! Set the environment variable ${LLVM_PREFIX_NAME} to tell nyxstone about the install location of LLVM."
             )
             exit(1)
 
@@ -123,7 +123,7 @@ ext_modules = [
 
 setup(
     name="nyxstone",
-    version="0.1.1",
+    version="0.1.7",
     description=desc,
     author="emproof B.V.",
     author_email="oss@emproof.com",

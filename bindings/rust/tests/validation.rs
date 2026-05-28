@@ -637,6 +637,276 @@ mod tests {
     }
 
     #[test]
+    fn armv7m_data_directives() -> Result<()> {
+        let config = NyxstoneConfig {
+            features: "+fp16,+mve.fp",
+            ..Default::default()
+        };
+        let nyxstone_armv7m = Nyxstone::new("armv7m-none-eabi", config)?;
+
+        assert_eq!(nyxstone_armv7m.assemble(".byte 0x99", 0x0)?, vec![0x99]);
+        assert_eq!(
+            nyxstone_armv7m.assemble(".int 0xc0febabe", 0x0)?,
+            vec![0xbe, 0xba, 0xfe, 0xc0]
+        );
+        assert_eq!(nyxstone_armv7m.assemble(".byte 99\n.align 2\n.byte 99", 0x0)?.len(), 5);
+
+        // .space / .skip / .zero reserve zero-filled space.
+        assert_eq!(nyxstone_armv7m.assemble(".space 4", 0x0)?, vec![0x00, 0x00, 0x00, 0x00]);
+        assert_eq!(
+            nyxstone_armv7m.assemble(".byte 0x11\n.skip 2\n.byte 0x22", 0x0)?,
+            vec![0x11, 0x00, 0x00, 0x22]
+        );
+
+        // .fill repeat, size, value (little-endian units).
+        assert_eq!(
+            nyxstone_armv7m.assemble(".fill 3, 1, 0xAB", 0x0)?,
+            vec![0xAB, 0xAB, 0xAB]
+        );
+
+        // .uleb128 / .sleb128 variable-length encodings.
+        assert_eq!(
+            nyxstone_armv7m.assemble(".uleb128 624485", 0x0)?,
+            vec![0xe5, 0x8e, 0x26]
+        );
+        assert_eq!(nyxstone_armv7m.assemble(".sleb128 -2", 0x0)?, vec![0x7e]);
+
+        // .org advances the location counter to a section-relative offset,
+        // padding with zero (or an explicit fill byte).
+        assert_eq!(
+            nyxstone_armv7m.assemble(".byte 0xaa\n.org 4\n.byte 0xbb", 0x0)?,
+            vec![0xaa, 0x00, 0x00, 0x00, 0xbb]
+        );
+        assert_eq!(
+            nyxstone_armv7m.assemble(".byte 0xaa\n.org 4, 0xff\n.byte 0xbb", 0x0)?,
+            vec![0xaa, 0xff, 0xff, 0xff, 0xbb]
+        );
+
+        // A directive that cannot be honored must error, never silently drop:
+        // .org may not move the location counter backwards.
+        assert!(nyxstone_armv7m.assemble(".byte 0xaa\n.byte 0xbb\n.org 1", 0x0).is_err());
+
+        // Nyxstone emits a single flat .text blob, so switching to any other
+        // section must error rather than silently misplacing the bytes.
+        assert!(nyxstone_armv7m
+            .assemble(".byte 0x11\n.section .data\n.byte 0x22", 0x0)
+            .is_err());
+        assert!(nyxstone_armv7m.assemble(".data\n.byte 0x22", 0x0).is_err());
+        assert!(nyxstone_armv7m.assemble(".bss\n.byte 0x22", 0x0).is_err());
+        // An explicit switch back to .text is fine.
+        assert_eq!(nyxstone_armv7m.assemble(".text\n.byte 0x42", 0x0)?, vec![0x42]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn x86_nops_and_org_directives() -> Result<()> {
+        let nyxstone_x86 = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
+
+        // .nops emits NOP-encoded padding (x86-only directive).
+        assert_eq!(nyxstone_x86.assemble(".nops 4", 0x0)?, vec![0x0f, 0x1f, 0x40, 0x00]);
+        // The optional second operand caps the length of each individual NOP.
+        assert_eq!(
+            nyxstone_x86.assemble(".nops 8, 2", 0x0)?,
+            vec![0x66, 0x90, 0x66, 0x90, 0x66, 0x90, 0x66, 0x90]
+        );
+
+        // .org padding adapts to the bytes emitted by surrounding instructions.
+        assert_eq!(
+            nyxstone_x86.assemble("mov al, 1\n.org 6\nmov al, 2", 0x0)?,
+            vec![0xb0, 0x01, 0x00, 0x00, 0x00, 0x00, 0xb0, 0x02]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn arm_ldr_constant_pool() -> Result<()> {
+        let nyxstone_armv7m = Nyxstone::new("armv7m-none-eabi", NyxstoneConfig::default())?;
+
+        // `ldr rX, =const` is the ARM literal-pool pseudo-instruction. A constant
+        // that fits an immediate is folded into a movw, so no pool is needed.
+        assert_eq!(
+            nyxstone_armv7m.assemble("ldr r0, =0x1234", 0x0)?,
+            vec![0x41, 0xf2, 0x34, 0x20]
+        );
+
+        // A wide constant is placed in a literal pool emitted right after the
+        // code (`ldr r0, [pc]` + 2 bytes of alignment + the 4-byte constant).
+        assert_eq!(
+            nyxstone_armv7m.assemble("ldr r0, =0xfefaff", 0x0)?,
+            vec![0x00, 0x48, 0x00, 0x00, 0xff, 0xfa, 0xfe, 0x00]
+        );
+
+        // `.ltorg` forces the pool to be emitted at that point instead of at the
+        // end, so the trailing `nop` comes after the pooled constant.
+        assert_eq!(
+            nyxstone_armv7m.assemble("ldr r0, =0xdeadbeef\nbx lr\n.ltorg\nnop", 0x0)?,
+            vec![0x00, 0x48, 0x70, 0x47, 0xef, 0xbe, 0xad, 0xde, 0x00, 0xbf]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn arm_ldr_constant_pool_multiple_instructions() -> Result<()> {
+        let nyxstone_armv7m = Nyxstone::new("armv7m-none-eabi", NyxstoneConfig::default())?;
+
+        // Several instructions with two distinct pooled constants. With no
+        // `.ltorg`, the pool is allocated at the very end (after `bx lr`),
+        // 4-byte aligned, and each `ldr` resolves to the correct entry: the
+        // PC-relative offsets #4 and #8 land exactly on pool[0] and pool[1].
+        assert_eq!(
+            nyxstone_armv7m.assemble("ldr r0, =0x11223344\nldr r1, =0x55667788\nadds r0, r0, r1\nbx lr", 0x0)?,
+            vec![
+                0x01, 0x48, // ldr r0, [pc, #4]  -> pool[0]
+                0x02, 0x49, // ldr r1, [pc, #8]  -> pool[1]
+                0x40, 0x18, // adds r0, r0, r1
+                0x70, 0x47, // bx lr
+                0x44, 0x33, 0x22, 0x11, // pool[0] = 0x11223344
+                0x88, 0x77, 0x66, 0x55, // pool[1] = 0x55667788
+            ]
+        );
+
+        // Identical constants are de-duplicated into a single pool entry, so
+        // both loads reference the same address (both offsets are #4).
+        assert_eq!(
+            nyxstone_armv7m.assemble("ldr r0, =0xcafebabe\nldr r1, =0xcafebabe\nbx lr", 0x0)?,
+            vec![
+                0x01, 0x48, // ldr r0, [pc, #4]
+                0x01, 0x49, // ldr r1, [pc, #4]  (same entry)
+                0x70, 0x47, // bx lr
+                0x00, 0x00, // alignment padding before the 4-byte-aligned pool
+                0xbe, 0xba, 0xfe, 0xca, // pool[0] = 0xcafebabe
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn aarch64_ldr_constant_pool() -> Result<()> {
+        let nyxstone = Nyxstone::new("aarch64-linux-gnueabihf", NyxstoneConfig::default())?;
+
+        // AArch64 also supports `ldr xX, =const`. With no explicit pool the two
+        // 8-byte entries sit after the code and each `ldr` literal resolves to
+        // its entry (offsets #8 and #16).
+        assert_eq!(
+            nyxstone.assemble(
+                "ldr x0, =0x1122334455667788\nldr x1, =0xaabbccdd\nadd x0, x0, x1\nret",
+                0x0
+            )?,
+            vec![
+                0x80, 0x00, 0x00, 0x58, // ldr x0, #8   -> pool[0]
+                0xa1, 0x00, 0x00, 0x58, // ldr x1, #16  -> pool[1]
+                0x00, 0x00, 0x01, 0x8b, // add x0, x0, x1
+                0xc0, 0x03, 0x5f, 0xd6, // ret
+                0x88, 0x77, 0x66, 0x55, 0x44, 0x33, 0x22, 0x11, // pool[0] = 0x1122334455667788
+                0xdd, 0xcc, 0xbb, 0xaa, 0x00, 0x00, 0x00, 0x00, // pool[1] = 0xaabbccdd
+            ]
+        );
+
+        Ok(())
+    }
+
+    // The `la rd, sym` pseudo expands to `auipc rd, %pcrel_hi(sym)` +
+    // `addi rd, rd, %pcrel_lo(.Lhi)`, where %pcrel_lo is a paired relocation
+    // resolved against the partner %pcrel_hi (auipc). Routing assembly through
+    // LLVM's MCELFStreamer pipeline lets LLVM resolve it correctly.
+    #[test]
+    fn riscv32_symbol_offset_resolution() -> Result<()> {
+        let config = NyxstoneConfig {
+            features: "+m,+a,+f,+d,+c,+zbs,+zbkb,+zbb,+zba",
+            ..Default::default()
+        };
+        let nyxstone = Nyxstone::new("riscv32-unknown-none-elf", config)?;
+
+        // The `la rd, sym` pseudo expands to `auipc rd, %pcrel_hi(sym)` +
+        // `addi rd, rd, %pcrel_lo(.Lhi)`, where %pcrel_lo references the auipc's
+        // label and must resolve against the *auipc's* address (RISC-V paired
+        // relocation). TEST_SYMBOL1..3 are defined after a `.align 4`, so this
+        // checks that those forward data-symbol offsets are resolved correctly.
+        let program = r#"
+.start:
+	addi sp, sp, -16
+	sw   t0, 0(sp)
+	sw   t1, 4(sp)
+	sw   t2, 8(sp)
+	sw   t3, 12(sp)
+
+	la   t0, TEST_SYMBOL1
+	lw   t0, 0(t0)
+	la   t1, TEST_SYMBOL2
+	lw   t1, 0(t1)
+	la   t2, TEST_SYMBOL3
+	lw   t2, 0(t2)
+
+	mv   t3, zero
+
+.loop:
+	bge  t3, t2, .exit
+	addi t3, t3, 1
+	j    .loop
+
+.exit:
+	lw   t0, 0(sp)
+	lw   t1, 4(sp)
+	lw   t2, 8(sp)
+	lw   t3, 12(sp)
+	addi sp, sp, 16
+
+	j    .end
+
+.align 4
+TEST_SYMBOL1:
+	.word 4
+TEST_SYMBOL2:
+	.word 8
+TEST_SYMBOL3:
+	.word 12
+.end:
+"#;
+
+        assert_eq!(
+            nyxstone.assemble(program, 0x0)?,
+            vec![
+                0x41, 0x11, // addi sp, sp, -16
+                0x16, 0xc0, // sw t0, 0(sp)
+                0x1a, 0xc2, // sw t1, 4(sp)
+                0x1e, 0xc4, // sw t2, 8(sp)
+                0x72, 0xc6, // sw t3, 12(sp)
+                0x97, 0x02, 0x00, 0x00, // auipc t0, %pcrel_hi(TEST_SYMBOL1) -> 0
+                0x93, 0x82, 0x62, 0x04, // addi t0, t0, 70  (auipc@0x0a + 70 = 0x50 = TEST_SYMBOL1)
+                0x83, 0xa2, 0x02, 0x00, // lw t0, 0(t0)
+                0x17, 0x03, 0x00, 0x00, // auipc t1, %pcrel_hi(TEST_SYMBOL2) -> 0
+                0x13, 0x03, 0xe3, 0x03, // addi t1, t1, 62  (auipc@0x16 + 62 = 0x54 = TEST_SYMBOL2)
+                0x03, 0x23, 0x03, 0x00, // lw t1, 0(t1)
+                0x97, 0x03, 0x00, 0x00, // auipc t2, %pcrel_hi(TEST_SYMBOL3) -> 0
+                0x93, 0x83, 0x63, 0x03, // addi t2, t2, 54  (auipc@0x22 + 54 = 0x58 = TEST_SYMBOL3)
+                0x83, 0xa3, 0x03, 0x00, // lw t2, 0(t2)
+                0x01, 0x4e, // mv t3, zero (c.li t3, 0)
+                0x63, 0x54, 0x7e, 0x00, // bge t3, t2, .exit
+                0x05, 0x0e, // addi t3, t3, 1
+                0xed, 0xbf, // j .loop
+                0x82, 0x42, // lw t0, 0(sp)
+                0x12, 0x43, // lw t1, 4(sp)
+                0xa2, 0x43, // lw t2, 8(sp)
+                0x32, 0x4e, // lw t3, 12(sp)
+                0x41, 0x01, // addi sp, sp, 16
+                0x29, 0xa8, // j .end
+                0x13, 0x00, 0x00, 0x00, // nop (.align 4 padding)
+                0x13, 0x00, 0x00, 0x00, // nop
+                0x13, 0x00, 0x00, 0x00, // nop
+                0x04, 0x00, 0x00, 0x00, // TEST_SYMBOL1: .word 4
+                0x08, 0x00, 0x00, 0x00, // TEST_SYMBOL2: .word 8
+                0x0c, 0x00, 0x00, 0x00, // TEST_SYMBOL3: .word 12
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn armv8m_check_label_range_validation() -> Result<()> {
         let instructions: Vec<InstructionRange> = vec![
             InstructionRange::new(
@@ -712,6 +982,328 @@ mod tests {
         let nyxstone_armv8m = Nyxstone::new("armv8m.main-none-eabi", config)?;
 
         check_instruction_ranges(&nyxstone_armv8m, instructions)?;
+        Ok(())
+    }
+
+    // Per-architecture assemble + disassemble coverage. All expected bytes were
+    // cross-checked against `llvm-mc`; the disassembly strings are Nyxstone's
+    // (LLVM) instruction-printer output. Each test also exercises an additional
+    // Nyxstone feature (instruction details, multi-instruction sequences,
+    // count-limited disassembly, or CPU features).
+
+    #[test]
+    fn x86_64_assemble_and_disassemble() -> Result<()> {
+        let nyx = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
+
+        assert_eq!(nyx.assemble("mov rax, rbx", 0x0)?, vec![0x48, 0x89, 0xd8]);
+        assert_eq!(nyx.assemble("add rax, 1", 0x0)?, vec![0x48, 0x83, 0xc0, 0x01]);
+        assert_eq!(nyx.assemble("xor ecx, ecx", 0x0)?, vec![0x31, 0xc9]);
+        assert_eq!(nyx.assemble("ret", 0x0)?, vec![0xc3]);
+
+        assert_eq!(nyx.disassemble(&[0x48, 0x89, 0xd8], 0x0, 0)?, "mov rax, rbx\n");
+        assert_eq!(nyx.disassemble(&[0x48, 0x83, 0xc0, 0x01], 0x0, 0)?, "add rax, 1\n");
+        assert_eq!(nyx.disassemble(&[0x31, 0xc9], 0x0, 0)?, "xor ecx, ecx\n");
+        assert_eq!(nyx.disassemble(&[0xc3], 0x0, 0)?, "ret\n");
+
+        // A multi-instruction sequence assembles to the concatenation.
+        assert_eq!(
+            nyx.assemble("mov rax, rbx\nadd rax, 1\nret", 0x0)?,
+            vec![0x48, 0x89, 0xd8, 0x48, 0x83, 0xc0, 0x01, 0xc3]
+        );
+
+        // Feature: per-instruction details (address, text, bytes).
+        assert_eq!(
+            nyx.assemble_to_instructions("mov rax, rbx\nadd rax, 1", 0x1000)?,
+            vec![
+                Instruction {
+                    address: 0x1000,
+                    assembly: "mov rax, rbx".into(),
+                    bytes: vec![0x48, 0x89, 0xd8]
+                },
+                Instruction {
+                    address: 0x1003,
+                    assembly: "add rax, 1".into(),
+                    bytes: vec![0x48, 0x83, 0xc0, 0x01]
+                },
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn x86_32_assemble_and_disassemble() -> Result<()> {
+        let nyx = Nyxstone::new("i686-linux-gnu", NyxstoneConfig::default())?;
+
+        assert_eq!(nyx.assemble("mov eax, ebx", 0x0)?, vec![0x89, 0xd8]);
+        assert_eq!(nyx.assemble("push ebp", 0x0)?, vec![0x55]);
+        assert_eq!(nyx.assemble("add esp, 8", 0x0)?, vec![0x83, 0xc4, 0x08]);
+        assert_eq!(nyx.assemble("ret", 0x0)?, vec![0xc3]);
+
+        assert_eq!(nyx.disassemble(&[0x89, 0xd8], 0x0, 0)?, "mov eax, ebx\n");
+        assert_eq!(nyx.disassemble(&[0x55], 0x0, 0)?, "push ebp\n");
+        assert_eq!(nyx.disassemble(&[0x83, 0xc4, 0x08], 0x0, 0)?, "add esp, 8\n");
+        assert_eq!(nyx.disassemble(&[0xc3], 0x0, 0)?, "ret\n");
+
+        // Feature: disassemble a full byte blob into its instruction listing.
+        assert_eq!(
+            nyx.disassemble(&[0x55, 0x89, 0xd8, 0xc3], 0x0, 0)?,
+            "push ebp\nmov eax, ebx\nret\n"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn aarch64_assemble_and_disassemble() -> Result<()> {
+        let nyx = Nyxstone::new("aarch64-linux-gnu", NyxstoneConfig::default())?;
+
+        assert_eq!(nyx.assemble("mov x0, x1", 0x0)?, vec![0xe0, 0x03, 0x01, 0xaa]);
+        assert_eq!(nyx.assemble("add x0, x0, #1", 0x0)?, vec![0x00, 0x04, 0x00, 0x91]);
+        assert_eq!(nyx.assemble("ldr x0, [x1, #8]", 0x0)?, vec![0x20, 0x04, 0x40, 0xf9]);
+        assert_eq!(nyx.assemble("ret", 0x0)?, vec![0xc0, 0x03, 0x5f, 0xd6]);
+
+        assert_eq!(nyx.disassemble(&[0xe0, 0x03, 0x01, 0xaa], 0x0, 0)?, "mov x0, x1\n");
+        assert_eq!(nyx.disassemble(&[0x00, 0x04, 0x00, 0x91], 0x0, 0)?, "add x0, x0, #1\n");
+        assert_eq!(
+            nyx.disassemble(&[0x20, 0x04, 0x40, 0xf9], 0x0, 0)?,
+            "ldr x0, [x1, #8]\n"
+        );
+        assert_eq!(nyx.disassemble(&[0xc0, 0x03, 0x5f, 0xd6], 0x0, 0)?, "ret\n");
+
+        // Feature: per-instruction details for a fixed-width (4-byte) ISA.
+        assert_eq!(
+            nyx.assemble_to_instructions("mov x0, x1\nret", 0x8000)?,
+            vec![
+                Instruction {
+                    address: 0x8000,
+                    assembly: "mov x0, x1".into(),
+                    bytes: vec![0xe0, 0x03, 0x01, 0xaa]
+                },
+                Instruction {
+                    address: 0x8004,
+                    assembly: "ret".into(),
+                    bytes: vec![0xc0, 0x03, 0x5f, 0xd6]
+                },
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn arm_assemble_and_disassemble() -> Result<()> {
+        let nyx = Nyxstone::new("armv7-linux-gnueabihf", NyxstoneConfig::default())?;
+
+        assert_eq!(nyx.assemble("mov r0, r1", 0x0)?, vec![0x01, 0x00, 0xa0, 0xe1]);
+        assert_eq!(nyx.assemble("add r0, r0, #1", 0x0)?, vec![0x01, 0x00, 0x80, 0xe2]);
+        assert_eq!(nyx.assemble("ldr r0, [r1, #4]", 0x0)?, vec![0x04, 0x00, 0x91, 0xe5]);
+        assert_eq!(nyx.assemble("bx lr", 0x0)?, vec![0x1e, 0xff, 0x2f, 0xe1]);
+
+        assert_eq!(nyx.disassemble(&[0x01, 0x00, 0xa0, 0xe1], 0x0, 0)?, "mov r0, r1\n");
+        assert_eq!(nyx.disassemble(&[0x01, 0x00, 0x80, 0xe2], 0x0, 0)?, "add r0, r0, #1\n");
+        assert_eq!(
+            nyx.disassemble(&[0x04, 0x00, 0x91, 0xe5], 0x0, 0)?,
+            "ldr r0, [r1, #4]\n"
+        );
+        assert_eq!(nyx.disassemble(&[0x1e, 0xff, 0x2f, 0xe1], 0x0, 0)?, "bx lr\n");
+
+        Ok(())
+    }
+
+    #[test]
+    fn thumb_assemble_and_disassemble() -> Result<()> {
+        let nyx = Nyxstone::new("armv7m-none-eabi", NyxstoneConfig::default())?;
+
+        assert_eq!(nyx.assemble("movs r0, r1", 0x0)?, vec![0x08, 0x00]);
+        assert_eq!(nyx.assemble("adds r0, r0, #1", 0x0)?, vec![0x40, 0x1c]);
+        assert_eq!(nyx.assemble("ldr r0, [r1, #4]", 0x0)?, vec![0x48, 0x68]);
+        assert_eq!(nyx.assemble("bx lr", 0x0)?, vec![0x70, 0x47]);
+
+        assert_eq!(nyx.disassemble(&[0x08, 0x00], 0x0, 0)?, "movs r0, r1\n");
+        assert_eq!(nyx.disassemble(&[0x40, 0x1c], 0x0, 0)?, "adds r0, r0, #1\n");
+        assert_eq!(nyx.disassemble(&[0x48, 0x68], 0x0, 0)?, "ldr r0, [r1, #4]\n");
+        assert_eq!(nyx.disassemble(&[0x70, 0x47], 0x0, 0)?, "bx lr\n");
+
+        // Feature: count-limited disassembly stops after `count` instructions.
+        assert_eq!(nyx.disassemble(&[0x08, 0x00, 0x40, 0x1c], 0x0, 1)?, "movs r0, r1\n");
+        assert_eq!(
+            nyx.disassemble(&[0x08, 0x00, 0x40, 0x1c], 0x0, 0)?,
+            "movs r0, r1\nadds r0, r0, #1\n"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn riscv32_assemble_and_disassemble() -> Result<()> {
+        let nyx = Nyxstone::new(
+            "riscv32-unknown-none-elf",
+            NyxstoneConfig {
+                features: "+m,+a,+c",
+                ..Default::default()
+            },
+        )?;
+
+        assert_eq!(nyx.assemble("add a0, a1, a2", 0x0)?, vec![0x33, 0x85, 0xc5, 0x00]);
+        assert_eq!(nyx.assemble("addi a0, a0, 1", 0x0)?, vec![0x05, 0x05]);
+        assert_eq!(nyx.assemble("lw a0, 0(a1)", 0x0)?, vec![0x88, 0x41]);
+        assert_eq!(nyx.assemble("ret", 0x0)?, vec![0x82, 0x80]);
+
+        assert_eq!(nyx.disassemble(&[0x33, 0x85, 0xc5, 0x00], 0x0, 0)?, "add a0, a1, a2\n");
+        assert_eq!(nyx.disassemble(&[0x05, 0x05], 0x0, 0)?, "addi a0, a0, 1\n");
+        assert_eq!(nyx.disassemble(&[0x88, 0x41], 0x0, 0)?, "lw a0, 0(a1)\n");
+        assert_eq!(nyx.disassemble(&[0x82, 0x80], 0x0, 0)?, "ret\n");
+
+        // Feature: disassemble-to-instructions across mixed 4-byte / 2-byte
+        // (compressed) encodings reports correct addresses and byte lengths.
+        assert_eq!(
+            nyx.disassemble_to_instructions(&[0x33, 0x85, 0xc5, 0x00, 0x05, 0x05], 0x2000, 0)?,
+            vec![
+                Instruction {
+                    address: 0x2000,
+                    assembly: "add a0, a1, a2".into(),
+                    bytes: vec![0x33, 0x85, 0xc5, 0x00]
+                },
+                Instruction {
+                    address: 0x2004,
+                    assembly: "addi a0, a0, 1".into(),
+                    bytes: vec![0x05, 0x05]
+                },
+            ]
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn riscv64_assemble_and_disassemble() -> Result<()> {
+        let nyx = Nyxstone::new(
+            "riscv64-unknown-none-elf",
+            NyxstoneConfig {
+                features: "+m,+a,+c",
+                ..Default::default()
+            },
+        )?;
+
+        assert_eq!(nyx.assemble("add a0, a1, a2", 0x0)?, vec![0x33, 0x85, 0xc5, 0x00]);
+        assert_eq!(nyx.assemble("addi a0, a0, 1", 0x0)?, vec![0x05, 0x05]);
+        assert_eq!(nyx.assemble("ld a0, 0(a1)", 0x0)?, vec![0x88, 0x61]);
+        assert_eq!(nyx.assemble("ret", 0x0)?, vec![0x82, 0x80]);
+
+        assert_eq!(nyx.disassemble(&[0x33, 0x85, 0xc5, 0x00], 0x0, 0)?, "add a0, a1, a2\n");
+        assert_eq!(nyx.disassemble(&[0x05, 0x05], 0x0, 0)?, "addi a0, a0, 1\n");
+        assert_eq!(nyx.disassemble(&[0x88, 0x61], 0x0, 0)?, "ld a0, 0(a1)\n");
+        assert_eq!(nyx.disassemble(&[0x82, 0x80], 0x0, 0)?, "ret\n");
+
+        Ok(())
+    }
+
+    #[test]
+    fn mips_assemble_and_disassemble() -> Result<()> {
+        // Big-endian and little-endian MIPS produce byte-swapped encodings of
+        // the same instruction; `jr` additionally fills its branch-delay slot
+        // with a `nop`, so it assembles to 8 bytes and disassembles to two.
+        let mips = Nyxstone::new("mips-linux-gnu", NyxstoneConfig::default())?;
+        let mipsel = Nyxstone::new("mipsel-linux-gnu", NyxstoneConfig::default())?;
+
+        assert_eq!(mips.assemble("addu $4, $5, $6", 0x0)?, vec![0x00, 0xa6, 0x20, 0x21]);
+        assert_eq!(mipsel.assemble("addu $4, $5, $6", 0x0)?, vec![0x21, 0x20, 0xa6, 0x00]);
+        assert_eq!(mips.assemble("lw $4, 0($5)", 0x0)?, vec![0x8c, 0xa4, 0x00, 0x00]);
+        assert_eq!(
+            mips.assemble("jr $ra", 0x0)?,
+            vec![0x03, 0xe0, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00]
+        );
+
+        assert_eq!(
+            mips.disassemble(&[0x00, 0xa6, 0x20, 0x21], 0x0, 0)?,
+            "addu $4, $5, $6\n"
+        );
+        assert_eq!(
+            mipsel.disassemble(&[0x21, 0x20, 0xa6, 0x00], 0x0, 0)?,
+            "addu $4, $5, $6\n"
+        );
+        assert_eq!(mips.disassemble(&[0x8c, 0xa4, 0x00, 0x00], 0x0, 0)?, "lw $4, 0($5)\n");
+        assert_eq!(
+            mips.disassemble(&[0x03, 0xe0, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00], 0x0, 0)?,
+            "jr $ra\nnop\n"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn powerpc64le_assemble_and_disassemble() -> Result<()> {
+        let nyx = Nyxstone::new("powerpc64le-linux-gnu", NyxstoneConfig::default())?;
+
+        assert_eq!(nyx.assemble("add 3, 4, 5", 0x0)?, vec![0x14, 0x2a, 0x64, 0x7c]);
+        assert_eq!(nyx.assemble("li 3, 10", 0x0)?, vec![0x0a, 0x00, 0x60, 0x38]);
+        assert_eq!(nyx.assemble("blr", 0x0)?, vec![0x20, 0x00, 0x80, 0x4e]);
+
+        assert_eq!(nyx.disassemble(&[0x14, 0x2a, 0x64, 0x7c], 0x0, 0)?, "add 3, 4, 5\n");
+        assert_eq!(nyx.disassemble(&[0x0a, 0x00, 0x60, 0x38], 0x0, 0)?, "li 3, 10\n");
+        assert_eq!(nyx.disassemble(&[0x20, 0x00, 0x80, 0x4e], 0x0, 0)?, "blr\n");
+
+        Ok(())
+    }
+
+    #[test]
+    fn s390x_assemble_and_disassemble() -> Result<()> {
+        let nyx = Nyxstone::new("s390x-linux-gnu", NyxstoneConfig::default())?;
+
+        assert_eq!(nyx.assemble("ar %r1, %r2", 0x0)?, vec![0x1a, 0x12]);
+        assert_eq!(nyx.assemble("lgr %r1, %r2", 0x0)?, vec![0xb9, 0x04, 0x00, 0x12]);
+        assert_eq!(nyx.assemble("br %r14", 0x0)?, vec![0x07, 0xfe]);
+
+        assert_eq!(nyx.disassemble(&[0x1a, 0x12], 0x0, 0)?, "ar %r1, %r2\n");
+        assert_eq!(nyx.disassemble(&[0xb9, 0x04, 0x00, 0x12], 0x0, 0)?, "lgr %r1, %r2\n");
+        assert_eq!(nyx.disassemble(&[0x07, 0xfe], 0x0, 0)?, "br %r14\n");
+
+        Ok(())
+    }
+
+    #[test]
+    fn sparc_assemble_and_disassemble() -> Result<()> {
+        let nyx = Nyxstone::new("sparc-linux-gnu", NyxstoneConfig::default())?;
+
+        assert_eq!(nyx.assemble("add %g1, %g2, %g3", 0x0)?, vec![0x86, 0x00, 0x40, 0x02]);
+        assert_eq!(nyx.assemble("mov 7, %g1", 0x0)?, vec![0x82, 0x10, 0x20, 0x07]);
+        assert_eq!(nyx.assemble("nop", 0x0)?, vec![0x01, 0x00, 0x00, 0x00]);
+        assert_eq!(nyx.assemble("retl", 0x0)?, vec![0x81, 0xc3, 0xe0, 0x08]);
+
+        assert_eq!(
+            nyx.disassemble(&[0x86, 0x00, 0x40, 0x02], 0x0, 0)?,
+            "add %g1, %g2, %g3\n"
+        );
+        assert_eq!(nyx.disassemble(&[0x82, 0x10, 0x20, 0x07], 0x0, 0)?, "mov 7, %g1\n");
+        assert_eq!(nyx.disassemble(&[0x01, 0x00, 0x00, 0x00], 0x0, 0)?, "nop\n");
+        assert_eq!(nyx.disassemble(&[0x81, 0xc3, 0xe0, 0x08], 0x0, 0)?, "retl\n");
+
+        Ok(())
+    }
+
+    #[test]
+    fn loongarch64_assemble_and_disassemble() -> Result<()> {
+        // LoongArch support landed in LLVM 16; on LLVM 15 the target is not
+        // compiled in, so Nyxstone::new fails and we skip the test there.
+        let Ok(nyx) = Nyxstone::new("loongarch64-unknown-none", NyxstoneConfig::default()) else {
+            return Ok(());
+        };
+
+        assert_eq!(nyx.assemble("add.d $a0, $a1, $a2", 0x0)?, vec![0xa4, 0x98, 0x10, 0x00]);
+        assert_eq!(nyx.assemble("addi.d $a0, $a0, 1", 0x0)?, vec![0x84, 0x04, 0xc0, 0x02]);
+        assert_eq!(nyx.assemble("ret", 0x0)?, vec![0x20, 0x00, 0x00, 0x4c]);
+
+        assert_eq!(
+            nyx.disassemble(&[0xa4, 0x98, 0x10, 0x00], 0x0, 0)?,
+            "add.d $a0, $a1, $a2\n"
+        );
+        assert_eq!(
+            nyx.disassemble(&[0x84, 0x04, 0xc0, 0x02], 0x0, 0)?,
+            "addi.d $a0, $a0, 1\n"
+        );
+        assert_eq!(nyx.disassemble(&[0x20, 0x00, 0x00, 0x4c], 0x0, 0)?, "ret\n");
+
         Ok(())
     }
 }

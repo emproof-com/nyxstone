@@ -19,4 +19,12 @@ cd "$(git rev-parse --show-toplevel)"
 cxx_files=$(find . -maxdepth 2 -iname "*.cpp" | xargs echo)
 includes="-Iinclude -Ivendor -Isrc"
 
-cppcheck --enable=all --suppress=*:vendor/* --suppress=*:src/Target/* --inline-suppr --error-exitcode=1 --language=c++ --suppress=missingIncludeSystem $cxx_files $cxx_ffi_files $includes
+# Suppressions to keep this check stable across cppcheck versions:
+# - unmatchedSuppression: the virtual overrides LLVM invokes via vtable carry
+#   inline `// cppcheck-suppress unusedFunction`, but which overrides actually get
+#   flagged differs between cppcheck versions, so some of those suppressions are
+#   "unmatched" on any given version. Ignore that instead of churning the comments.
+# - checkersReport / normalCheckLevelMaxBranches: purely informational notes
+#   emitted by newer cppcheck (>= 2.12); they carry no diagnostic and would
+#   otherwise trip --error-exitcode.
+cppcheck --enable=all --suppress=*:vendor/* --suppress=*:src/Target/* --inline-suppr --error-exitcode=1 --language=c++ --suppress=missingIncludeSystem --suppress=unmatchedSuppression --suppress=checkersReport --suppress=normalCheckLevelMaxBranches $cxx_files $cxx_ffi_files $includes

@@ -41,6 +41,10 @@ Nyxstone is a fast assembly and disassembly library built on top of LLVM. It doe
 
 * Configurable per-architecture target settings (CPU, ISA extensions, hardware features).
 
+* Assembles common data directives (`.byte`, `.word`, `.org`, `.nops`, `.align`, `.fill`, `.uleb128`, …) and the ARM/AArch64 `ldr rX, =const` literal pool.
+
+* Reports an explicit error for input it cannot represent (for example, switching to a section other than `.text`) instead of silently dropping the affected bytes.
+
 For the list of supported architectures, run `clang -print-targets`. For per-architecture features, run `llc -march=ARCH -mattr=help`.
 
 > [!NOTE]
@@ -263,27 +267,29 @@ See the [Python binding README](bindings/python/README.md) for build-from-source
 
 ## How it works
 
-Nyxstone drives the LLVM MC layer directly through its public C++ API (`Target::createMCAsmParser`, `Target::createMCDisassembler`, `MCAsmBackend`, `MCCodeEmitter`, …) instead of going through the object-file emission pipeline. This avoids both the cost of producing a complete ELF and the need to extend `MCELFStreamer` / `MCObjectWriter` as earlier versions did.
+Nyxstone drives the LLVM MC layer through its public C++ API. The assembler runs input through LLVM's regular `MCELFStreamer` object-emission pipeline, so LLVM performs layout, relaxation, and relocation resolution itself. That is what keeps target-specific relocations correct across every backend — for example RISC-V's paired `%pcrel_hi`/`%pcrel_lo` behind the `la` pseudo instruction. Nyxstone then extracts the `.text` bytes and applies a few targeted post-processing steps.
 
 The assembly path is structured as follows:
 
-* **Parse into events.** A minimal `MCStreamer` subclass, [`FastStreamer`](src/FastStreamer.h), captures the parser's `emitLabel` / `emitInstruction` calls into a flat event list, deferring all encoding. The full ELF object-file machinery is bypassed.
+* **`.text`-only setup.** Nyxstone installs a minimal `TextOnlyObjectFileInfo` that registers only `.text` with the `MCContext`, skipping the ~40 other section creations `MCObjectFileInfo::initMCObjectFileInfo` performs by default. This is the largest single performance win over a full object-file setup.
 
-* **Skip the rest of the MC pipeline.** Nyxstone installs a minimal `TextOnlyObjectFileInfo` that registers only `.text` with the `MCContext`, skipping the ~40 other section creations `MCObjectFileInfo::initMCObjectFileInfo` performs by default.
+* **Stream through LLVM.** A thin `MCELFStreamer` subclass, [`ELFStreamerWrapper`](src/ELFStreamerWrapper.h), records each instruction's assembly text for the instruction-detail API and rejects switching to any section other than `.text`, so unsupported directives raise an explicit error instead of silently dropping the bytes that follow. Common data directives (`.byte`/`.word`/`.org`/`.nops`/`.align`/`.fill`/`.uleb128`/…) and the `ldr rX, =const` literal pool work because they flow through the normal pipeline.
 
-* **Encode and lay out.** Each captured `MCInst` is encoded once with `MCCodeEmitter::encodeInstruction`. Nyxstone then runs its own iterative relax loop, mirroring `MCAssembler::layoutOnce` without fragments, and computes per-fixup PC-relative values directly from the user-supplied base address.
+* **Resolve address-sensitive fixups.** LLVM lays the section out at base 0, so after layout Nyxstone re-applies the one relocation LLVM defers to link time and that depends on the runtime base — AArch64 `adrp` (page-of-target minus page-of-pc) — against the user-supplied address, then extracts `.text` with `MCAssembler::writeSectionData`.
 
-* **Apply fixups.** After layout converges, fixups are evaluated and `MCAsmBackend::applyFixup` patches the final bytes.
+* **Handle ARM Thumb alignment.** When the start address is 2- but not 4-byte aligned, LLVM's base-0 layout has the wrong alignment parity and would mis-relax or reject Thumb PC-relative loads. Nyxstone prepends an internal 2-byte `bkpt` to restore parity and strips it from the output.
 
 * **Validate.** Nyxstone runs additional range and alignment checks for ARM Thumb (`adr`, `ldr` literal, `b/bl/bcc`, …) and AArch64 (`adr`) fixup kinds that LLVM's backend silently mis-encodes when out of range.
 
 The disassembly path is much simpler: an `MCDisassembler` and its `MCContext` are constructed once on each `Nyxstone` instance and reused across calls, since disassembly never mutates the context.
 
-* **Version coupling.** Nyxstone uses MC headers that LLVM does not promise stable across major versions. Each new major release tends to require a small number of version-conditional shims; the current range (15-20) is covered by `#if LLVM_VERSION_MAJOR` guards in [src/nyxstone.cpp](src/nyxstone.cpp) and [src/FastStreamer.h](src/FastStreamer.h). The vendored LLVM-internal headers under [src/Target/](src/Target/) (`AArch64FixupKinds.h`, `AArch64MCExpr.h`, `ARMFixupKinds.h`) are tracked similarly, because LLVM does not install them.
+* **Caching.** The version-independent target-info objects (`MCRegisterInfo`, `MCInstrInfo`, `MCSubtargetInfo`, `MCAsmInfo`), the instruction printer, and the `MCAsmBackend` are built once per `Nyxstone` instance and reused. The assembler's `MCContext` and the per-call streamer/parser are rebuilt on each call, because LLVM ties the context to the input source buffer.
+
+* **Version coupling.** Nyxstone uses MC headers that LLVM does not promise stable across major versions; the supported range (15-20) is covered by `#if LLVM_VERSION_MAJOR` guards in [src/nyxstone.cpp](src/nyxstone.cpp) and [src/ELFStreamerWrapper.h](src/ELFStreamerWrapper.h) — most notably the removal of `MCAsmLayout` in LLVM 19. The vendored LLVM-internal headers under [src/Target/](src/Target/) (`AArch64FixupKinds.h`, `AArch64MCExpr.h`, `ARMFixupKinds.h`) are tracked similarly, because LLVM does not install them.
 
 ## Benchmarks
 
-Numbers below were collected with the bundled benchmark binaries on a 13th Gen Intel Core i7-1370P (Linux, LLVM 18, release build, 2 s per measurement). Reproduce with:
+Numbers below were collected with the bundled benchmark binaries on a 13th Gen Intel Core i7-1370P (Linux, LLVM 19, release build, 2 s per measurement). Reproduce with:
 
 ```bash
 # C++
@@ -298,35 +304,32 @@ Each call assembles/disassembles a package of 1 or 10 instructions for the named
 
 | Architecture | Package      | C++ assemble (ops/s) | C++ disassemble (ops/s) |
 | ------------ | ------------ | -------------------- | ----------------------- |
-| x86_64       | 1 instr      | 79 k                 | 6.36 M                  |
-| x86_64       | 10 instr     | 47 k (470 k insns/s) | 675 k (6.75 M insns/s)  |
-| x86_32       | 1 instr      | 80 k                 | 6.42 M                  |
-| x86_32       | 10 instr     | 48 k (484 k insns/s) | 685 k (6.85 M insns/s)  |
-| aarch64      | 1 instr      | 26 k                 | 4.49 M                  |
-| aarch64      | 10 instr     | 7.0 k (70 k insns/s) | 373 k (3.73 M insns/s)  |
-| armv8m       | 1 instr      | 79 k                 | 5.68 M                  |
-| armv8m       | 10 instr     | 30 k (300 k insns/s) | 388 k (3.88 M insns/s)  |
+| x86_64       | 1 instr      | 68 k                 | 6.34 M                  |
+| x86_64       | 10 instr     | 42 k (425 k insns/s) | 671 k (6.71 M insns/s)  |
+| x86_32       | 1 instr      | 69 k                 | 6.29 M                  |
+| x86_32       | 10 instr     | 45 k (448 k insns/s) | 685 k (6.85 M insns/s)  |
+| aarch64      | 1 instr      | 24 k                 | 4.54 M                  |
+| aarch64      | 10 instr     | 6.9 k (69 k insns/s) | 376 k (3.76 M insns/s)  |
+| armv8m       | 1 instr      | 60 k                 | 5.64 M                  |
+| armv8m       | 10 instr     | 29 k (285 k insns/s) | 392 k (3.92 M insns/s)  |
 
-The Rust binding adds the cxx-bridge call overhead. For assembly this is negligible (within ~3 % of the C++ numbers); for the much faster disassembly path it costs roughly 30 % on single-instruction calls (e.g. x86_64 disassemble: 6.36 M ops/s in C++ vs 4.31 M ops/s in Rust) and shrinks to near-zero as the call does more work.
-
-AArch64 assembly is markedly slower per instruction than the other targets because that backend exercises the iterative relaxation loop more heavily.
+The Rust binding adds the cxx-bridge call overhead. For assembly this is negligible (within ~3 % of the C++ numbers); for the much faster disassembly path it costs roughly 30 % on single-instruction calls and shrinks to near-zero as the call does more work.
 
 ## Roadmap
 
 Recent work:
 
-* [x] Replace the `MCELFStreamer` / `MCObjectWriter` extensions with the lighter `FastStreamer` + own layout/fixup loop.
-* [x] Handle relocations LLVM's writer skipped (e.g. AArch64 `adrp`) directly in our fixup pass.
-* [x] Run range/alignment validators as a post-processing step on the laid-out output instead of inside a custom writer.
-* [x] Drop the ARM Thumb `bkpt`-prepend workaround by making the PC computation address-aware.
-* [x] Cache `MCAsmBackend`, `MCContext`, and `MCDisassembler` across calls for substantially faster assembly and disassembly.
+* [x] Drive assembly through LLVM's `MCELFStreamer` pipeline so LLVM resolves relocations for every target, including RISC-V `%pcrel_hi`/`%pcrel_lo` (the `la` pseudo) that an earlier hand-rolled fixup pass got wrong.
+* [x] Keep assembly fast with a `.text`-only `MCObjectFileInfo` and by caching the target-info objects, instruction printer, `MCAsmBackend`, and `MCDisassembler` across calls.
+* [x] Support common data directives (`.byte`/`.word`/`.org`/`.nops`/`.align`/`.fill`/`.uleb128`/…) and the `ldr =const` literal pool.
+* [x] Raise explicit errors on input Nyxstone cannot represent (e.g. switching away from `.text`) instead of silently dropping bytes.
+* [x] Resolve the relocations LLVM defers to link time (AArch64 `adrp`) and run range/alignment validators for ARM Thumb / AArch64 fixup kinds LLVM mis-encodes.
 * [x] Support LLVM 15-20 with auto-selection of the newest installed version.
 
 Still open:
 
 * [ ] Verify and document thread safety beyond `NyxstoneBuilder::build()` (LLVM init is mutex-guarded; subsequent `assemble`/`disassemble` are not formally verified concurrent-safe on a single instance).
-* [ ] Extend support to LLVM 21+ (the reworked fragment-centric `applyFixup` / `fixupNeedsRelaxationAdvanced` API needs deeper integration than the current detached dummy fragment provides).
-
+* [ ] Extend support to LLVM 21+ (each new major tends to shift the unstable MC headers Nyxstone depends on; LLVM 19 already required handling the removal of `MCAsmLayout`).
 
 ## License
 
