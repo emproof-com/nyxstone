@@ -33,6 +33,7 @@
 #include <llvm/MC/MCValue.h>
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Support/Casting.h>
+#include <llvm/Support/LEB128.h>
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/TargetSelect.h>
 #pragma GCC diagnostic pop
@@ -404,40 +405,197 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         return tl::unexpected(error_stream.str());
     }
 
-    // Encode each instruction once up front. Labels and instructions stay in the
-    // same ordered vector so subsequent relaxation passes can recompute output
-    // offsets after re-encoding any instruction that grew.
+    // Encode each instruction once up front. Labels, instructions, and data
+    // directives stay in the same ordered vector so subsequent relaxation
+    // passes can recompute output offsets after re-encoding any instruction
+    // that grew (which in turn shifts alignment padding and label addresses).
+    enum class EvKind { Label, Instruction, Value, Bytes, Align, Org };
     struct EmittedEvent {
-        bool is_label;
-        size_t output_offset;
-        llvm::MCSymbol* symbol; // label only
-        llvm::MCInst inst; // instruction only
-        const llvm::MCSubtargetInfo* sti; // instruction only
-        llvm::SmallVector<char, 8> bytes; // instruction only — current encoding
-        llvm::SmallVector<llvm::MCFixup, 1> fixups; // instruction only
+        EvKind kind;
+        size_t output_offset = 0;
+        llvm::MCSymbol* symbol = nullptr; // Label
+        llvm::MCInst inst {}; // Instruction
+        const llvm::MCSubtargetInfo* sti = nullptr; // Instruction, Align (code alignment)
+        llvm::SmallVector<char, 8> bytes {}; // current/final bytes for everything but Label
+        llvm::SmallVector<llvm::MCFixup, 1> fixups {}; // Instruction
+        const llvm::MCExpr* value_expr = nullptr; // Value
+        unsigned value_size = 0; // Value
+        unsigned align = 0; // Align — byte alignment (power of two)
+        int64_t align_fill = 0; // Align — fill value for value alignment
+        unsigned align_fill_size = 0; // Align — fill unit size; 0 means code (NOP) alignment
+        unsigned align_max_bytes = 0; // Align — skip if more padding than this is needed (0 = no limit)
+        int64_t org_target = 0; // Org — section-relative offset to pad up to
+        char org_fill = 0; // Org — byte used for the padding
     };
     llvm::SmallVector<EmittedEvent, 16> emitted;
 
     for (const auto& ev : streamer->events()) {
-        if (ev.kind == FastStreamer::EventKind::Label) {
-            emitted.push_back(EmittedEvent { /*is_label=*/true, /*output_offset=*/0, ev.symbol, llvm::MCInst {},
-                /*sti=*/nullptr, {}, {} });
-            continue;
+        EmittedEvent e;
+        switch (ev.kind) {
+        case FastStreamer::EventKind::Label:
+            e.kind = EvKind::Label;
+            e.symbol = ev.symbol;
+            break;
+        case FastStreamer::EventKind::Instruction:
+            e.kind = EvKind::Instruction;
+            e.inst = ev.inst;
+            e.sti = ev.sti;
+            encode_instruction(*code_emitter, e.inst, e.bytes, e.fixups, *e.sti);
+            break;
+        case FastStreamer::EventKind::Value:
+            // Size is fixed; the bytes are filled in once the layout (and thus
+            // any referenced label addresses) is final.
+            e.kind = EvKind::Value;
+            e.value_expr = ev.value_expr;
+            e.value_size = ev.value_size;
+            e.bytes.resize(ev.value_size, 0);
+            break;
+        case FastStreamer::EventKind::Bytes:
+            e.kind = EvKind::Bytes;
+            e.bytes.assign(ev.data.begin(), ev.data.end());
+            break;
+        case FastStreamer::EventKind::Fill: {
+            // `.space`/`.skip`/`.zero`/`.fill`: the repeat count must be an
+            // absolute constant (it cannot depend on the layout being computed).
+            // The resulting bytes are fixed, so this behaves like a Bytes event.
+            e.kind = EvKind::Bytes;
+            int64_t count = 0;
+            if (!ev.value_expr->evaluateAsAbsolute(count) || count < 0) {
+                context.reportError(llvm::SMLoc(), "Could not evaluate fill count (reported by Nyxstone)");
+                break;
+            }
+            const unsigned unit = ev.fill_unit != 0 ? ev.fill_unit : 1;
+            e.bytes.resize(static_cast<size_t>(count) * unit, 0);
+            for (int64_t rep = 0; rep < count; ++rep) {
+                for (unsigned b = 0; b < unit; ++b) {
+                    const unsigned shift = triple.isLittleEndian() ? b : (unit - 1 - b);
+                    e.bytes[static_cast<size_t>(rep) * unit + b]
+                        = static_cast<char>((static_cast<uint64_t>(ev.fill_value) >> (8U * shift)) & 0xffU);
+                }
+            }
+            break;
         }
-        EmittedEvent e { /*is_label=*/false, /*output_offset=*/0, /*symbol=*/nullptr, ev.inst, ev.sti, {}, {} };
-        encode_instruction(*code_emitter, e.inst, e.bytes, e.fixups, *e.sti);
+        case FastStreamer::EventKind::Leb: {
+            // `.uleb128`/`.sleb128`: the value must be an absolute constant, so
+            // its variable-length encoding is fixed up front.
+            e.kind = EvKind::Bytes;
+            int64_t v = 0;
+            if (!ev.value_expr->evaluateAsAbsolute(v)) {
+                context.reportError(llvm::SMLoc(), "Could not evaluate LEB128 value (reported by Nyxstone)");
+                break;
+            }
+            llvm::SmallString<16> encoded;
+            llvm::raw_svector_ostream encoded_stream(encoded);
+            if (ev.leb_signed) {
+                llvm::encodeSLEB128(v, encoded_stream);
+            } else {
+                llvm::encodeULEB128(static_cast<uint64_t>(v), encoded_stream);
+            }
+            e.bytes.assign(encoded.begin(), encoded.end());
+            break;
+        }
+        case FastStreamer::EventKind::Align:
+            // Padding size depends on the running offset, so it is computed in
+            // recompute_offsets() and may change as instructions relax.
+            e.kind = EvKind::Align;
+            e.sti = ev.sti;
+            e.align = ev.alignment;
+            e.align_fill = ev.align_fill;
+            e.align_fill_size = ev.align_fill_size;
+            e.align_max_bytes = ev.align_max_bytes;
+            break;
+        case FastStreamer::EventKind::Org: {
+            // `.org`: advance to a fixed section-relative offset. The target
+            // must be an absolute constant; the padding size depends on the
+            // running offset and is (re)computed in recompute_offsets().
+            e.kind = EvKind::Org;
+            int64_t org_offset = 0;
+            if (!ev.value_expr->evaluateAsAbsolute(org_offset) || org_offset < 0) {
+                context.reportError(llvm::SMLoc(), "Could not evaluate .org offset (reported by Nyxstone)");
+                break;
+            }
+            e.org_target = org_offset;
+            e.org_fill = static_cast<char>(static_cast<uint64_t>(ev.fill_value) & 0xffU);
+            break;
+        }
+        case FastStreamer::EventKind::Nops: {
+            // `.nops`: emit a fixed number of NOP-encoded padding bytes. The
+            // count is constant, so the bytes are generated up front like a
+            // Bytes event. `nops_control` caps the length of each individual NOP
+            // (0 = let the backend pick the largest NOP it supports).
+            e.kind = EvKind::Bytes;
+            if (ev.nops_num_bytes < 0 || ev.nops_control < 0) {
+                context.reportError(llvm::SMLoc(), "Negative .nops length (reported by Nyxstone)");
+                break;
+            }
+            llvm::raw_svector_ostream nop_stream(e.bytes);
+            if (ev.nops_control == 0) {
+                asm_backend_p->writeNopData(nop_stream, static_cast<uint64_t>(ev.nops_num_bytes), ev.sti);
+            } else {
+                int64_t remaining = ev.nops_num_bytes;
+                while (remaining > 0) {
+                    const auto chunk = static_cast<uint64_t>(std::min(remaining, ev.nops_control));
+                    if (!asm_backend_p->writeNopData(nop_stream, chunk, ev.sti)) {
+                        context.reportError(llvm::SMLoc(), "Could not emit .nops padding (reported by Nyxstone)");
+                        break;
+                    }
+                    remaining -= static_cast<int64_t>(chunk);
+                }
+            }
+            break;
+        }
+        }
         emitted.push_back(std::move(e));
+    }
+    if (!extended_error.empty()) {
+        std::ostringstream error_stream;
+        error_stream << "Error during assembly: " << extended_error;
+        return tl::unexpected(error_stream.str());
     }
 
     auto recompute_offsets = [&]() {
         size_t offset = 0;
         for (auto& e : emitted) {
             e.output_offset = offset;
-            if (e.is_label) {
+            switch (e.kind) {
+            case EvKind::Label:
                 e.symbol->setOffset(offset);
                 e.symbol->setFragment(dummy_fragment);
-            } else {
+                break;
+            case EvKind::Align: {
+                // Align is always a power of two, so mask the low bits.
+                const size_t aligned
+                    = (e.align <= 1) ? offset : ((offset + e.align - 1) & ~(static_cast<size_t>(e.align) - 1));
+                size_t pad = aligned - offset;
+                if (e.align_max_bytes != 0 && pad > e.align_max_bytes) {
+                    pad = 0; // GNU as semantics: skip the alignment if it would need more than max bytes
+                }
+                e.bytes.clear();
+                if (e.align_fill_size == 0) {
+                    // Code alignment: fill with target NOP padding.
+                    llvm::raw_svector_ostream pad_stream(e.bytes);
+                    asm_backend_p->writeNopData(pad_stream, pad, e.sti);
+                } else {
+                    // Value alignment: repeat the low byte of the fill value.
+                    e.bytes.assign(pad, static_cast<char>(e.align_fill & 0xff));
+                }
                 offset += e.bytes.size();
+                break;
+            }
+            case EvKind::Org: {
+                // Pad forward to the requested offset. A target behind the
+                // current offset is an error (caught after relaxation settles);
+                // emit no padding here so the layout stays well-defined.
+                e.bytes.clear();
+                if (e.org_target > static_cast<int64_t>(offset)) {
+                    e.bytes.assign(static_cast<size_t>(e.org_target) - offset, e.org_fill);
+                }
+                offset += e.bytes.size();
+                break;
+            }
+            default:
+                offset += e.bytes.size();
+                break;
             }
         }
     };
@@ -469,6 +627,34 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
             v -= static_cast<int64_t>(out_mc_value.getSymB()->getSymbol().getOffset());
         }
         out_value = v;
+        return true;
+    };
+
+    // Evaluates a data directive value expression (`.byte`/`.int`/…). Symbol
+    // references resolve to absolute runtime addresses (`address + offset`);
+    // label differences cancel the base address as expected. Returns false on
+    // an unresolved/undefined reference.
+    auto evaluate_data_value = [&](const llvm::MCExpr* expr, uint64_t& out_value) -> bool {
+        llvm::MCValue mc_value;
+        if (!expr->evaluateAsRelocatable(mc_value, nullptr, nullptr)) {
+            context.reportError(llvm::SMLoc(), "Could not evaluate data value (reported by Nyxstone)");
+            return false;
+        }
+        const auto* sym_a = mc_value.getSymA();
+        const auto* sym_b = mc_value.getSymB();
+        if ((sym_a != nullptr && !sym_a->getSymbol().isDefined())
+            || (sym_b != nullptr && !sym_b->getSymbol().isDefined())) {
+            context.reportError(llvm::SMLoc(), "Label undefined in data value (reported by Nyxstone)");
+            return false;
+        }
+        int64_t v = mc_value.getConstant();
+        if (sym_a != nullptr) {
+            v += static_cast<int64_t>(address + sym_a->getSymbol().getOffset());
+        }
+        if (sym_b != nullptr) {
+            v -= static_cast<int64_t>(address + sym_b->getSymbol().getOffset());
+        }
+        out_value = static_cast<uint64_t>(v);
         return true;
     };
 
@@ -513,7 +699,7 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         recompute_offsets();
         bool relaxed_one = false;
         for (auto& e : emitted) {
-            if (e.is_label) {
+            if (e.kind != EvKind::Instruction) {
                 continue;
             }
             for (const auto& fx : e.fixups) {
@@ -563,16 +749,51 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         return tl::unexpected(error_stream.str());
     }
 
+    // The layout is final: reject any `.org` that would move the location
+    // counter backwards (GNU as semantics) rather than silently truncating.
+    const auto* backwards_org = std::find_if(emitted.begin(), emitted.end(), [](const EmittedEvent& e) {
+        return e.kind == EvKind::Org && e.org_target < static_cast<int64_t>(e.output_offset);
+    });
+    if (backwards_org != emitted.end()) {
+        std::ostringstream msg;
+        msg << "Cannot move .org backwards to offset 0x" << std::hex << backwards_org->org_target
+            << " (already at offset 0x" << backwards_org->output_offset << ") (reported by Nyxstone)";
+        return tl::unexpected("Error during assembly: " + msg.str());
+    }
+
+    // The layout is final, so data directive values (which may reference label
+    // addresses) can now be resolved into their bytes. Integers are written in
+    // the target's byte order.
+    const bool little_endian = triple.isLittleEndian();
+    for (auto& e : emitted) {
+        if (e.kind != EvKind::Value) {
+            continue;
+        }
+        uint64_t value = 0;
+        if (!evaluate_data_value(e.value_expr, value)) {
+            break;
+        }
+        for (unsigned i = 0; i < e.value_size; ++i) {
+            const unsigned shift = little_endian ? i : (e.value_size - 1 - i);
+            e.bytes[i] = static_cast<char>((value >> (8U * shift)) & 0xffU);
+        }
+    }
+    if (!extended_error.empty()) {
+        std::ostringstream error_stream;
+        error_stream << "Error during assembly: " << extended_error;
+        return tl::unexpected(error_stream.str());
+    }
+
     // Build the final output and apply fixups.
     llvm::SmallVector<uint8_t, 128> output;
     for (const auto& e : emitted) {
-        if (!e.is_label) {
+        if (e.kind != EvKind::Label) {
             output.append(e.bytes.begin(), e.bytes.end());
         }
     }
 
     for (auto& e : emitted) {
-        if (e.is_label) {
+        if (e.kind != EvKind::Instruction) {
             continue;
         }
         for (const auto& fx : e.fixups) {
@@ -600,7 +821,7 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     // Re-run the nyxstone-specific validators on the final layout. These check
     // ranges/alignments LLVM's backend misses for certain ARM/AArch64 fixups.
     for (const auto& e : emitted) {
-        if (e.is_label) {
+        if (e.kind != EvKind::Instruction) {
             continue;
         }
         for (const auto& fx : e.fixups) {
@@ -630,17 +851,36 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     if (instructions != nullptr) {
         size_t offset = 0;
         for (const auto& e : emitted) {
-            if (e.is_label) {
+            if (e.kind == EvKind::Label) {
                 continue;
             }
             const size_t n = e.bytes.size();
+            if (n == 0) {
+                continue; // e.g. a no-op alignment that needed no padding
+            }
             Nyxstone::Instruction insn;
             insn.bytes.assign(output.begin() + offset, output.begin() + offset + n);
             std::string text;
-            llvm::raw_string_ostream text_stream(text);
-            instruction_printer->printInst(&e.inst, /*Address=*/0, /*Annot=*/"", *e.sti, text_stream);
-            text.erase(0, text.find_first_not_of(" \t\n\r"));
-            std::replace(text.begin(), text.end(), '\t', ' ');
+            if (e.kind == EvKind::Instruction) {
+                llvm::raw_string_ostream text_stream(text);
+                instruction_printer->printInst(&e.inst, /*Address=*/0, /*Annot=*/"", *e.sti, text_stream);
+                text.erase(0, text.find_first_not_of(" \t\n\r"));
+                std::replace(text.begin(), text.end(), '\t', ' ');
+            } else {
+                // Data directives have no instruction form; render their bytes
+                // as a `.byte` directive so the assembly text round-trips and
+                // the per-entry byte lengths still sum to the full output.
+                constexpr char HEX[] = "0123456789abcdef";
+                llvm::raw_string_ostream text_stream(text);
+                text_stream << ".byte ";
+                for (size_t i = 0; i < insn.bytes.size(); ++i) {
+                    if (i != 0) {
+                        text_stream << ", ";
+                    }
+                    const auto byte = static_cast<uint8_t>(insn.bytes[i]);
+                    text_stream << "0x" << HEX[byte >> 4U] << HEX[byte & 0xfU];
+                }
+            }
             insn.assembly = std::move(text);
             insn.address = offset;
             instructions->push_back(std::move(insn));

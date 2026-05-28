@@ -637,6 +637,76 @@ mod tests {
     }
 
     #[test]
+    fn armv7m_data_directives() -> Result<()> {
+        let config = NyxstoneConfig {
+            features: "+fp16,+mve.fp",
+            ..Default::default()
+        };
+        let nyxstone_armv7m = Nyxstone::new("armv7m-none-eabi", config)?;
+
+        assert_eq!(nyxstone_armv7m.assemble(".byte 0x99", 0x0)?, vec![0x99]);
+        assert_eq!(nyxstone_armv7m.assemble(".int 0xc0febabe", 0x0)?, vec![0xbe, 0xba, 0xfe, 0xc0]);
+        assert_eq!(nyxstone_armv7m.assemble(".byte 99\n.align 2\n.byte 99", 0x0)?.len(), 5);
+
+        // .space / .skip / .zero reserve zero-filled space.
+        assert_eq!(nyxstone_armv7m.assemble(".space 4", 0x0)?, vec![0x00, 0x00, 0x00, 0x00]);
+        assert_eq!(nyxstone_armv7m.assemble(".byte 0x11\n.skip 2\n.byte 0x22", 0x0)?, vec![0x11, 0x00, 0x00, 0x22]);
+
+        // .fill repeat, size, value (little-endian units).
+        assert_eq!(nyxstone_armv7m.assemble(".fill 3, 1, 0xAB", 0x0)?, vec![0xAB, 0xAB, 0xAB]);
+
+        // .uleb128 / .sleb128 variable-length encodings.
+        assert_eq!(nyxstone_armv7m.assemble(".uleb128 624485", 0x0)?, vec![0xe5, 0x8e, 0x26]);
+        assert_eq!(nyxstone_armv7m.assemble(".sleb128 -2", 0x0)?, vec![0x7e]);
+
+        // .org advances the location counter to a section-relative offset,
+        // padding with zero (or an explicit fill byte).
+        assert_eq!(
+            nyxstone_armv7m.assemble(".byte 0xaa\n.org 4\n.byte 0xbb", 0x0)?,
+            vec![0xaa, 0x00, 0x00, 0x00, 0xbb]
+        );
+        assert_eq!(
+            nyxstone_armv7m.assemble(".byte 0xaa\n.org 4, 0xff\n.byte 0xbb", 0x0)?,
+            vec![0xaa, 0xff, 0xff, 0xff, 0xbb]
+        );
+
+        // A directive that cannot be honored must error, never silently drop:
+        // .org may not move the location counter backwards.
+        assert!(nyxstone_armv7m.assemble(".byte 0xaa\n.byte 0xbb\n.org 1", 0x0).is_err());
+
+        // Nyxstone emits a single flat .text blob, so switching to any other
+        // section must error rather than silently misplacing the bytes.
+        assert!(nyxstone_armv7m.assemble(".byte 0x11\n.section .data\n.byte 0x22", 0x0).is_err());
+        assert!(nyxstone_armv7m.assemble(".data\n.byte 0x22", 0x0).is_err());
+        assert!(nyxstone_armv7m.assemble(".bss\n.byte 0x22", 0x0).is_err());
+        // An explicit switch back to .text is fine.
+        assert_eq!(nyxstone_armv7m.assemble(".text\n.byte 0x42", 0x0)?, vec![0x42]);
+
+        Ok(())
+    }
+
+    #[test]
+    fn x86_nops_and_org_directives() -> Result<()> {
+        let nyxstone_x86 = Nyxstone::new("x86_64-linux-gnu", NyxstoneConfig::default())?;
+
+        // .nops emits NOP-encoded padding (x86-only directive).
+        assert_eq!(nyxstone_x86.assemble(".nops 4", 0x0)?, vec![0x0f, 0x1f, 0x40, 0x00]);
+        // The optional second operand caps the length of each individual NOP.
+        assert_eq!(
+            nyxstone_x86.assemble(".nops 8, 2", 0x0)?,
+            vec![0x66, 0x90, 0x66, 0x90, 0x66, 0x90, 0x66, 0x90]
+        );
+
+        // .org padding adapts to the bytes emitted by surrounding instructions.
+        assert_eq!(
+            nyxstone_x86.assemble("mov al, 1\n.org 6\nmov al, 2", 0x0)?,
+            vec![0xb0, 0x01, 0x00, 0x00, 0x00, 0x00, 0xb0, 0x02]
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn armv8m_check_label_range_validation() -> Result<()> {
         let instructions: Vec<InstructionRange> = vec![
             InstructionRange::new(
