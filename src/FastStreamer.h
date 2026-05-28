@@ -71,13 +71,13 @@ public:
     // .space / .skip / .zero — `num_bytes` copies of a single `fill_value` byte.
     void emitFill(const llvm::MCExpr& num_bytes, uint64_t fill_value, llvm::SMLoc /*loc*/ = llvm::SMLoc()) override;
     // .fill — `num_values` copies of `expr`, each `size` bytes wide.
-    void emitFill(const llvm::MCExpr& num_values, int64_t size, int64_t expr,
-        llvm::SMLoc /*loc*/ = llvm::SMLoc()) override;
+    void emitFill(
+        const llvm::MCExpr& num_values, int64_t size, int64_t expr, llvm::SMLoc /*loc*/ = llvm::SMLoc()) override;
     // .org — advance the location counter to `offset` (section-relative), padding with byte `value`.
     void emitValueToOffset(const llvm::MCExpr* offset, unsigned char value, llvm::SMLoc /*loc*/) override;
     // .nops — emit `num_bytes` of NOP padding, with each NOP at most `control_length` bytes (0 = backend default).
-    void emitNops(int64_t num_bytes, int64_t control_length, llvm::SMLoc /*loc*/,
-        const llvm::MCSubtargetInfo& sti) override;
+    void emitNops(
+        int64_t num_bytes, int64_t control_length, llvm::SMLoc /*loc*/, const llvm::MCSubtargetInfo& sti) override;
 
     // Nyxstone produces a single flat `.text` blob, so a switch to any other
     // section (`.data`, `.bss`, `.section …`) would silently misplace the

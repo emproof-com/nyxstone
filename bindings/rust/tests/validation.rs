@@ -645,18 +645,30 @@ mod tests {
         let nyxstone_armv7m = Nyxstone::new("armv7m-none-eabi", config)?;
 
         assert_eq!(nyxstone_armv7m.assemble(".byte 0x99", 0x0)?, vec![0x99]);
-        assert_eq!(nyxstone_armv7m.assemble(".int 0xc0febabe", 0x0)?, vec![0xbe, 0xba, 0xfe, 0xc0]);
+        assert_eq!(
+            nyxstone_armv7m.assemble(".int 0xc0febabe", 0x0)?,
+            vec![0xbe, 0xba, 0xfe, 0xc0]
+        );
         assert_eq!(nyxstone_armv7m.assemble(".byte 99\n.align 2\n.byte 99", 0x0)?.len(), 5);
 
         // .space / .skip / .zero reserve zero-filled space.
         assert_eq!(nyxstone_armv7m.assemble(".space 4", 0x0)?, vec![0x00, 0x00, 0x00, 0x00]);
-        assert_eq!(nyxstone_armv7m.assemble(".byte 0x11\n.skip 2\n.byte 0x22", 0x0)?, vec![0x11, 0x00, 0x00, 0x22]);
+        assert_eq!(
+            nyxstone_armv7m.assemble(".byte 0x11\n.skip 2\n.byte 0x22", 0x0)?,
+            vec![0x11, 0x00, 0x00, 0x22]
+        );
 
         // .fill repeat, size, value (little-endian units).
-        assert_eq!(nyxstone_armv7m.assemble(".fill 3, 1, 0xAB", 0x0)?, vec![0xAB, 0xAB, 0xAB]);
+        assert_eq!(
+            nyxstone_armv7m.assemble(".fill 3, 1, 0xAB", 0x0)?,
+            vec![0xAB, 0xAB, 0xAB]
+        );
 
         // .uleb128 / .sleb128 variable-length encodings.
-        assert_eq!(nyxstone_armv7m.assemble(".uleb128 624485", 0x0)?, vec![0xe5, 0x8e, 0x26]);
+        assert_eq!(
+            nyxstone_armv7m.assemble(".uleb128 624485", 0x0)?,
+            vec![0xe5, 0x8e, 0x26]
+        );
         assert_eq!(nyxstone_armv7m.assemble(".sleb128 -2", 0x0)?, vec![0x7e]);
 
         // .org advances the location counter to a section-relative offset,
@@ -676,7 +688,9 @@ mod tests {
 
         // Nyxstone emits a single flat .text blob, so switching to any other
         // section must error rather than silently misplacing the bytes.
-        assert!(nyxstone_armv7m.assemble(".byte 0x11\n.section .data\n.byte 0x22", 0x0).is_err());
+        assert!(nyxstone_armv7m
+            .assemble(".byte 0x11\n.section .data\n.byte 0x22", 0x0)
+            .is_err());
         assert!(nyxstone_armv7m.assemble(".data\n.byte 0x22", 0x0).is_err());
         assert!(nyxstone_armv7m.assemble(".bss\n.byte 0x22", 0x0).is_err());
         // An explicit switch back to .text is fine.
@@ -712,7 +726,10 @@ mod tests {
 
         // `ldr rX, =const` is the ARM literal-pool pseudo-instruction. A constant
         // that fits an immediate is folded into a movw, so no pool is needed.
-        assert_eq!(nyxstone_armv7m.assemble("ldr r0, =0x1234", 0x0)?, vec![0x41, 0xf2, 0x34, 0x20]);
+        assert_eq!(
+            nyxstone_armv7m.assemble("ldr r0, =0x1234", 0x0)?,
+            vec![0x41, 0xf2, 0x34, 0x20]
+        );
 
         // A wide constant is placed in a literal pool emitted right after the
         // code (`ldr r0, [pc]` + 2 bytes of alignment + the 4-byte constant).
@@ -775,7 +792,10 @@ mod tests {
         // 8-byte entries sit after the code and each `ldr` literal resolves to
         // its entry (offsets #8 and #16).
         assert_eq!(
-            nyxstone.assemble("ldr x0, =0x1122334455667788\nldr x1, =0xaabbccdd\nadd x0, x0, x1\nret", 0x0)?,
+            nyxstone.assemble(
+                "ldr x0, =0x1122334455667788\nldr x1, =0xaabbccdd\nadd x0, x0, x1\nret",
+                0x0
+            )?,
             vec![
                 0x80, 0x00, 0x00, 0x58, // ldr x0, #8   -> pool[0]
                 0xa1, 0x00, 0x00, 0x58, // ldr x1, #16  -> pool[1]
