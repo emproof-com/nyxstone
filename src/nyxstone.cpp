@@ -367,6 +367,14 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
 
     auto streamer = std::make_unique<FastStreamer>(context);
     streamer->setUseAssemblerInfoForParsing(true);
+    // Attach the target's streamer so the `ldr rX, =const` pseudo works: the ARM
+    // and AArch64 parsers route its literal pool through this object, and without
+    // one they dereference a null target streamer and crash. The MCTargetStreamer
+    // ctor registers itself as the streamer's (owned) target streamer, so the
+    // returned pointer must be discarded rather than wrapped. The pool is flushed
+    // during parsing (`.ltorg`/`.pool` or finalize) via emit{Label,Value,ValueToAlignment},
+    // which FastStreamer already records as ordinary events.
+    target.createNullTargetStreamer(*streamer);
     streamer->switchSection(text_section);
 
     // Dummy data fragment to attach symbol definitions to so that MCSymbol::isDefined()
