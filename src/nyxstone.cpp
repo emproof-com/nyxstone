@@ -2,8 +2,14 @@
 
 #include "ELFStreamerWrapper.h"
 #include "Target/AArch64/MCTargetDesc/AArch64FixupKinds.h"
-#include "Target/AArch64/MCTargetDesc/AArch64MCExpr.h"
 #include "Target/ARM/MCTargetDesc/ARMFixupKinds.h"
+#include <llvm/Config/llvm-config.h>
+#if LLVM_VERSION_MAJOR < 21
+// In LLVM 21 the per-target AArch64MCExpr was replaced by the generic
+// MCSpecifierExpr (in <llvm/MC/MCExpr.h>); the vendored header only matches the
+// pre-21 class layout.
+#include "Target/AArch64/MCTargetDesc/AArch64MCExpr.h"
+#endif
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -19,8 +25,13 @@
 #include <llvm/MC/MCCodeEmitter.h>
 #include <llvm/MC/MCDisassembler/MCDisassembler.h>
 #include <llvm/MC/MCExpr.h>
+#if LLVM_VERSION_MAJOR < 21
+// In LLVM 21 the standalone header was removed; MCFixupKindInfo now lives in
+// MCAsmBackend.h (already included above).
 #include <llvm/MC/MCFixupKindInfo.h>
+// Likewise, the MCFragment classes moved into MCSection.h in LLVM 21.
 #include <llvm/MC/MCFragment.h>
+#endif
 #include <llvm/MC/MCInstPrinter.h>
 #include <llvm/MC/MCObjectFileInfo.h>
 #include <llvm/MC/MCObjectWriter.h>
@@ -85,21 +96,31 @@ tl::expected<std::unique_ptr<Nyxstone>, std::string> NyxstoneBuilder::build()
         return tl::unexpected("Invalid architecture / LLVM target triple");
     }
 
+    // LLVM 22 deprecated the triple-string overloads of these factory functions
+    // in favour of ones taking llvm::Triple directly; older releases only have
+    // the string form. Passing the right type selects the non-deprecated
+    // overload everywhere.
+#if LLVM_VERSION_MAJOR >= 22
+    const llvm::Triple& triple_arg = triple;
+#else
+    const std::string triple_arg = triple.getTriple();
+#endif
+
     std::string lookup_target_error;
-    const llvm::Target* target = llvm::TargetRegistry::lookupTarget(triple.getTriple(), lookup_target_error);
+    const llvm::Target* target = llvm::TargetRegistry::lookupTarget(triple_arg, lookup_target_error);
     if (target == nullptr) {
         return tl::unexpected(lookup_target_error);
     }
 
     // Init reusable llvm info objects
-    auto register_info = std::unique_ptr<llvm::MCRegisterInfo>(target->createMCRegInfo(triple.getTriple()));
+    auto register_info = std::unique_ptr<llvm::MCRegisterInfo>(target->createMCRegInfo(triple_arg));
     if (!register_info) {
         return tl::unexpected("Could not create LLVM object (= MCRegisterInfo )");
     }
 
     llvm::MCTargetOptions target_options;
     auto assembler_info
-        = std::unique_ptr<llvm::MCAsmInfo>(target->createMCAsmInfo(*register_info, triple.getTriple(), target_options));
+        = std::unique_ptr<llvm::MCAsmInfo>(target->createMCAsmInfo(*register_info, triple_arg, target_options));
     if (!assembler_info) {
         return tl::unexpected("Could not create LLVM object (= MCAsmInfo )");
     }
@@ -110,7 +131,7 @@ tl::expected<std::unique_ptr<Nyxstone>, std::string> NyxstoneBuilder::build()
     }
 
     auto subtarget_info
-        = std::unique_ptr<llvm::MCSubtargetInfo>(target->createMCSubtargetInfo(triple.getTriple(), m_cpu, m_features));
+        = std::unique_ptr<llvm::MCSubtargetInfo>(target->createMCSubtargetInfo(triple_arg, m_cpu, m_features));
     if (!subtarget_info) {
         return tl::unexpected("Could not create LLVM object (= MCSubtargetInfo )");
     }
@@ -209,6 +230,59 @@ tl::expected<std::vector<Nyxstone::Instruction>, std::string> Nyxstone::disassem
 }
 
 namespace {
+    // --- LLVM version-compatibility shims -----------------------------------
+    // LLVM 21 reworked several MC interfaces nyxstone reaches into directly:
+    //   * MCFixup::getTargetKind() was removed; getKind() now returns the raw
+    //     uint16_t kind (target fixups included).
+    //   * MCExpr::evaluateAsRelocatable() dropped its trailing MCFixup* argument.
+    //   * MCValue::getSymA()/getSymB() (returning MCSymbolRefExpr*) became
+    //     getAddSym()/getSubSym() (returning MCSymbol* directly).
+
+    inline unsigned fixup_kind(const llvm::MCFixup& fixup)
+    {
+#if LLVM_VERSION_MAJOR < 21
+        return fixup.getTargetKind();
+#else
+        return fixup.getKind();
+#endif
+    }
+
+    inline bool eval_relocatable(
+        const llvm::MCExpr& expr, llvm::MCValue& value, const llvm::MCFixup& fixup, const llvm::MCAssembler& assembler)
+    {
+#if LLVM_VERSION_MAJOR < 21
+        (void)assembler;
+        return expr.evaluateAsRelocatable(value, nullptr, &fixup);
+#else
+        // In LLVM 21 the trailing MCFixup* argument was dropped; the assembler
+        // now carries the context needed to resolve relocation specifiers (e.g.
+        // an AArch64 `adr`/`adrp` modifier or RISC-V `%pcrel_hi`). Passing
+        // nullptr here makes those expressions fail to evaluate.
+        (void)fixup;
+        return expr.evaluateAsRelocatable(value, &assembler);
+#endif
+    }
+
+    inline const llvm::MCSymbol* value_add_sym(const llvm::MCValue& value)
+    {
+#if LLVM_VERSION_MAJOR < 21
+        const auto* ref = value.getSymA();
+        return ref != nullptr ? &ref->getSymbol() : nullptr;
+#else
+        return value.getAddSym();
+#endif
+    }
+
+    inline const llvm::MCSymbol* value_sub_sym(const llvm::MCValue& value)
+    {
+#if LLVM_VERSION_MAJOR < 21
+        const auto* ref = value.getSymB();
+        return ref != nullptr ? &ref->getSymbol() : nullptr;
+#else
+        return value.getSubSym();
+#endif
+    }
+
     /// Validates an ARM Thumb fixup: range and alignment checks LLVM is missing
     /// for some kinds, producing wrong bytes instead of an error. Alignment
     /// and range checks operate on the runtime addresses (`address +
@@ -222,7 +296,7 @@ namespace {
             return;
         }
 
-        const auto kind = fixup.getTargetKind();
+        const auto kind = fixup_kind(fixup);
         const uint64_t target_addr = address + target_offset;
         // Thumb PC-relative reference point for ADR/LDR (literal) and similar
         // fixups: `Align(instr_addr + 4, 4)`.
@@ -263,13 +337,27 @@ namespace {
     /// Validates an AArch64 ADR fixup: range check LLVM is missing.
     void validate_aarch64_fixup(const llvm::MCFixup& fixup, uint64_t target_offset, llvm::MCContext& context)
     {
-        if (fixup.getTargetKind() != llvm::AArch64::fixup_aarch64_pcrel_adr_imm21) {
+        if (fixup_kind(fixup) != llvm::AArch64::fixup_aarch64_pcrel_adr_imm21) {
             return;
         }
-        if (fixup.getValue() == nullptr || fixup.getValue()->getKind() != llvm::MCExpr::Target) {
+        const llvm::MCExpr* value = fixup.getValue();
+        if (value == nullptr) {
             return;
         }
-        const auto* sub_expr = llvm::cast<llvm::AArch64MCExpr>(fixup.getValue())->getSubExpr();
+        // The relocation specifier ("modifier") wraps the symbol reference. In
+        // LLVM 21 this is a generic MCSpecifierExpr (MCExpr::Specifier); before
+        // that it was the target-specific AArch64MCExpr (MCExpr::Target).
+#if LLVM_VERSION_MAJOR < 21
+        if (value->getKind() != llvm::MCExpr::Target) {
+            return;
+        }
+        const llvm::MCExpr* sub_expr = llvm::cast<llvm::AArch64MCExpr>(value)->getSubExpr();
+#else
+        if (value->getKind() != llvm::MCExpr::Specifier) {
+            return;
+        }
+        const llvm::MCExpr* sub_expr = llvm::cast<llvm::MCSpecifierExpr>(value)->getSubExpr();
+#endif
         if (sub_expr == nullptr || sub_expr->getKind() != llvm::MCExpr::SymbolRef) {
             return;
         }
@@ -382,10 +470,14 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     if (!assembler_backend) {
         return tl::unexpected("Could not create LLVM object (= MCAsmBackend )");
     }
+#if LLVM_VERSION_MAJOR < 21
     // The cached, MCContext-independent backend is reused for the post-layout
-    // fixup queries/re-application below; the streamer owns its own per-call
-    // backend (LLVM requires unique_ptr ownership) for the layout itself.
+    // AArch64 `adrp` re-application below via applyFixup; the streamer owns its
+    // own per-call backend (LLVM requires unique_ptr ownership) for the layout
+    // itself. In LLVM 21 applyFixup can no longer be driven standalone for this,
+    // so the adrp immediate is encoded directly and no cached backend is needed.
     auto* backend = asm_backend.get();
+#endif
 
     // The full ELF object is written into this throwaway buffer by finish(); we
     // extract `.text` ourselves via MCAssembler::writeSectionData afterwards.
@@ -483,21 +575,21 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     auto target_section_offset = [&](const llvm::MCFixup& fixup, int64_t& out) -> bool {
         const llvm::MCExpr* expr = fixup.getValue();
         llvm::MCValue value;
-        if (expr == nullptr || !expr->evaluateAsRelocatable(value, nullptr, &fixup)) {
+        if (expr == nullptr || !eval_relocatable(*expr, value, fixup, assembler)) {
             return false;
         }
         int64_t result = value.getConstant();
-        if (const auto* sym_a = value.getSymA()) {
-            if (!sym_a->getSymbol().isDefined()) {
+        if (const auto* sym_a = value_add_sym(value)) {
+            if (!sym_a->isDefined()) {
                 return false;
             }
-            result += static_cast<int64_t>(symbol_offset(sym_a->getSymbol()));
+            result += static_cast<int64_t>(symbol_offset(*sym_a));
         }
-        if (const auto* sym_b = value.getSymB()) {
-            if (!sym_b->getSymbol().isDefined()) {
+        if (const auto* sym_b = value_sub_sym(value)) {
+            if (!sym_b->isDefined()) {
                 return false;
             }
-            result -= static_cast<int64_t>(symbol_offset(sym_b->getSymbol()));
+            result -= static_cast<int64_t>(symbol_offset(*sym_b));
         }
         out = result;
         return true;
@@ -509,23 +601,15 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     // else is either translation-invariant or already handled (Thumb alignment
     // via the bkpt prepend), so it is left exactly as LLVM resolved it.
     const bool is_thumb = is_ArmT16_or_ArmT32(triple);
-    for (llvm::MCFragment& fragment : *text_section) {
-        llvm::MutableArrayRef<char> contents;
-        const llvm::SmallVectorImpl<llvm::MCFixup>* fixups = nullptr;
-        if (fragment.getKind() == llvm::MCFragment::FT_Data) {
-            auto& data_fragment = llvm::cast<llvm::MCDataFragment>(fragment);
-            contents = data_fragment.getContents();
-            fixups = &data_fragment.getFixups();
-        } else if (fragment.getKind() == llvm::MCFragment::FT_Relaxable) {
-            auto& relaxable_fragment = llvm::cast<llvm::MCRelaxableFragment>(fragment);
-            contents = relaxable_fragment.getContents();
-            fixups = &relaxable_fragment.getFixups();
-        } else {
-            continue;
-        }
 
-        const uint64_t frag_offset = fragment_offset(fragment);
-        for (const llvm::MCFixup& fixup : *fixups) {
+    // Process one contiguous (contents, fixups) region of a fragment. A fixup's
+    // `getOffset()` is relative to the fragment start; `content_base` is the
+    // offset of `region_contents` within the fragment (0 for the fixed part,
+    // FixedSize for the LLVM 22 variable tail), so the byte index into
+    // `region_contents` is `getOffset() - content_base`.
+    auto process_region = [&](llvm::MutableArrayRef<char> region_contents, llvm::ArrayRef<llvm::MCFixup> region_fixups,
+                              uint64_t frag_offset, uint64_t content_base) {
+        for (const llvm::MCFixup& fixup : region_fixups) {
             int64_t target_offset = 0;
             if (!target_section_offset(fixup, target_offset)) {
                 context.reportError(fixup.getLoc(), "Label undefined (reported by Nyxstone)");
@@ -545,17 +629,75 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
             // so resolve it here against the runtime base. (Thumb's Align(PC,4)
             // sensitivity is handled by the bkpt prepend, which makes LLVM's
             // layout-time computation correct, so it needs nothing here.)
-            if (triple.isAArch64() && fixup.getTargetKind() == llvm::AArch64::fixup_aarch64_pcrel_adrp_imm21) {
+            if (triple.isAArch64() && fixup_kind(fixup) == llvm::AArch64::fixup_aarch64_pcrel_adrp_imm21) {
                 constexpr uint64_t PAGE_SIZE { 0x1000 };
                 const uint64_t local_addr = effective_base + fixup_offset;
                 const uint64_t target_addr = effective_base + static_cast<uint64_t>(target_offset);
                 const uint64_t value = (target_addr & ~(PAGE_SIZE - 1)) - (local_addr & ~(PAGE_SIZE - 1));
+#if LLVM_VERSION_MAJOR < 21
+                (void)content_base;
                 llvm::MCValue mc_value;
-                fixup.getValue()->evaluateAsRelocatable(mc_value, nullptr, &fixup);
+                eval_relocatable(*fixup.getValue(), mc_value, fixup, assembler);
                 backend->applyFixup(
-                    assembler, fixup, mc_value, contents, value, /*IsResolved=*/true, subtarget_info.get());
+                    assembler, fixup, mc_value, region_contents, value, /*IsResolved=*/true, subtarget_info.get());
+#else
+                // LLVM 21's applyFixup is tightly coupled to relocation
+                // emission: for a symbol-bearing ADRP fixup it routes through the
+                // ELF object writer and rejects the bare symbol ("invalid symbol
+                // kind for ADRP relocation") instead of writing the immediate.
+                // Since `adrp` has a fixed ARMv8 encoding and we already hold the
+                // resolved page difference, encode the 21-bit immediate
+                // (immhi:immlo) directly into the instruction word.
+                const uint32_t fix_at = static_cast<uint32_t>(fixup.getOffset() - content_base);
+                if (static_cast<uint64_t>(fix_at) + 4 <= region_contents.size()) {
+                    const int64_t imm = static_cast<int64_t>(value) >> 12;
+                    const auto immlo = static_cast<uint32_t>(imm) & 0x3U;
+                    const auto immhi = (static_cast<uint32_t>(imm) >> 2) & 0x7ffffU;
+                    auto byte = [&](size_t i) {
+                        return static_cast<uint32_t>(static_cast<uint8_t>(region_contents[fix_at + i]));
+                    };
+                    uint32_t insn = byte(0) | (byte(1) << 8U) | (byte(2) << 16U) | (byte(3) << 24U);
+                    insn &= ~((0x3U << 29U) | (0x7ffffU << 5U));
+                    insn |= (immlo << 29U) | (immhi << 5U);
+                    region_contents[fix_at + 0] = static_cast<char>(insn & 0xffU);
+                    region_contents[fix_at + 1] = static_cast<char>((insn >> 8U) & 0xffU);
+                    region_contents[fix_at + 2] = static_cast<char>((insn >> 16U) & 0xffU);
+                    region_contents[fix_at + 3] = static_cast<char>((insn >> 24U) & 0xffU);
+                }
+#endif
+            }
+            if (!extended_error.empty()) {
+                return;
             }
         }
+    };
+
+    for (llvm::MCFragment& fragment : *text_section) {
+        const uint64_t frag_offset = fragment_offset(fragment);
+#if LLVM_VERSION_MAJOR < 22
+        llvm::MutableArrayRef<char> contents;
+        // ArrayRef is constructible from both the pre-21 SmallVectorImpl& and the
+        // LLVM 21 MutableArrayRef returned by getFixups().
+        llvm::ArrayRef<llvm::MCFixup> fixups;
+        if (fragment.getKind() == llvm::MCFragment::FT_Data) {
+            auto& data_fragment = llvm::cast<llvm::MCDataFragment>(fragment);
+            contents = data_fragment.getContents();
+            fixups = data_fragment.getFixups();
+        } else if (fragment.getKind() == llvm::MCFragment::FT_Relaxable) {
+            auto& relaxable_fragment = llvm::cast<llvm::MCRelaxableFragment>(fragment);
+            contents = relaxable_fragment.getContents();
+            fixups = relaxable_fragment.getFixups();
+        } else {
+            continue;
+        }
+        process_region(contents, fixups, frag_offset, 0);
+#else
+        // LLVM 22 merged the per-kind fragment classes into a single MCFragment
+        // with a fixed part plus an optional variable tail; relaxable
+        // instructions (and their fixups) live in the tail.
+        process_region(fragment.getContents(), fragment.getFixups(), frag_offset, 0);
+        process_region(fragment.getVarContents(), fragment.getVarFixups(), frag_offset, fragment.getFixedSize());
+#endif
         if (!extended_error.empty()) {
             break;
         }
@@ -582,29 +724,46 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
     // directives (`.byte`/`.word`/…) are not recorded as instructions, so this
     // only fills the recorded instruction entries.
     if (instructions != nullptr) {
+        // Pack consecutive recorded instructions into the fixed contents of a
+        // fragment, by their (post-relaxation-stable) lengths.
+        auto fill_fixed = [&](size_t& curr_insn, llvm::ArrayRef<char> contents) {
+            size_t pos = 0;
+            while (curr_insn < instructions->size()) {
+                auto& insn_bytes = instructions->at(curr_insn).bytes;
+                const size_t insn_len = insn_bytes.size();
+                if (pos + insn_len > contents.size()) {
+                    break;
+                }
+                insn_bytes.assign(contents.begin() + pos, contents.begin() + pos + insn_len);
+                pos += insn_len;
+                curr_insn++;
+            }
+        };
+
         size_t curr_insn = 0;
         for (llvm::MCFragment& fragment : *text_section) {
             if (curr_insn >= instructions->size()) {
                 break;
             }
+#if LLVM_VERSION_MAJOR < 22
             if (fragment.getKind() == llvm::MCFragment::FT_Data) {
-                const llvm::ArrayRef<char> contents = llvm::cast<llvm::MCDataFragment>(fragment).getContents();
-                size_t pos = 0;
-                while (curr_insn < instructions->size()) {
-                    auto& insn_bytes = instructions->at(curr_insn).bytes;
-                    const size_t insn_len = insn_bytes.size();
-                    if (pos + insn_len > contents.size()) {
-                        break;
-                    }
-                    insn_bytes.assign(contents.begin() + pos, contents.begin() + pos + insn_len);
-                    pos += insn_len;
-                    curr_insn++;
-                }
+                fill_fixed(curr_insn, llvm::cast<llvm::MCDataFragment>(fragment).getContents());
             } else if (fragment.getKind() == llvm::MCFragment::FT_Relaxable) {
                 const llvm::ArrayRef<char> contents = llvm::cast<llvm::MCRelaxableFragment>(fragment).getContents();
                 instructions->at(curr_insn).bytes.assign(contents.begin(), contents.end());
                 curr_insn++;
             }
+#else
+            // Fixed part: non-relaxable instructions and data. Variable tail: a
+            // single relaxable instruction (its final, possibly relaxed bytes).
+            fill_fixed(curr_insn, fragment.getContents());
+            const llvm::ArrayRef<char> var = fragment.getVarContents();
+            if (fragment.getKind() == llvm::MCFragment::FT_Relaxable && !var.empty()
+                && curr_insn < instructions->size()) {
+                instructions->at(curr_insn).bytes.assign(var.begin(), var.end());
+                curr_insn++;
+            }
+#endif
         }
     }
 

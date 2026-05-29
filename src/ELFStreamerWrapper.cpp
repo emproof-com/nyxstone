@@ -3,7 +3,11 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include <llvm/MC/MCAssembler.h>
+#if LLVM_VERSION_MAJOR < 21
+// The MCFragment classes moved into MCSection.h (pulled in via the header) in
+// LLVM 21.
 #include <llvm/MC/MCFragment.h>
+#endif
 #include <llvm/MC/MCInstPrinter.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/raw_ostream.h>
@@ -44,6 +48,7 @@ void ELFStreamerWrapper::emitInstruction(const llvm::MCInst& inst, const llvm::M
 
     size_t fragment_bytes = 0;
     for (llvm::MCFragment& fragment : *text_section) {
+#if LLVM_VERSION_MAJOR < 22
         llvm::ArrayRef<char> contents;
         switch (fragment.getKind()) {
         default:
@@ -55,6 +60,22 @@ void ELFStreamerWrapper::emitInstruction(const llvm::MCInst& inst, const llvm::M
             contents = llvm::cast<llvm::MCRelaxableFragment>(fragment).getContents();
             break;
         }
+#else
+        // LLVM 22 unified the fragment classes; the emitted bytes are the fixed
+        // part followed by the optional variable tail (a relaxable instruction).
+        if (fragment.getKind() != llvm::MCFragment::FT_Data && fragment.getKind() != llvm::MCFragment::FT_Relaxable) {
+            continue;
+        }
+        std::vector<char> combined;
+        {
+            const llvm::ArrayRef<char> fixed = fragment.getContents();
+            const llvm::ArrayRef<char> var = fragment.getVarContents();
+            combined.reserve(fixed.size() + var.size());
+            combined.insert(combined.end(), fixed.begin(), fixed.end());
+            combined.insert(combined.end(), var.begin(), var.end());
+        }
+        const llvm::ArrayRef<char> contents(combined);
+#endif
         fragment_bytes += contents.size();
 
         if (fragment_bytes <= recorded_bytes) {

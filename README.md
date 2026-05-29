@@ -56,7 +56,7 @@ This section provides instructions on how to get started with Nyxstone, covering
 
 ### Prerequisites
 
-Before building Nyxstone, ensure clang and LLVM are present on your system. **Nyxstone supports LLVM major versions 15-20.** Any minor/patch within those majors works; the build picks the newest LLVM it can find unless you pin one.
+Before building Nyxstone, ensure clang and LLVM are present on your system. **Nyxstone supports LLVM major versions 15-22.** Any minor/patch within those majors works; the build picks the newest LLVM it can find unless you pin one.
 
 The build resolves LLVM in this order:
 
@@ -64,7 +64,7 @@ The build resolves LLVM in this order:
 2. Known per-major install layouts probed newest-first: `/usr/lib/llvm-<N>` (Debian/Ubuntu), `/opt/homebrew/opt/llvm@<N>` (Homebrew on Apple Silicon), `/usr/local/opt/llvm@<N>` (Homebrew on x86 macOS), `/opt/brew/opt/llvm@<N>` (custom-prefix Homebrew on Linux).
 3. CMake's default `find_package(LLVM)` search.
 
-If the resolved version is outside 15-20 the configure step fails with a clear error.
+If the resolved version is outside 15-22 the configure step fails with a clear error.
 
 #### Installation
 
@@ -285,7 +285,7 @@ The disassembly path is much simpler: an `MCDisassembler` and its `MCContext` ar
 
 * **Caching.** The version-independent target-info objects (`MCRegisterInfo`, `MCInstrInfo`, `MCSubtargetInfo`, `MCAsmInfo`), the instruction printer, and the `MCAsmBackend` are built once per `Nyxstone` instance and reused. The assembler's `MCContext` and the per-call streamer/parser are rebuilt on each call, because LLVM ties the context to the input source buffer.
 
-* **Version coupling.** Nyxstone uses MC headers that LLVM does not promise stable across major versions; the supported range (15-20) is covered by `#if LLVM_VERSION_MAJOR` guards in [src/nyxstone.cpp](src/nyxstone.cpp) and [src/ELFStreamerWrapper.h](src/ELFStreamerWrapper.h) — most notably the removal of `MCAsmLayout` in LLVM 19. The vendored LLVM-internal headers under [src/Target/](src/Target/) (`AArch64FixupKinds.h`, `AArch64MCExpr.h`, `ARMFixupKinds.h`) are tracked similarly, because LLVM does not install them.
+* **Version coupling.** Nyxstone uses MC headers that LLVM does not promise stable across major versions; the supported range (15-22) is covered by `#if LLVM_VERSION_MAJOR` guards in [src/nyxstone.cpp](src/nyxstone.cpp) and [src/ELFStreamerWrapper.h](src/ELFStreamerWrapper.h). The vendored LLVM-internal headers under [src/Target/](src/Target/) (`AArch64FixupKinds.h`, `AArch64MCExpr.h` (LLVM < 21 only), `ARMFixupKinds.h`) are tracked similarly, because LLVM does not install them.
 
 ## Benchmarks
 
@@ -324,7 +324,7 @@ Recent work:
 * [x] Support common data directives (`.byte`/`.word`/`.org`/`.nops`/`.align`/`.fill`/`.uleb128`/…) and the `ldr =const` literal pool.
 * [x] Raise explicit errors on input Nyxstone cannot represent (e.g. switching away from `.text`) instead of silently dropping bytes.
 * [x] Resolve the relocations LLVM defers to link time (AArch64 `adrp`) and run range/alignment validators for ARM Thumb / AArch64 fixup kinds LLVM mis-encodes.
-* [x] Support LLVM 15-20 with auto-selection of the newest installed version.
+* [x] Support LLVM 15-22 with auto-selection of the newest installed version.
 
 Still open:
 

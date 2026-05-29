@@ -28,11 +28,11 @@ endif()
 # major.minor matching, but we resolve the install before invoking
 # find_package, so a new 20.2 or 19.3 works without a repo change).
 #
-# LLVM 21 and 22 are not yet supported: their reworked
-# applyFixup/fixupNeedsRelaxationAdvanced APIs are MCFragment-centric and
-# need deeper integration than our detached dummy fragment provides (ARM
-# Thumb fixups crash inside libLLVM).
-set(ALLOWED_LLVM_MAJORS 20 19 18 17 16 15)
+# LLVM 21 moved MCFixupKindInfo/MCFragment headers, replaced the per-target
+# AArch64MCExpr with the generic MCSpecifierExpr, and reworked applyFixup; LLVM
+# 22 further merged the per-kind MCFragment classes into one (fixed part plus a
+# variable tail). Both are handled with version guards in src/.
+set(ALLOWED_LLVM_MAJORS 22 21 20 19 18 17 16 15)
 
 # When NYXSTONE_LLVM_PREFIX is set in CMakeLists.txt it pins CMAKE_PREFIX_PATH
 # and disables system search paths, so find_package will resolve to the

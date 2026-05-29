@@ -137,8 +137,8 @@ fn search_llvm_config() -> Result<PathBuf> {
         let version = version.parse::<u32>().context("Parsing LLVM version")?;
 
         ensure!(
-            (15..=20).contains(&version),
-            "LLVM major version is {}, must be 15-20.",
+            (15..=22).contains(&version),
+            "LLVM major version is {}, must be 15-22.",
             version
         );
 
@@ -203,7 +203,7 @@ fn target_os_is(name: &str) -> bool {
 fn llvm_config_binary_names() -> impl Iterator<Item = String> {
     // Newest-first so $PATH can carry multiple llvm-config-N binaries without
     // the older one masking the newest the user actually has installed.
-    let base_names = (15..=20)
+    let base_names = (15..=22)
         .rev()
         .flat_map(|version| {
             [

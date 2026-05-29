@@ -5,7 +5,7 @@
 
 ## Installation
 
-Building the bindings requires LLVM with a major version in **15-20** installed on your system. `setup.py` resolves LLVM by running `$NYXSTONE_LLVM_PREFIX/bin/llvm-config` if `NYXSTONE_LLVM_PREFIX` is set, otherwise `llvm-config` on `$PATH`.
+Building the bindings requires LLVM with a major version in **15-22** installed on your system. `setup.py` resolves LLVM by running `$NYXSTONE_LLVM_PREFIX/bin/llvm-config` if `NYXSTONE_LLVM_PREFIX` is set, otherwise `llvm-config` on `$PATH`.
 
 Install the published wheel from PyPI:
 

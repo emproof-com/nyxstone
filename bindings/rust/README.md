@@ -10,10 +10,10 @@ Official Rust bindings for the [Nyxstone](https://github.com/emproof-com/nyxston
 `cargo build` works as long as a supported LLVM is reachable. The build script discovers LLVM in this order:
 
 1. `$NYXSTONE_LLVM_PREFIX`, if set searched exclusively.
-2. `llvm-config-N`, `llvm-configN`, or `llvmN-config` on `$PATH`, probed newest-first for `N` in 15-20.
+2. `llvm-config-N`, `llvm-configN`, or `llvmN-config` on `$PATH`, probed newest-first for `N` in 15-22.
 3. Plain `llvm-config` on `$PATH` as a final fallback.
 
-**Supported LLVM major versions: 15-20.** Any minor/patch within those majors works.
+**Supported LLVM major versions: 15-22.** Any minor/patch within those majors works.
 
 ### LLVM linking
 
