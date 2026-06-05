@@ -1,17 +1,14 @@
-//! Hypothesis: the ARM Thumb disassembler carries IT-block (ITSTATE) state as
-//! mutable member state across `getInstruction` calls. Nyxstone caches and
-//! REUSES one `MCDisassembler` per instance across every `disassemble` call
-//! (src/nyxstone.cpp: `disasm_context` / `disassembler`). So if one
-//! `disassemble` call ends while an IT block is still "open" (the predicated
-//! slots were never all consumed), the leftover ITSTATE could leak into the
-//! NEXT `disassemble` call on the same instance and mis-decode unrelated bytes.
+//! Regression tests for the ARM Thumb IT-block (ITSTATE) state-leak bug.
 //!
-//! This is:
-//!   - Thumb-specific (IT blocks are Thumb only)
-//!   - sequence-dependent (depends on what the *previous* call disassembled)
-//!   - input-dependent and therefore looks "non-deterministic" / load-correlated
+//! Root cause: the LLVM ARM/Thumb disassembler carries mutable ITSTATE
+//! predication state across `getInstruction()` calls. That flow is correct
+//! within a single contiguous buffer, but if a `disassemble()` call ends with
+//! an unfinished IT block (truncated input or `count`-limited), the stale state
+//! would leak into the *next* `disassemble()` call on the same instance and
+//! mis-decode unrelated instructions (e.g. `mov r0, r1` → `moveq r0, r1`).
 //!
-//! which matches every symptom in THREADING_INVESTIGATION.md.
+//! The fix (src/nyxstone.cpp `disassemble_impl`) creates a fresh
+//! `MCDisassembler` per call so every call starts with empty ITSTATE.
 
 use nyxstone::{Nyxstone, NyxstoneConfig};
 
@@ -61,7 +58,10 @@ fn it_state_leaks_across_disassemble_calls() {
 
     // Call #2: disassemble an unrelated plain `mov r0, r1` on the SAME instance.
     let second = reused.disassemble(&mov_bytes, 0x3000, 0);
-    eprintln!("call#2 (mov r0,r1, reused instance) -> {:?}", second.as_ref().map(|s| s.trim()));
+    eprintln!(
+        "call#2 (mov r0,r1, reused instance) -> {:?}",
+        second.as_ref().map(|s| s.trim())
+    );
 
     // Ground truth from a fresh instance.
     let clean = nx().disassemble(&mov_bytes, 0x3000, 0).expect("fresh decode");
@@ -103,7 +103,9 @@ fn complete_it_block_leaves_clean_state() {
     let reused = nx();
     let first = reused.disassemble(&block, 0x6000, 0).expect("disassemble full block");
     eprintln!("call#1 (full itt block) -> {:?}", first.trim());
-    let second = reused.disassemble(&mov_bytes, 0x7000, 0).expect("decode mov after full block");
+    let second = reused
+        .disassemble(&mov_bytes, 0x7000, 0)
+        .expect("decode mov after full block");
     eprintln!("call#2 (mov after full block) -> {:?}", second.trim());
 
     assert_eq!(
