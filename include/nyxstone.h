@@ -80,8 +80,7 @@ public:
         std::unique_ptr<llvm::MCRegisterInfo>&& register_info, std::unique_ptr<llvm::MCAsmInfo>&& assembler_info,
         std::unique_ptr<llvm::MCInstrInfo>&& instruction_info, std::unique_ptr<llvm::MCSubtargetInfo>&& subtarget_info,
         std::unique_ptr<llvm::MCInstPrinter>&& instruction_printer, std::unique_ptr<llvm::MCAsmBackend>&& asm_backend,
-        std::unique_ptr<llvm::MCContext>&& disasm_context,
-        std::unique_ptr<llvm::MCDisassembler>&& disassembler) noexcept
+        std::unique_ptr<llvm::MCContext>&& disasm_context) noexcept
         : triple(std::move(triple))
         , target(target)
         , target_options(std::move(target_options))
@@ -92,7 +91,6 @@ public:
         , instruction_printer(std::move(instruction_printer))
         , asm_backend(std::move(asm_backend))
         , disasm_context(std::move(disasm_context))
-        , disassembler(std::move(disassembler))
     {
     }
 
@@ -169,11 +167,11 @@ private:
     // MCAsmBackend has no MCContext dependency, so it is cached on the
     // Nyxstone instance and reused across `assemble()` calls.
     std::unique_ptr<llvm::MCAsmBackend> asm_backend;
-    // The disassembler doesn't define symbols/sections, so its MCContext can
-    // be cached alongside it. Declared after the *_info members because
-    // MCContext borrows references to them.
+    // The disassembler doesn't define symbols/sections, so its MCContext can be
+    // cached. Declared after the *_info members because MCContext borrows
+    // references to them. The MCDisassembler itself is NOT cached: it carries
+    // mutable ITSTATE state on ARM/Thumb that would leak across disassemble() calls.
     std::unique_ptr<llvm::MCContext> disasm_context;
-    std::unique_ptr<llvm::MCDisassembler> disassembler;
     // The assembler's MCContext is NOT cached: LLVM's parser/backend internals
     // call MCContext::reportError with SMLocs tied to the per-call SourceMgr.
     // A cached context with no matching SourceMgr would crash inside LLVM's

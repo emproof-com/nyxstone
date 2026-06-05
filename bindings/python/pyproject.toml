@@ -4,4 +4,4 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nyxstone"
-version = "0.1.7"
+version = "0.1.8"
