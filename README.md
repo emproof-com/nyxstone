@@ -320,15 +320,15 @@ The Rust binding adds the cxx-bridge call overhead. For assembly this is negligi
 Recent work:
 
 * [x] Drive assembly through LLVM's `MCELFStreamer` pipeline so LLVM resolves relocations for every target, including RISC-V `%pcrel_hi`/`%pcrel_lo` (the `la` pseudo) that an earlier hand-rolled fixup pass got wrong.
-* [x] Keep assembly fast with a `.text`-only `MCObjectFileInfo` and by caching the target-info objects, instruction printer, `MCAsmBackend`, and `MCDisassembler` across calls.
+* [x] Keep assembly fast with a `.text`-only `MCObjectFileInfo` and by caching the target-info objects, instruction printer, and `MCAsmBackend` across calls.
 * [x] Support common data directives (`.byte`/`.word`/`.org`/`.nops`/`.align`/`.fill`/`.uleb128`/…) and the `ldr =const` literal pool.
 * [x] Raise explicit errors on input Nyxstone cannot represent (e.g. switching away from `.text`) instead of silently dropping bytes.
 * [x] Resolve the relocations LLVM defers to link time (AArch64 `adrp`) and run range/alignment validators for ARM Thumb / AArch64 fixup kinds LLVM mis-encodes.
 * [x] Support LLVM 15-20 with auto-selection of the newest installed version.
+* [x] Fix ARM Thumb IT-block state leak: the LLVM Thumb disassembler carries mutable ITSTATE across `getInstruction()` calls. Fixed by creating a fresh disassembler per call; performance impact minimal as the heavier `MCContext` stays cached.
 
 Still open:
 
-* [ ] Verify and document thread safety beyond `NyxstoneBuilder::build()` (LLVM init is mutex-guarded; subsequent `assemble`/`disassemble` are not formally verified concurrent-safe on a single instance).
 * [ ] Extend support to LLVM 21+ (each new major tends to shift the unstable MC headers Nyxstone depends on; LLVM 19 already required handling the removal of `MCAsmLayout`).
 
 ## License

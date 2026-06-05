@@ -148,6 +148,9 @@ tl::expected<std::unique_ptr<Nyxstone>, std::string> NyxstoneBuilder::build()
 
     auto disasm_context = std::make_unique<llvm::MCContext>(
         triple, assembler_info.get(), register_info.get(), subtarget_info.get(), nullptr, &target_options);
+    // Validate at build time that the target can produce a disassembler, but
+    // don't cache it, because it keeps mutable ITSTATE on ARM/Thumb that would
+    // leak across disassemble() calls.
     auto disassembler
         = std::unique_ptr<llvm::MCDisassembler>(target->createMCDisassembler(*subtarget_info, *disasm_context));
     if (!disassembler) {
@@ -161,7 +164,7 @@ tl::expected<std::unique_ptr<Nyxstone>, std::string> NyxstoneBuilder::build()
     }
     return std::make_unique<Nyxstone>(std::move(triple), *target, std::move(target_options), std::move(register_info),
         std::move(assembler_info), std::move(instruction_info), std::move(subtarget_info),
-        std::move(instruction_printer), std::move(asm_backend), std::move(disasm_context), std::move(disassembler));
+        std::move(instruction_printer), std::move(asm_backend), std::move(disasm_context));
 }
 
 tl::expected<std::vector<u8>, std::string> Nyxstone::assemble(
@@ -643,6 +646,14 @@ tl::expected<void, std::string> Nyxstone::disassemble_impl(const std::vector<uin
 
     if (bytes.empty()) {
         return {};
+    }
+
+    // Create a fresh disassembler per call. The ARM/Thumb disassembler carries
+    // mutable ITSTATE that would otherwise leak across disassemble() calls.
+    auto disassembler
+        = std::unique_ptr<llvm::MCDisassembler>(target.createMCDisassembler(*subtarget_info, *disasm_context));
+    if (!disassembler) {
+        return tl::unexpected("Could not create LLVM object (= MCDisassembler )");
     }
 
     llvm::SmallString<128> error_msg;
