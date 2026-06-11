@@ -24,14 +24,14 @@ jobs:
       run: ./tool/format.sh check
     - name: Code quality - cppcheck
       run: ./tool/static-analysis-cppcheck.sh
-    - name: Code quality - clang-tidy
-      run: ./tool/static-analysis-tidy.sh
     - name: Build
       run: |
         mkdir build
         cd build
-        cmake ..
+        cmake .. -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
         make
+    - name: Code quality - clang-tidy
+      run: ./tool/static-analysis-tidy.sh
     - name: Test
       working-directory: build/
       run: make test
