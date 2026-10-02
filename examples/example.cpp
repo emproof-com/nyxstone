@@ -50,6 +50,22 @@ int main(int /*argc*/, char** /*argv*/)
         assert(bytes == expected);
     }
 
+    // Leave a reference to an external symbol to the linker and get its relocation
+    const Nyxstone::AssemblyResult result { nyxstone
+                                                ->assemble_to_instructions_with_relocations(
+                                                    /*assembly=*/"call ext", /*address=*/0x1000, /*labels=*/ {},
+                                                    /*externs=*/ { "ext" })
+                                                .value() };
+    {
+        // x86_64 ELF uses RELA, so the relocation `R_X86_64_PLT32` (4) carries the addend and the field is 0
+        const std::vector<Nyxstone::Instruction> expected_instructions { Nyxstone::Instruction {
+            /*address=*/0x1000, /*assembly=*/"call ext", /*bytes=*/ { 0xe8, 0x00, 0x00, 0x00, 0x00 } } };
+        const std::vector<Nyxstone::Relocation> expected_relocations { Nyxstone::Relocation {
+            /*address=*/0x1001, /*type=*/4, /*symbol=*/"ext", /*has_addend=*/true, /*addend=*/-4 } };
+        assert(result.instructions == expected_instructions);
+        assert(result.relocations == expected_relocations);
+    }
+
     // Disassemble some bytes
     const std::vector<uint8_t> two_instruction_bytes
         = { 0x48, 0x31, 0xc0, 0x66, 0x83, 0xc4, 0x08 }; // xor rax, rax; add sp, 8

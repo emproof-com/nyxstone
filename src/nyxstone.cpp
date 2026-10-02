@@ -175,9 +175,9 @@ namespace {
     tl::expected<void, std::string> check_instruction_byte_length(
         const std::vector<Nyxstone::Instruction>& instructions, const std::vector<u8>& output_bytes)
     {
-        const size_t insn_byte_length = std::accumulate(instructions.begin(), instructions.end(),
-            static_cast<size_t>(0),
-            [](size_t acc, const Nyxstone::Instruction& insn) { return acc + insn.bytes.size(); });
+        const size_t insn_byte_length
+            = std::accumulate(instructions.begin(), instructions.end(), static_cast<size_t>(0),
+                [](size_t acc, const Nyxstone::Instruction& insn) { return acc + insn.bytes.size(); });
         if (insn_byte_length != output_bytes.size()) {
             std::stringstream error_stream;
             error_stream << "Internal error (= insn_byte_length '" << insn_byte_length << "' != output_bytes.size "
@@ -868,8 +868,8 @@ bool Nyxstone::Instruction::operator==(const Instruction& other) const
 
 bool Nyxstone::Relocation::operator==(const Relocation& other) const
 {
-    return address == other.address && type == other.type && symbol == other.symbol
-        && has_addend == other.has_addend && addend == other.addend;
+    return address == other.address && type == other.type && symbol == other.symbol && has_addend == other.has_addend
+        && addend == other.addend;
 }
 
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.
