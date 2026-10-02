@@ -2,8 +2,9 @@ use anyhow::anyhow;
 use ffi::create_nyxstone_ffi;
 use ffi::LabelDefinition;
 
-// Re-export Instruction
+// Re-export Instruction and Relocation
 pub use crate::ffi::Instruction;
+pub use crate::ffi::Relocation;
 
 /// Public interface for calling nyxstone from rust.
 /// # Examples
@@ -217,6 +218,51 @@ impl Nyxstone {
         Ok(instr_result.ok)
     }
 
+    /// Translates assembly instructions at a given start address to instruction details containing bytes, with
+    /// additional label definitions, and gives the relocations for references to external symbols.
+    ///
+    /// # Note:
+    /// An external symbol has no address at assembly time. Its relocated field holds what the object file format
+    /// stores there, f. i., the implicit addend of an ELF REL relocation, and the linker completes it.
+    /// Does not support assembly directives that impact the layout (f. i., .section, .org).
+    ///
+    /// # Parameters:
+    /// - `assembly`: The instructions to assemble.
+    /// - `address`: The start location of the instructions.
+    /// - `labels`: Additional label definitions by absolute address, expects a reference to some `Map<AsRef<str>, u64>` which can be iterated over.
+    /// - `externs`: Names of the external symbols that the assembly may refer to. A reference to an undefined name
+    ///   that is not in this list is an error.
+    ///
+    /// # Errors:
+    /// On RISC-V, a `%pcrel_lo` (f. i. of `la` or `lla`) that pairs with the `%pcrel_hi` of an external symbol is an
+    /// error. Its relocation names the label of the `auipc`, not the symbol, so it cannot be given.
+    ///
+    /// # Returns:
+    /// Ok() and the instruction details with the relocations, sorted by address, on success, Err() otherwise.
+    pub fn assemble_to_instructions_with_relocations<'iter, It, Lbl>(
+        &self,
+        assembly: &str,
+        address: u64,
+        labels: It,
+        externs: &[&str],
+    ) -> anyhow::Result<(Vec<Instruction>, Vec<Relocation>)>
+    where
+        Lbl: 'iter + AsRef<str>,
+        It: IntoIterator<Item = (&'iter Lbl, &'iter u64)>,
+    {
+        let labels: Vec<LabelDefinition> = labels.into_iter().map(LabelDefinition::from).collect();
+
+        let result = self
+            .inner
+            .assemble_to_instructions_with_relocations(assembly, address, &labels, externs);
+
+        if !result.error.is_empty() {
+            return Err(anyhow!("Error during assembly: {}.", result.error));
+        }
+
+        Ok((result.instructions, result.relocations))
+    }
+
     /// Translates bytes to disassembly text at a given start address.
     ///
     /// # Parameters:
@@ -306,6 +352,32 @@ mod ffi {
         pub error: String,
     }
 
+    /// Relocation that the linker resolves for a reference to an external symbol.
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct Relocation {
+        /// Absolute address of the relocated field.
+        pub address: u64,
+        /// Relocation type in the number space of the object file format, f. i., an ELF `r_type`.
+        pub kind: u32,
+        /// Name of the external symbol.
+        pub symbol: String,
+        /// Whether the object file format stores the addend in the relocation (ELF RELA). If not, the addend is
+        /// stored in the relocated field.
+        pub has_addend: bool,
+        /// Explicit addend, 0 if `has_addend` is false.
+        pub addend: i64,
+    }
+
+    /// Result of an assembly with relocations, as the FFI gives it.
+    pub struct AssemblyResult {
+        /// Instruction details, empty if `error` is set.
+        pub instructions: Vec<Instruction>,
+        /// Relocations for references to external symbols, sorted by address, empty if `error` is set.
+        pub relocations: Vec<Relocation>,
+        /// Error message, empty on success.
+        pub error: String,
+    }
+
     pub struct StringResult {
         pub ok: String,
         pub error: String,
@@ -357,6 +429,18 @@ mod ffi {
             address: u64,
             labels: &[LabelDefinition],
         ) -> InstructionResult;
+
+        /// Translates assembly instructions at a given start address to instruction details containing bytes, and
+        /// gives the relocations for references to the external symbols in `externs`.
+        /// Additional label definitions by absolute address may be supplied.
+        /// Does not support assembly directives that impact the layout (f. i., .section, .org).
+        fn assemble_to_instructions_with_relocations(
+            self: &NyxstoneFFI,
+            assembly: &str,
+            address: u64,
+            labels: &[LabelDefinition],
+            externs: &[&str],
+        ) -> AssemblyResult;
 
         // Translates bytes to disassembly text at given start address.
         fn disassemble(self: &NyxstoneFFI, bytes: &[u8], address: u64, count: usize) -> StringResult;

@@ -16,6 +16,7 @@ struct NyxstoneResult;
 struct ByteResult;
 struct StringResult;
 struct InstructionResult;
+struct AssemblyResult;
 
 // Rust compatible wrapper for Nyxstone with CXX bridge types.
 // See class and function documentation in Nyxstone.h for further info.
@@ -41,6 +42,9 @@ public:
 
     InstructionResult assemble_to_instructions(
         rust::str assembly, uint64_t address, rust::Slice<const LabelDefinition> labels) const;
+
+    AssemblyResult assemble_to_instructions_with_relocations(rust::str assembly, uint64_t address,
+        rust::Slice<const LabelDefinition> labels, rust::Slice<const rust::str> externs) const;
 
     StringResult disassemble(rust::Slice<const uint8_t> bytes, uint64_t address, size_t count) const;
 

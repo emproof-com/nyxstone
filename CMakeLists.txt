@@ -34,6 +34,7 @@ endif()
 find_package(LLVM-Wrapper COMPONENTS
     core
     mc
+    object
     AllTargetsCodeGens
     AllTargetsAsmParsers
     AllTargetsDescs
