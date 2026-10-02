@@ -192,7 +192,7 @@ tl::expected<std::vector<u8>, std::string> Nyxstone::assemble(
     const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const
 {
     std::vector<u8> bytes;
-    return assemble_impl(assembly, address, labels, bytes, nullptr, nullptr, nullptr).transform([&bytes]() {
+    return assemble_impl(assembly, address, labels, bytes, nullptr, {}, nullptr).transform([&bytes]() {
         return std::move(bytes);
     });
 }
@@ -202,7 +202,7 @@ tl::expected<std::vector<Nyxstone::Instruction>, std::string> Nyxstone::assemble
 {
     std::vector<Instruction> instructions;
     std::vector<u8> output_bytes;
-    return assemble_impl(assembly, address, labels, output_bytes, &instructions, nullptr, nullptr)
+    return assemble_impl(assembly, address, labels, output_bytes, &instructions, {}, nullptr)
         .and_then([&]() { return check_instruction_byte_length(instructions, output_bytes); })
         .transform([&instructions]() { return std::move(instructions); });
 }
@@ -213,7 +213,7 @@ tl::expected<Nyxstone::AssemblyResult, std::string> Nyxstone::assemble_to_instru
 {
     AssemblyResult result;
     std::vector<u8> output_bytes;
-    return assemble_impl(assembly, address, labels, output_bytes, &result.instructions, &externs, &result.relocations)
+    return assemble_impl(assembly, address, labels, output_bytes, &result.instructions, externs, &result.relocations)
         .and_then([&]() { return check_instruction_byte_length(result.instructions, output_bytes); })
         .transform([&result]() { return std::move(result); });
 }
@@ -350,9 +350,9 @@ namespace {
 
     // Gives whether a fixup refers to one of the external symbols. The linker resolves such a fixup, so it is
     // neither an undefined label nor subject to the label validators.
-    bool refers_to_extern(const llvm::MCFixup& fixup, const std::vector<std::string>* externs)
+    bool refers_to_extern(const llvm::MCFixup& fixup, const std::vector<std::string>& externs)
     {
-        if (externs == nullptr || fixup.getValue() == nullptr) {
+        if (externs.empty() || fixup.getValue() == nullptr) {
             return false;
         }
         llvm::MCValue value;
@@ -369,13 +369,24 @@ namespace {
         if (sym_b != nullptr && !sym_b->getSymbol().isDefined()) {
             return false;
         }
-        return is_extern(sym_a->getSymbol().getName(), *externs);
+        return is_extern(sym_a->getSymbol().getName(), externs);
+    }
+
+    // Gives whether a RISC-V relocation is the `%pcrel_lo` half of a PC-relative pair. Its symbol is the label of
+    // the `auipc` that holds the `%pcrel_hi` half, not the symbol that the pair refers to.
+    bool is_riscv_pcrel_lo(const llvm::object::ObjectFile& object, uint64_t type)
+    {
+        const auto arch = object.getArch();
+        return (arch == llvm::Triple::riscv32 || arch == llvm::Triple::riscv64)
+            && (type == llvm::ELF::R_RISCV_PCREL_LO12_I || type == llvm::ELF::R_RISCV_PCREL_LO12_S);
     }
 
     // Reads the relocations against the external symbols from the object file that LLVM wrote for `.text`.
     // LLVM records a relocation for every fixup that it cannot resolve, so the object holds all of them.
     // Relocations against other symbols are skipped, f. i. the one LLVM keeps for a label used as an absolute
-    // value, so that the assembled bytes stay as they are without relocations.
+    // value, so that the assembled bytes stay as they are without relocations. A RISC-V `%pcrel_lo` that pairs
+    // with the `%pcrel_hi` of an external symbol is an error: its relocation names a label of the assembly, which
+    // means nothing to the caller, and without it the linker leaves the low 12 bits at 0.
     tl::expected<void, std::string> read_extern_relocations(llvm::StringRef object_bytes, uint64_t base,
         const std::vector<std::string>& externs, std::vector<Nyxstone::Relocation>& relocations)
     {
@@ -383,6 +394,13 @@ namespace {
         if (!object) {
             return tl::unexpected("Cannot read the assembled object (= " + llvm::toString(object.takeError()) + " )");
         }
+
+        // A `%pcrel_lo` and the label that it names, checked once the relocations of the external symbols are known
+        struct PcrelLo {
+            uint64_t offset;
+            uint64_t label_offset;
+        };
+        std::vector<PcrelLo> pcrel_lo_labels;
 
         for (const llvm::object::SectionRef& section : (*object)->sections()) {
             auto relocated_section = section.getRelocatedSection();
@@ -414,6 +432,14 @@ namespace {
                         "Cannot read a symbol name (= " + llvm::toString(symbol_name.takeError()) + " )");
                 }
                 if (!is_extern(*symbol_name, externs)) {
+                    if (is_riscv_pcrel_lo(**object, relocation.getType())) {
+                        auto label_offset = symbol->getValue();
+                        if (!label_offset) {
+                            return tl::unexpected(
+                                "Cannot read a label offset (= " + llvm::toString(label_offset.takeError()) + " )");
+                        }
+                        pcrel_lo_labels.push_back(PcrelLo { relocation.getOffset(), *label_offset });
+                    }
                     continue;
                 }
 
@@ -432,13 +458,28 @@ namespace {
 
         std::sort(relocations.begin(), relocations.end(),
             [](const Nyxstone::Relocation& lhs, const Nyxstone::Relocation& rhs) { return lhs.address < rhs.address; });
+
+        for (const PcrelLo& pcrel_lo : pcrel_lo_labels) {
+            const uint64_t label_address = base + pcrel_lo.label_offset;
+            const auto pair = std::find_if(
+                relocations.begin(), relocations.end(), [label_address](const Nyxstone::Relocation& relocation) {
+                    return relocation.address == label_address;
+                });
+            if (pair != relocations.end()) {
+                std::ostringstream error_stream;
+                error_stream << "The %pcrel_lo at 0x" << std::hex << base + pcrel_lo.offset
+                             << " pairs with the %pcrel_hi of the external symbol '" << pair->symbol << "' at 0x"
+                             << pair->address << ", and its relocation names a label (reported by Nyxstone)";
+                return tl::unexpected(error_stream.str());
+            }
+        }
         return {};
     }
 } // namespace
 
 tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assembly, uint64_t address,
     const std::vector<LabelDefinition>& labels, std::vector<uint8_t>& bytes, std::vector<Instruction>* instructions,
-    const std::vector<std::string>* externs, std::vector<Relocation>* relocations) const
+    const std::vector<std::string>& externs, std::vector<Relocation>* relocations) const
 {
     bytes.clear();
     if (instructions != nullptr) {
@@ -693,9 +734,9 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
 
     // `parser->Run` finished the streamer, so the object in `object_buffer` holds the relocations. The offsets
     // count from `effective_base`, which also takes out the prepended Thumb bkpt.
-    if (externs != nullptr && relocations != nullptr) {
+    if (relocations != nullptr) {
         auto read_result = read_extern_relocations(
-            llvm::StringRef(object_buffer.data(), object_buffer.size()), effective_base, *externs, *relocations);
+            llvm::StringRef(object_buffer.data(), object_buffer.size()), effective_base, externs, *relocations);
         if (!read_result) {
             return tl::unexpected("Error during assembly: " + read_result.error());
         }

@@ -8,11 +8,15 @@ const R_X86_64_PLT32: u32 = 4;
 const R_ARM_THM_CALL: u32 = 10;
 const R_AARCH64_ADR_PREL_PG_HI21: u32 = 275;
 const R_AARCH64_ADD_ABS_LO12_NC: u32 = 277;
+const R_RISCV_CALL: u32 = 18;
+const R_RISCV_CALL_PLT: u32 = 19;
 
+/// Gives an empty label map, for an assembly that refers only to external symbols.
 fn no_labels() -> HashMap<&'static str, u64> {
     HashMap::new()
 }
 
+/// Builds the expected relocation. `addend` is `None` for a REL target, which keeps the addend in the field.
 fn relocation(address: u64, kind: u32, symbol: &str, addend: Option<i64>) -> Relocation {
     Relocation {
         address,
@@ -142,5 +146,50 @@ fn aarch64_page_reference_to_an_extern_is_left_to_the_linker() -> Result<()> {
             relocation(0x1004, R_AARCH64_ADD_ABS_LO12_NC, "ext", Some(0)),
         ]
     );
+    Ok(())
+}
+
+#[test]
+fn riscv_call_to_an_extern_has_one_relocation_for_both_instructions() -> Result<()> {
+    let nyxstone = Nyxstone::new("riscv64-linux-gnu", NyxstoneConfig::default())?;
+
+    let (instructions, relocations) =
+        nyxstone.assemble_to_instructions_with_relocations("call ext", 0x1000, &no_labels(), &["ext"])?;
+
+    // One relocation covers the `auipc` and the `jalr` of the pseudo instruction. LLVM 15 gives `R_RISCV_CALL`,
+    // later versions give `R_RISCV_CALL_PLT`.
+    assert_eq!(instructions[0].bytes.len(), 8);
+    let kind = relocations
+        .first()
+        .map(|relocation| relocation.kind)
+        .unwrap_or_default();
+    assert!(
+        [R_RISCV_CALL, R_RISCV_CALL_PLT].contains(&kind),
+        "unexpected relocation type {kind}"
+    );
+    assert_eq!(relocations, vec![relocation(0x1000, kind, "ext", Some(0))]);
+    Ok(())
+}
+
+#[test]
+fn riscv_pcrel_pair_for_an_extern_is_an_error() -> Result<()> {
+    let nyxstone = Nyxstone::new("riscv64-linux-gnu", NyxstoneConfig::default())?;
+
+    // The `%pcrel_lo` relocation names the label of the `auipc`, not `ext`, so it cannot be given. Without it the
+    // linker would leave the low 12 bits at 0.
+    for assembly in [
+        "lla a0, ext",
+        "la a0, ext",
+        "1: auipc a0, %pcrel_hi(ext)\naddi a0, a0, %pcrel_lo(1b)",
+    ] {
+        let result = nyxstone.assemble_to_instructions_with_relocations(assembly, 0x1000, &no_labels(), &["ext"]);
+
+        assert!(
+            result.is_err_and(|error| error
+                .to_string()
+                .contains("pairs with the %pcrel_hi of the external symbol 'ext'")),
+            "'{assembly}' must be an error"
+        );
+    }
     Ok(())
 }

@@ -159,6 +159,9 @@ public:
     /// @param externs Names of the external symbols that the @p assembly may refer to. A reference to an undefined
     ///                name that is not in this list is an error.
     ///
+    /// @note On RISC-V, a `%pcrel_lo` (f. i. of `la` or `lla`) that pairs with the `%pcrel_hi` of an external symbol
+    ///       is an error. Its relocation names the label of the `auipc`, not the symbol, so it cannot be given.
+    ///
     /// @return The instruction details and the relocations on success, an error string otherwise.
     tl::expected<AssemblyResult, std::string> assemble_to_instructions_with_relocations(const std::string& assembly,
         uint64_t address, const std::vector<LabelDefinition>& labels, const std::vector<std::string>& externs) const;
@@ -186,11 +189,11 @@ public:
 private:
     // Uses LLVM to assemble instructions.
     // Utilizes some custom overloads to import user-supplied label definitions and extract instruction details.
-    // References to the names in `externs` are left to the linker and reported in `relocations`. Both are nullptr
-    // unless relocations are requested.
+    // References to the names in `externs` are left to the linker and reported in `relocations`, which is nullptr
+    // unless relocations are requested. `externs` is empty then.
     tl::expected<void, std::string> assemble_impl(const std::string& assembly, uint64_t address,
         const std::vector<LabelDefinition>& labels, std::vector<uint8_t>& bytes, std::vector<Instruction>* instructions,
-        const std::vector<std::string>* externs, std::vector<Relocation>* relocations) const;
+        const std::vector<std::string>& externs, std::vector<Relocation>* relocations) const;
 
     // Uses LLVM to disassemble instructions.
     tl::expected<void, std::string> disassemble_impl(const std::vector<uint8_t>& bytes, uint64_t address, size_t count,

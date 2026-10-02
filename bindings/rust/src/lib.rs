@@ -233,6 +233,10 @@ impl Nyxstone {
     /// - `externs`: Names of the external symbols that the assembly may refer to. A reference to an undefined name
     ///   that is not in this list is an error.
     ///
+    /// # Errors:
+    /// On RISC-V, a `%pcrel_lo` (f. i. of `la` or `lla`) that pairs with the `%pcrel_hi` of an external symbol is an
+    /// error. Its relocation names the label of the `auipc`, not the symbol, so it cannot be given.
+    ///
     /// # Returns:
     /// Ok() and the instruction details with the relocations, sorted by address, on success, Err() otherwise.
     pub fn assemble_to_instructions_with_relocations<'iter, It, Lbl>(
@@ -364,9 +368,13 @@ mod ffi {
         pub addend: i64,
     }
 
+    /// Result of an assembly with relocations, as the FFI gives it.
     pub struct AssemblyResult {
+        /// Instruction details, empty if `error` is set.
         pub instructions: Vec<Instruction>,
+        /// Relocations for references to external symbols, sorted by address, empty if `error` is set.
         pub relocations: Vec<Relocation>,
+        /// Error message, empty on success.
         pub error: String,
     }
 
@@ -422,10 +430,10 @@ mod ffi {
             labels: &[LabelDefinition],
         ) -> InstructionResult;
 
-        // Translates assembly instructions at a given start address to instruction details containing bytes, and
-        // gives the relocations for references to the external symbols in `externs`.
-        // Additional label definitions by absolute address may be supplied.
-        // Does not support assembly directives that impact the layout (f. i., .section, .org).
+        /// Translates assembly instructions at a given start address to instruction details containing bytes, and
+        /// gives the relocations for references to the external symbols in `externs`.
+        /// Additional label definitions by absolute address may be supplied.
+        /// Does not support assembly directives that impact the layout (f. i., .section, .org).
         fn assemble_to_instructions_with_relocations(
             self: &NyxstoneFFI,
             assembly: &str,
