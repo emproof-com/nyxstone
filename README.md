@@ -35,6 +35,8 @@ Nyxstone is a fast assembly and disassembly library built on top of LLVM. It doe
 
 * Supports labels in the assembler, including user-provided label-to-address mappings.
 
+* Leaves references to user-named external symbols to the linker and reports their relocations (`assemble_to_instructions_with_relocations`), so the output can go into an object file.
+
 * Produces raw bytes, text disassembly, or detailed instruction objects that carry the address, raw bytes, and assembly text together.
 
 * Disassembly can be limited to a user-specified number of instructions.
@@ -281,6 +283,8 @@ The assembly path is structured as follows:
 
 * **Validate.** Nyxstone runs additional range and alignment checks for ARM Thumb (`adr`, `ldr` literal, `b/bl/bcc`, …) and AArch64 (`adr`) fixup kinds that LLVM's backend silently mis-encodes when out of range.
 
+* **Report relocations for external symbols.** On request, a reference to a name in the caller's `externs` list is not an undefined label. Nyxstone leaves it to the linker and skips the validators and the `adrp` re-application for it. LLVM records a relocation for every fixup it cannot resolve in the ELF object that the streamer writes, so Nyxstone reads the relocations against those names back from that object. Each one has its absolute address, its ELF type, and its addend if the target uses RELA. For a REL target the addend stays in the field, as LLVM wrote it.
+
 The disassembly path is much simpler: an `MCDisassembler` and its `MCContext` are constructed once on each `Nyxstone` instance and reused across calls, since disassembly never mutates the context.
 
 * **Caching.** The version-independent target-info objects (`MCRegisterInfo`, `MCInstrInfo`, `MCSubtargetInfo`, `MCAsmInfo`), the instruction printer, and the `MCAsmBackend` are built once per `Nyxstone` instance and reused. The assembler's `MCContext` and the per-call streamer/parser are rebuilt on each call, because LLVM ties the context to the input source buffer.
@@ -325,6 +329,7 @@ Recent work:
 * [x] Raise explicit errors on input Nyxstone cannot represent (e.g. switching away from `.text`) instead of silently dropping bytes.
 * [x] Resolve the relocations LLVM defers to link time (AArch64 `adrp`) and run range/alignment validators for ARM Thumb / AArch64 fixup kinds LLVM mis-encodes.
 * [x] Support LLVM 15-20 with auto-selection of the newest installed version.
+* [x] Report the relocations for references to user-named external symbols instead of rejecting them as undefined labels.
 * [x] Fix ARM Thumb IT-block state leak: the LLVM Thumb disassembler carries mutable ITSTATE across `getInstruction()` calls. Fixed by creating a fresh disassembler per call; performance impact minimal as the heavier `MCContext` stays cached.
 
 Still open:

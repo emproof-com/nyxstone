@@ -123,7 +123,7 @@ ext_modules = [
 
 setup(
     name="nyxstone",
-    version="0.1.8",
+    version="0.1.9",
     description=desc,
     author="emproof B.V.",
     author_email="oss@emproof.com",
