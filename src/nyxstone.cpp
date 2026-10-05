@@ -192,7 +192,8 @@ tl::expected<std::vector<u8>, std::string> Nyxstone::assemble(
     const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const
 {
     std::vector<u8> bytes;
-    return assemble_impl(assembly, address, labels, bytes, nullptr, {}, nullptr).transform([&bytes]() {
+    std::vector<Relocation> relocations;
+    return assemble_impl(assembly, address, labels, bytes, nullptr, {}, relocations).transform([&bytes]() {
         return std::move(bytes);
     });
 }
@@ -202,7 +203,8 @@ tl::expected<std::vector<Nyxstone::Instruction>, std::string> Nyxstone::assemble
 {
     std::vector<Instruction> instructions;
     std::vector<u8> output_bytes;
-    return assemble_impl(assembly, address, labels, output_bytes, &instructions, {}, nullptr)
+    std::vector<Relocation> relocations;
+    return assemble_impl(assembly, address, labels, output_bytes, &instructions, {}, relocations)
         .and_then([&]() { return check_instruction_byte_length(instructions, output_bytes); })
         .transform([&instructions]() { return std::move(instructions); });
 }
@@ -213,7 +215,7 @@ tl::expected<Nyxstone::AssemblyResult, std::string> Nyxstone::assemble_to_instru
 {
     AssemblyResult result;
     std::vector<u8> output_bytes;
-    return assemble_impl(assembly, address, labels, output_bytes, &result.instructions, externs, &result.relocations)
+    return assemble_impl(assembly, address, labels, output_bytes, &result.instructions, externs, result.relocations)
         .and_then([&]() { return check_instruction_byte_length(result.instructions, output_bytes); })
         .transform([&result]() { return std::move(result); });
 }
@@ -479,15 +481,13 @@ namespace {
 
 tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assembly, uint64_t address,
     const std::vector<LabelDefinition>& labels, std::vector<uint8_t>& bytes, std::vector<Instruction>* instructions,
-    const std::vector<std::string>& externs, std::vector<Relocation>* relocations) const
+    const std::vector<std::string>& externs, std::vector<Relocation>& relocations) const
 {
     bytes.clear();
     if (instructions != nullptr) {
         instructions->clear();
     }
-    if (relocations != nullptr) {
-        relocations->clear();
-    }
+    relocations.clear();
 
     if (assembly.empty()) {
         return {};
@@ -734,9 +734,9 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
 
     // `parser->Run` finished the streamer, so the object in `object_buffer` holds the relocations. The offsets
     // count from `effective_base`, which also takes out the prepended Thumb bkpt.
-    if (relocations != nullptr) {
+    if (!externs.empty()) {
         auto read_result = read_extern_relocations(
-            llvm::StringRef(object_buffer.data(), object_buffer.size()), effective_base, externs, *relocations);
+            llvm::StringRef(object_buffer.data(), object_buffer.size()), effective_base, externs, relocations);
         if (!read_result) {
             return tl::unexpected("Error during assembly: " + read_result.error());
         }

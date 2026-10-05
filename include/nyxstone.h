@@ -189,11 +189,11 @@ public:
 private:
     // Uses LLVM to assemble instructions.
     // Utilizes some custom overloads to import user-supplied label definitions and extract instruction details.
-    // References to the names in `externs` are left to the linker and reported in `relocations`, which is nullptr
-    // unless relocations are requested. `externs` is empty then.
+    // References to the names in `externs` are left to the linker and reported in `relocations`.
+    // `externs` is empty unless relocations are requested.
     tl::expected<void, std::string> assemble_impl(const std::string& assembly, uint64_t address,
         const std::vector<LabelDefinition>& labels, std::vector<uint8_t>& bytes, std::vector<Instruction>* instructions,
-        const std::vector<std::string>& externs, std::vector<Relocation>* relocations) const;
+        const std::vector<std::string>& externs, std::vector<Relocation>& relocations) const;
 
     // Uses LLVM to disassemble instructions.
     tl::expected<void, std::string> disassemble_impl(const std::vector<uint8_t>& bytes, uint64_t address, size_t count,
