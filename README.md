@@ -1,8 +1,8 @@
 # Nyxstone
 
 [![Github Cpp CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/cpp.yml)
-[![crates.io](https://img.shields.io/crates/v/nyxstone.svg)](https://crates.io/crates/nyxstone)
-[![PyPI](https://img.shields.io/pypi/v/nyxstone.svg)](https://pypi.org/project/nyxstone)
+[![crates.io](https://img.shields.io/crates/v/nyxstone.svg?release=0.1.9)](https://crates.io/crates/nyxstone)
+[![PyPI](https://img.shields.io/pypi/v/nyxstone.svg?release=0.1.9)](https://pypi.org/project/nyxstone)
 [![cpp-docs](https://github.com/emproof-com/nyxstone/actions/workflows/doxygen.yml/badge.svg)](https://emproof-com.github.io/nyxstone/)
 
 Nyxstone is a fast assembly and disassembly library built on top of LLVM. It does not require patches to the LLVM source tree and links against the standard LLVM libraries shipped by most Linux distributions, Homebrew, and `apt.llvm.org`. The core is a C++ library with Rust and Python bindings. Nyxstone supports every architecture the linked LLVM ships with and lets you configure architecture-specific CPU and feature settings.

@@ -1,6 +1,6 @@
 # nyxstone-rs
 
-[![crates.io](https://img.shields.io/crates/v/nyxstone.svg)](https://crates.io/crates/nyxstone)
+[![crates.io](https://img.shields.io/crates/v/nyxstone.svg?release=0.1.9)](https://crates.io/crates/nyxstone)
 [![Github Rust CI Badge](https://github.com/emproof-com/nyxstone/actions/workflows/rust.yml/badge.svg)](https://github.com/emproof-com/nyxstone/actions/workflows/rust.yml)
 
 Official Rust bindings for the [Nyxstone](https://github.com/emproof-com/nyxstone) assembler/disassembler engine.
