@@ -62,6 +62,31 @@ public:
         bool operator==(const Instruction& other) const;
     };
 
+    /// @brief Relocation that the linker resolves for a reference to an external symbol.
+    struct Relocation {
+        /// The absolute address of the relocated field
+        uint64_t address;
+        /// The relocation type in the number space of the object file format, f. i., an ELF `r_type`
+        uint32_t type;
+        /// The name of the external symbol
+        std::string symbol;
+        /// Whether the object file format stores the addend in the relocation (ELF RELA). If not, the addend
+        /// is stored in the relocated field.
+        bool has_addend;
+        /// The explicit addend, 0 if @p has_addend is false
+        int64_t addend;
+
+        bool operator==(const Relocation& other) const;
+    };
+
+    /// @brief Instruction details and the relocations they need.
+    struct AssemblyResult {
+        /// The instruction details
+        std::vector<Instruction> instructions;
+        /// The relocations for references to external symbols, in the order of their fields
+        std::vector<Relocation> relocations;
+    };
+
     /// @brief Nyxstone constructor called by NyxstoneBuilder::build.
     ///
     /// @warning This function should not be called directly, use NyxstoneBuilder instead.
@@ -120,6 +145,27 @@ public:
     tl::expected<std::vector<Instruction>, std::string> assemble_to_instructions(
         const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const;
 
+    /// @brief Translates assembly instructions at given start address to instruction details containing bytes,
+    /// and gives the relocations for references to external symbols.
+    ///
+    /// An external symbol has no address at assembly time. The relocated field holds what the object file format
+    /// stores there, f. i., the implicit addend of an ELF REL relocation, and the linker completes it.
+    /// Additional label definitions by absolute address may be supplied.
+    /// Does not support assembly directives that impact the layout (f. i., .section, .org).
+    ///
+    /// @param assembly The assembly instruction(s) to be assembled.
+    /// @param address The absolute address of the first instruction.
+    /// @param labels Label definitions of all labels with a known address used in the @p assembly.
+    /// @param externs Names of the external symbols that the @p assembly may refer to. A reference to an undefined
+    ///                name that is not in this list is an error.
+    ///
+    /// @note On RISC-V, a `%pcrel_lo` (f. i. of `la` or `lla`) that pairs with the `%pcrel_hi` of an external symbol
+    ///       is an error. Its relocation names the label of the `auipc`, not the symbol, so it cannot be given.
+    ///
+    /// @return The instruction details and the relocations on success, an error string otherwise.
+    tl::expected<AssemblyResult, std::string> assemble_to_instructions_with_relocations(const std::string& assembly,
+        uint64_t address, const std::vector<LabelDefinition>& labels, const std::vector<std::string>& externs) const;
+
     /// @brief Translates bytes to disassembly text at given start address.
     ///
     /// @param bytes The byte code to be disassembled.
@@ -143,9 +189,11 @@ public:
 private:
     // Uses LLVM to assemble instructions.
     // Utilizes some custom overloads to import user-supplied label definitions and extract instruction details.
+    // References to the names in `externs` are left to the linker and reported in `relocations`.
+    // `externs` is empty unless relocations are requested.
     tl::expected<void, std::string> assemble_impl(const std::string& assembly, uint64_t address,
-        const std::vector<LabelDefinition>& labels, std::vector<uint8_t>& bytes,
-        std::vector<Instruction>* instructions) const;
+        const std::vector<LabelDefinition>& labels, std::vector<uint8_t>& bytes, std::vector<Instruction>* instructions,
+        const std::vector<std::string>& externs, std::vector<Relocation>& relocations) const;
 
     // Uses LLVM to disassemble instructions.
     tl::expected<void, std::string> disassemble_impl(const std::vector<uint8_t>& bytes, uint64_t address, size_t count,

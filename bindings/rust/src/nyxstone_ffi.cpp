@@ -35,6 +35,20 @@ struct StringResult {
     rust::String error;
 };
 
+struct Relocation final {
+    uint64_t address = 0;
+    uint32_t kind = 0;
+    rust::String symbol {};
+    bool has_addend = false;
+    int64_t addend = 0;
+};
+
+struct AssemblyResult {
+    rust::Vec<Instruction> instructions;
+    rust::Vec<Relocation> relocations;
+    rust::String error;
+};
+
 ByteResult NyxstoneFFI::assemble(
     const rust::str assembly, uint64_t address, const rust::Slice<const LabelDefinition> labels) const
 {
@@ -77,6 +91,40 @@ InstructionResult NyxstoneFFI::assemble_to_instructions(
                       });
 
     return InstructionResult { result.value_or(rust::Vec<Instruction> {}), result.error_or("") };
+}
+
+AssemblyResult NyxstoneFFI::assemble_to_instructions_with_relocations(const rust::str assembly, uint64_t address,
+    const rust::Slice<const LabelDefinition> labels, const rust::Slice<const rust::str> externs) const
+{
+    std::vector<Nyxstone::LabelDefinition> cpp_labels;
+    cpp_labels.reserve(labels.size());
+    std::transform(std::begin(labels), std::end(labels), std::back_inserter(cpp_labels),
+        [](const auto& label) { return Nyxstone::LabelDefinition { std::string(label.name), label.address }; });
+    std::vector<std::string> cpp_externs;
+    cpp_externs.reserve(externs.size());
+    std::transform(std::begin(externs), std::end(externs), std::back_inserter(cpp_externs),
+        [](const auto& name) { return std::string(name); });
+
+    auto result = nyxstone->assemble_to_instructions_with_relocations(
+        std::string { assembly }, address, cpp_labels, cpp_externs);
+    if (!result) {
+        return AssemblyResult { {}, {}, rust::String(result.error()) };
+    }
+
+    AssemblyResult ffi_result {};
+    ffi_result.instructions.reserve(result->instructions.size());
+    for (const auto& cpp_insn : result->instructions) {
+        rust::Vec<uint8_t> insn_bytes;
+        insn_bytes.reserve(cpp_insn.bytes.size());
+        std::copy(cpp_insn.bytes.begin(), cpp_insn.bytes.end(), std::back_inserter(insn_bytes));
+        ffi_result.instructions.push_back({ cpp_insn.address, rust::String(cpp_insn.assembly), std::move(insn_bytes) });
+    }
+    ffi_result.relocations.reserve(result->relocations.size());
+    for (const auto& cpp_reloc : result->relocations) {
+        ffi_result.relocations.push_back({ cpp_reloc.address, cpp_reloc.type, rust::String(cpp_reloc.symbol),
+            cpp_reloc.has_addend, cpp_reloc.addend });
+    }
+    return ffi_result;
 }
 
 StringResult NyxstoneFFI::disassemble(const rust::Slice<const uint8_t> bytes, uint64_t address, size_t count) const

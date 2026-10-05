@@ -32,12 +32,15 @@
 #include <llvm/MC/MCTargetOptions.h>
 #include <llvm/MC/MCValue.h>
 #include <llvm/MC/TargetRegistry.h>
+#include <llvm/Object/ELFObjectFile.h>
+#include <llvm/Object/ObjectFile.h>
 #include <llvm/Support/Casting.h>
 #include <llvm/Support/LEB128.h>
 #include <llvm/Support/SourceMgr.h>
 #include <llvm/Support/TargetSelect.h>
 #pragma GCC diagnostic pop
 
+#include <algorithm>
 #include <array>
 #include <iostream>
 #include <mutex>
@@ -167,11 +170,32 @@ tl::expected<std::unique_ptr<Nyxstone>, std::string> NyxstoneBuilder::build()
         std::move(instruction_printer), std::move(asm_backend), std::move(disasm_context));
 }
 
+namespace {
+    // The instruction details must cover the assembled bytes exactly, or a byte got lost between them.
+    tl::expected<void, std::string> check_instruction_byte_length(
+        const std::vector<Nyxstone::Instruction>& instructions, const std::vector<u8>& output_bytes)
+    {
+        const size_t insn_byte_length
+            = std::accumulate(instructions.begin(), instructions.end(), static_cast<size_t>(0),
+                [](size_t acc, const Nyxstone::Instruction& insn) { return acc + insn.bytes.size(); });
+        if (insn_byte_length != output_bytes.size()) {
+            std::stringstream error_stream;
+            error_stream << "Internal error (= insn_byte_length '" << insn_byte_length << "' != output_bytes.size "
+                         << output_bytes.size() << ")";
+            return tl::unexpected(error_stream.str());
+        }
+        return {};
+    }
+} // namespace
+
 tl::expected<std::vector<u8>, std::string> Nyxstone::assemble(
     const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels) const
 {
     std::vector<u8> bytes;
-    return assemble_impl(assembly, address, labels, bytes, nullptr).transform([&bytes]() { return std::move(bytes); });
+    std::vector<Relocation> relocations;
+    return assemble_impl(assembly, address, labels, bytes, nullptr, {}, relocations).transform([&bytes]() {
+        return std::move(bytes);
+    });
 }
 
 tl::expected<std::vector<Nyxstone::Instruction>, std::string> Nyxstone::assemble_to_instructions(
@@ -179,18 +203,21 @@ tl::expected<std::vector<Nyxstone::Instruction>, std::string> Nyxstone::assemble
 {
     std::vector<Instruction> instructions;
     std::vector<u8> output_bytes;
-    return assemble_impl(assembly, address, labels, output_bytes, &instructions)
-        .and_then([&instructions, &output_bytes]() -> tl::expected<std::vector<Instruction>, std::string> {
-            const size_t insn_byte_length = std::accumulate(instructions.begin(), instructions.end(),
-                static_cast<size_t>(0), [](size_t acc, const Instruction& insn) { return acc + insn.bytes.size(); });
-            if (insn_byte_length != output_bytes.size()) {
-                std::stringstream error_stream;
-                error_stream << "Internal error (= insn_byte_length '" << insn_byte_length << "' != output_bytes.size "
-                             << output_bytes.size() << ")";
-                return tl::unexpected(error_stream.str());
-            }
-            return std::move(instructions);
-        });
+    std::vector<Relocation> relocations;
+    return assemble_impl(assembly, address, labels, output_bytes, &instructions, {}, relocations)
+        .and_then([&]() { return check_instruction_byte_length(instructions, output_bytes); })
+        .transform([&instructions]() { return std::move(instructions); });
+}
+
+tl::expected<Nyxstone::AssemblyResult, std::string> Nyxstone::assemble_to_instructions_with_relocations(
+    const std::string& assembly, uint64_t address, const std::vector<LabelDefinition>& labels,
+    const std::vector<std::string>& externs) const
+{
+    AssemblyResult result;
+    std::vector<u8> output_bytes;
+    return assemble_impl(assembly, address, labels, output_bytes, &result.instructions, externs, result.relocations)
+        .and_then([&]() { return check_instruction_byte_length(result.instructions, output_bytes); })
+        .transform([&result]() { return std::move(result); });
 }
 
 tl::expected<std::string, std::string> Nyxstone::disassemble(
@@ -317,16 +344,150 @@ namespace {
         bytes.erase(bytes.begin(), bytes.begin() + 2);
         return true;
     }
+
+    bool is_extern(llvm::StringRef name, const std::vector<std::string>& externs)
+    {
+        return std::any_of(externs.begin(), externs.end(), [&name](const std::string& ext) { return name == ext; });
+    }
+
+    // Gives whether a fixup refers to one of the external symbols. The linker resolves such a fixup, so it is
+    // neither an undefined label nor subject to the label validators.
+    bool refers_to_extern(const llvm::MCFixup& fixup, const std::vector<std::string>& externs)
+    {
+        if (externs.empty() || fixup.getValue() == nullptr) {
+            return false;
+        }
+        llvm::MCValue value;
+        if (!fixup.getValue()->evaluateAsRelocatable(value, nullptr, &fixup)) {
+            return false;
+        }
+        const auto* sym_a = value.getSymA();
+        if (sym_a == nullptr || sym_a->getSymbol().isDefined()) {
+            return false;
+        }
+        // A defined `B`, f. i. `.` in `ext - .`, is fine: the writer turns the difference into a PC-relative
+        // relocation.
+        const auto* sym_b = value.getSymB();
+        if (sym_b != nullptr && !sym_b->getSymbol().isDefined()) {
+            return false;
+        }
+        return is_extern(sym_a->getSymbol().getName(), externs);
+    }
+
+    // Gives whether a RISC-V relocation is the `%pcrel_lo` half of a PC-relative pair. Its symbol is the label of
+    // the `auipc` that holds the `%pcrel_hi` half, not the symbol that the pair refers to.
+    bool is_riscv_pcrel_lo(const llvm::object::ObjectFile& object, uint64_t type)
+    {
+        const auto arch = object.getArch();
+        return (arch == llvm::Triple::riscv32 || arch == llvm::Triple::riscv64)
+            && (type == llvm::ELF::R_RISCV_PCREL_LO12_I || type == llvm::ELF::R_RISCV_PCREL_LO12_S);
+    }
+
+    // Reads the relocations against the external symbols from the object file that LLVM wrote for `.text`.
+    // LLVM records a relocation for every fixup that it cannot resolve, so the object holds all of them.
+    // Relocations against other symbols are skipped, f. i. the one LLVM keeps for a label used as an absolute
+    // value, so that the assembled bytes stay as they are without relocations. A RISC-V `%pcrel_lo` that pairs
+    // with the `%pcrel_hi` of an external symbol is an error: its relocation names a label of the assembly, which
+    // means nothing to the caller, and without it the linker leaves the low 12 bits at 0.
+    tl::expected<void, std::string> read_extern_relocations(llvm::StringRef object_bytes, uint64_t base,
+        const std::vector<std::string>& externs, std::vector<Nyxstone::Relocation>& relocations)
+    {
+        auto object = llvm::object::ObjectFile::createObjectFile(llvm::MemoryBufferRef(object_bytes, "nyxstone"));
+        if (!object) {
+            return tl::unexpected("Cannot read the assembled object (= " + llvm::toString(object.takeError()) + " )");
+        }
+
+        // A `%pcrel_lo` and the label that it names, checked once the relocations of the external symbols are known
+        struct PcrelLo {
+            uint64_t offset;
+            uint64_t label_offset;
+        };
+        std::vector<PcrelLo> pcrel_lo_labels;
+
+        for (const llvm::object::SectionRef& section : (*object)->sections()) {
+            auto relocated_section = section.getRelocatedSection();
+            if (!relocated_section) {
+                return tl::unexpected(
+                    "Cannot read a relocated section (= " + llvm::toString(relocated_section.takeError()) + " )");
+            }
+            if (*relocated_section == (*object)->section_end()) {
+                continue;
+            }
+            auto relocated_name = (*relocated_section)->getName();
+            if (!relocated_name) {
+                return tl::unexpected(
+                    "Cannot read a section name (= " + llvm::toString(relocated_name.takeError()) + " )");
+            }
+            if (*relocated_name != ".text") {
+                continue;
+            }
+
+            const bool is_rela = llvm::object::ELFSectionRef(section).getType() == llvm::ELF::SHT_RELA;
+            for (const llvm::object::RelocationRef& relocation : section.relocations()) {
+                const auto symbol = relocation.getSymbol();
+                if (symbol == (*object)->symbol_end()) {
+                    continue;
+                }
+                auto symbol_name = symbol->getName();
+                if (!symbol_name) {
+                    return tl::unexpected(
+                        "Cannot read a symbol name (= " + llvm::toString(symbol_name.takeError()) + " )");
+                }
+                if (!is_extern(*symbol_name, externs)) {
+                    if (is_riscv_pcrel_lo(**object, relocation.getType())) {
+                        auto label_offset = symbol->getValue();
+                        if (!label_offset) {
+                            return tl::unexpected(
+                                "Cannot read a label offset (= " + llvm::toString(label_offset.takeError()) + " )");
+                        }
+                        pcrel_lo_labels.push_back(PcrelLo { relocation.getOffset(), *label_offset });
+                    }
+                    continue;
+                }
+
+                Nyxstone::Relocation extern_relocation { base + relocation.getOffset(),
+                    static_cast<uint32_t>(relocation.getType()), symbol_name->str(), is_rela, 0 };
+                if (is_rela) {
+                    auto addend = llvm::object::ELFRelocationRef(relocation).getAddend();
+                    if (!addend) {
+                        return tl::unexpected("Cannot read an addend (= " + llvm::toString(addend.takeError()) + " )");
+                    }
+                    extern_relocation.addend = *addend;
+                }
+                relocations.push_back(std::move(extern_relocation));
+            }
+        }
+
+        std::sort(relocations.begin(), relocations.end(),
+            [](const Nyxstone::Relocation& lhs, const Nyxstone::Relocation& rhs) { return lhs.address < rhs.address; });
+
+        for (const PcrelLo& pcrel_lo : pcrel_lo_labels) {
+            const uint64_t label_address = base + pcrel_lo.label_offset;
+            const auto pair = std::find_if(
+                relocations.begin(), relocations.end(), [label_address](const Nyxstone::Relocation& relocation) {
+                    return relocation.address == label_address;
+                });
+            if (pair != relocations.end()) {
+                std::ostringstream error_stream;
+                error_stream << "The %pcrel_lo at 0x" << std::hex << base + pcrel_lo.offset
+                             << " pairs with the %pcrel_hi of the external symbol '" << pair->symbol << "' at 0x"
+                             << pair->address << ", and its relocation names a label (reported by Nyxstone)";
+                return tl::unexpected(error_stream.str());
+            }
+        }
+        return {};
+    }
 } // namespace
 
 tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assembly, uint64_t address,
-    const std::vector<LabelDefinition>& labels, std::vector<uint8_t>& bytes,
-    std::vector<Instruction>* instructions) const
+    const std::vector<LabelDefinition>& labels, std::vector<uint8_t>& bytes, std::vector<Instruction>* instructions,
+    const std::vector<std::string>& externs, std::vector<Relocation>& relocations) const
 {
     bytes.clear();
     if (instructions != nullptr) {
         instructions->clear();
     }
+    relocations.clear();
 
     if (assembly.empty()) {
         return {};
@@ -531,7 +692,9 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         for (const llvm::MCFixup& fixup : *fixups) {
             int64_t target_offset = 0;
             if (!target_section_offset(fixup, target_offset)) {
-                context.reportError(fixup.getLoc(), "Label undefined (reported by Nyxstone)");
+                if (!refers_to_extern(fixup, externs)) {
+                    context.reportError(fixup.getLoc(), "Label undefined (reported by Nyxstone)");
+                }
                 continue;
             }
             const uint64_t fixup_offset = frag_offset + fixup.getOffset();
@@ -567,6 +730,16 @@ tl::expected<void, std::string> Nyxstone::assemble_impl(const std::string& assem
         std::ostringstream error_stream;
         error_stream << "Error during assembly: " << extended_error;
         return tl::unexpected(error_stream.str());
+    }
+
+    // `parser->Run` finished the streamer, so the object in `object_buffer` holds the relocations. The offsets
+    // count from `effective_base`, which also takes out the prepended Thumb bkpt.
+    if (!externs.empty()) {
+        auto read_result = read_extern_relocations(
+            llvm::StringRef(object_buffer.data(), object_buffer.size()), effective_base, externs, relocations);
+        if (!read_result) {
+            return tl::unexpected("Error during assembly: " + read_result.error());
+        }
     }
 
     // Extract the final `.text` bytes (fixups applied, including our re-applied
@@ -732,6 +905,12 @@ tl::expected<void, std::string> Nyxstone::disassemble_impl(const std::vector<uin
 bool Nyxstone::Instruction::operator==(const Instruction& other) const
 {
     return address == other.address && assembly == other.assembly && bytes == other.bytes;
+}
+
+bool Nyxstone::Relocation::operator==(const Relocation& other) const
+{
+    return address == other.address && type == other.type && symbol == other.symbol && has_addend == other.has_addend
+        && addend == other.addend;
 }
 
 /// Detects all ARM Thumb architectures. LLVM doesn't seem to have a short way to check this.
